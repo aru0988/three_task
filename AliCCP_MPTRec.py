@@ -38,8 +38,8 @@ def main():
         device=device
     )
     mptrec.to(device)
-    mptrec.base_network.load_state_dict(torch.load('/home/huangle/MultiTask/ali_base.pt'))
-    mptrec.embedding_networks.load_state_dict(torch.load('/home/huangle/MultiTask/ali_embedding.pt'))
+    # mptrec.base_network.load_state_dict(torch.load('/home/huangle/MultiTask/ali_base.pt'))
+    # mptrec.embedding_networks.load_state_dict(torch.load('/home/huangle/MultiTask/ali_embedding.pt'))
 
     # from utils.functions import compute_cost_0
     # compute_cost_0(mptrec, train_loader)
@@ -67,9 +67,9 @@ if __name__ == '__main__':
     parser.add_argument("--gpu", type=int, default=5)
     parser.add_argument("--seed", type=int, default=1688723512)
 
-    train_dataset = AliCCPDataset('/home/huangle/MultiTask/dataset/AliCCP/ctr_cvr.train', 10000000)
-    val_dataset = AliCCPDataset('/home/huangle/MultiTask/dataset/AliCCP/ctr_cvr.dev', 1000000)
-    test_dataset = AliCCPDataset('/home/huangle/MultiTask/dataset/AliCCP/ctr_cvr.test', 10000000)
+    train_dataset = AliCCPDataset('dataset/AliCCP/ctr_cvr.train', 10000000)
+    val_dataset = AliCCPDataset('dataset/AliCCP/ctr_cvr.dev', 1000000)
+    test_dataset = AliCCPDataset('dataset/AliCCP/ctr_cvr.test', 10000000)
     
     uni_coe = 0.9
     env_coe = 0.1

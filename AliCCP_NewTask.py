@@ -21,8 +21,8 @@ def evaluation(newtask, mptrec, data_loader):
     for _, _, y, features in data_loader:
         for key in features.keys():
             features[key] = features[key].to(device)
-        output = mptrec.get_infos(features)
-        pred = newtask(**output)
+        dnn_input, gen_rep, spec_reps, env_embs = mptrec.get_infos(features)
+        pred = newtask(dnn_input, gen_rep, spec_reps, env_embs)
         y_true.append(y)
         y_hat.append(pred)
     y_true = torch.cat(y_true)
@@ -106,10 +106,10 @@ def main(args):
         for _, _, y, features in train_loader:
             for key in features.keys():
                 features[key] = features[key].to(device)
-            output = mptrec.get_infos(
+            dnn_input, gen_rep, spec_reps, env_embs = mptrec.get_infos(
                 features
             )
-            pred = newtask(**output)
+            pred = newtask(dnn_input, gen_rep, spec_reps, env_embs)
             loss = loss_func(pred.cpu(), y.float()) + newtask.get_l2_reg()
 
             optimizer.zero_grad()
