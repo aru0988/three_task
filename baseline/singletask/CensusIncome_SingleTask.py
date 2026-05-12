@@ -1,4 +1,5 @@
 import sys
+import copy
 import torch
 import warnings
 import numpy as np
@@ -21,15 +22,17 @@ def main():
     torch.cuda.manual_seed_all(seed)
     np.random.seed(seed)
 
-    train_dataset = CensusIncomeDataset('data/CensusIncome/train.gz')
-    test_dataset = CensusIncomeDataset('data/CensusIncome/test.gz')
+    train_dataset = CensusIncomeDataset('dataset/Census-income/train.gz', 'education')
+    test_dataset = CensusIncomeDataset('dataset/Census-income/test.gz', 'education')
     val_dataset, test_dataset = train_test_split(test_dataset, test_size=0.5, random_state=seed)
     train_loader = DataLoader(train_dataset, batch_size=256)
     val_loader = DataLoader(val_dataset, batch_size=256)
     test_loader = DataLoader(test_dataset, batch_size=256)
 
+    vocab_size = copy.deepcopy(CensusIncome_Vocabulary_Size)
+    vocab_size.pop("education")
     model = SingleTask(
-        feature_vocabulary=CensusIncome_Vocabulary_Size,
+        feature_vocabulary=vocab_size,
         embedding_size=4,
         input_size=123,
         shared_dnn_hidden_units=(256, 128),
@@ -37,7 +40,7 @@ def main():
         reg_embedding=0,
         reg_dnn=0,
     )
-    device = torch.device("cuda:2")j
+    device = torch.device("cuda:0")
     model.to(device)
 
     train_manager = TrainManager(
@@ -56,6 +59,6 @@ def main():
 
 
 if __name__ == '__main__':
-    task_id = 1
+    task_id = 0  # Income
     for seed in [1685480945, 1685463909, 1685477428]:
         main()
