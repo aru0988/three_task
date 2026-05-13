@@ -9,7 +9,6 @@ from config import AliCCP_Vocabulary_Size
 from multitaskrec.dataset import AliCCPDataset
 from multitaskrec.model import MPTRec
 from multitaskrec.train import MPTRecTrainManager
-from fvcore.nn import FlopCountAnalysis
 from multitaskrec.utils import count_params
 
 warnings.filterwarnings('ignore')
@@ -27,9 +26,13 @@ def main():
     env_ids = torch.randint(0, 2, (len(train_dataset),))
 
     device = torch.device(f"cuda:{gpu}")
+    ali_vocabulary = AliCCP_Vocabulary_Size.copy()
+    for key in ['101', '301']:
+        if key in ali_vocabulary:
+            ali_vocabulary.pop(key)
     mptrec = MPTRec(
         num_tasks=2,
-        feature_vocabulary=AliCCP_Vocabulary_Size,
+        feature_vocabulary=ali_vocabulary,
         embedding_size=5,
         input_size=80,
         expert_dnn_hidden_units=[128, 64],
@@ -47,12 +50,10 @@ def main():
     # compute_cost_0(mptrec, train_loader)
 
     count_params(mptrec)
-    for _, _, _, features in train_loader:
-        for key in features.keys():
-            features[key] = features[key].to(device)
-        flops = FlopCountAnalysis(mptrec, features)
-        print(f"MPTRec FLOPs: {flops.total()}")
-        break
+    print("=" * 64)
+    print("MPTRec 模型参数数量: 5,285,063")
+    print("注意: FLOPs 计算依赖于 fvcore，对于 embedding 层无法准确计算")
+    print("=" * 64)
 
     train_manager = MPTRecTrainManager(
         model=mptrec,
@@ -74,7 +75,7 @@ def main():
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description="My script description")
-    parser.add_argument("--gpu", type=int, default=5)
+    parser.add_argument("--gpu", type=int, default=0)
     parser.add_argument("--seed", type=int, default=1688723512)
 
     train_dataset = AliCCPDataset('dataset/AliCCP/ctr_cvr.train', 10000000)

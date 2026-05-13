@@ -155,7 +155,7 @@ if __name__ == "__main__":
     parser.add_argument("--env_coe", type=float, default=0)
     parser.add_argument("--reg_embedding", type=float, default=0.0001)
     parser.add_argument("--reg_dnn", type=float, default=7e-6)
-    parser.add_argument("--gpu", type=int, default=1)
+    parser.add_argument("--gpu", type=int, default=0)
     # 1688723512, 1688723740, 1688738016
     parser.add_argument("--seed", type=int, default=1688738016)
 
