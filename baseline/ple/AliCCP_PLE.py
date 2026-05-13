@@ -40,7 +40,8 @@ def main():
     model.to(device)
 
     # from utils.functions import compute_cost_0
-    # compute_cost_0(model, train_loader)
+    from multitaskrec.utils import compute_cost_0
+    compute_cost_0(model, train_loader)
 
     train_manager = TrainManager(
         model=model,

@@ -45,7 +45,7 @@ def main():
     for i in range(3):
         all_mask.append(torch.load(f'baseline/csrec/CensusIncome/three_task/mask_{seed}_{i}.pt'))
 
-    from utils.functions import compute_cost_1
+    from multitaskrec.utils import compute_cost_1
     compute_cost_1(model, all_mask, train_loader)
 
     train_manager = SparseSharingTrainManager(

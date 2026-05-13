@@ -12,6 +12,8 @@ from multitaskrec.model import SingleTask
 from multitaskrec.train import TrainManager
 from multitaskrec.dataset import CensusIncomeDataset
 from config import CensusIncome_Vocabulary_Size
+from fvcore.nn import FlopCountAnalysis
+from multitaskrec.utils import count_params
 
 warnings.filterwarnings('ignore')
 
@@ -42,6 +44,14 @@ def main():
     )
     device = torch.device("cuda:0")
     model.to(device)
+
+    count_params(model)
+    for _, _, _, features in train_loader:
+        for key in features.keys():
+            features[key] = features[key].to(device)
+        flops = FlopCountAnalysis(model, features)
+        print(f"SingleTask FLOPs: {flops.total()}")
+        break
 
     train_manager = TrainManager(
         model=model,

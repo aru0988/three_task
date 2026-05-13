@@ -11,6 +11,8 @@ from config import AliCCP_Vocabulary_Size
 from multitaskrec.dataset import AliCCPDataset
 from multitaskrec.model import MPTRec, NewTask
 from multitaskrec.train import MPTRecTrainManager
+from fvcore.nn import FlopCountAnalysis
+from multitaskrec.utils import count_params, compute_cost_2
 
 
 @torch.no_grad()
@@ -65,6 +67,14 @@ def main(args):
     )
     mptrec.to(device)
 
+    count_params(mptrec)
+    for _, _, _, features in train_loader:
+        for key in features.keys():
+            features[key] = features[key].to(device)
+        flops = FlopCountAnalysis(mptrec, features)
+        print(f"MPTRec FLOPs: {flops.total()}")
+        break
+
     newtask = NewTask(
         input_size=80,
         rep_dim=64,
@@ -73,6 +83,8 @@ def main(args):
         device=device,
     )
     newtask.to(device)
+
+    compute_cost_2(mptrec, newtask, train_loader)
 
     print("-" * 32, "Multi-task pre-training phase", "-" * 32)
     train_manager = MPTRecTrainManager(

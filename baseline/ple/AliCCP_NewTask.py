@@ -53,6 +53,8 @@ def main():
     model.freeze_params()
 
     from fvcore.nn import FlopCountAnalysis
+    from multitaskrec.utils import count_params
+    count_params(model)
     for _, _, _, features in train_loader:
         for key in features.keys():
             features[key] = features[key].to(device)

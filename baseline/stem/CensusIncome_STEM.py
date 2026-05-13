@@ -54,7 +54,7 @@ def main(args):
         epochs=10,
     )
 
-    # train_manager.compute_cost()
+    train_manager.compute_cost()
 
     train_manager.train_multi_task(args.task_num)
     # torch.save(train_manager.best_weight, f"stem_census_{args.seed}.pt")

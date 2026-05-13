@@ -56,13 +56,15 @@ def main():
     model.to(device)
     model.freeze_params()
 
-    # from fvcore.nn import FlopCountAnalysis
-    # for _, _, _, features in train_loader:
-    #     for key in features.keys():
-    #         features[key] = features[key].to(device)
-    #     flops = FlopCountAnalysis(model, features)
-    #     print(flops.by_module())
-    #     break
+    from fvcore.nn import FlopCountAnalysis
+    from multitaskrec.utils import count_params
+    count_params(model)
+    for _, _, _, features in train_loader:
+        for key in features.keys():
+            features[key] = features[key].to(device)
+        flops = FlopCountAnalysis(model, features)
+        print(f"MMOE-NewTask FLOPs: {flops.total()}")
+        break
     
     train_manager = TrainManager(
         model=model,

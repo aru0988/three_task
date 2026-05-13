@@ -47,6 +47,16 @@ def train_single():
     device = torch.device("cuda:1")
     model.to(device)
 
+    from fvcore.nn import FlopCountAnalysis
+    from multitaskrec.utils import count_params
+    count_params(model)
+    for _, _, _, features in train_loader:
+        for key in features.keys():
+            features[key] = features[key].to(device)
+        flops = FlopCountAnalysis(model, features)
+        print(f"CsRec-SharedBottom FLOPs: {flops.total()}")
+        break
+
     print('start warm up!!!')
     train_manager = TrainManager(
         model=model,

@@ -54,7 +54,7 @@ def main():
     )
 
     # compute cost
-    # train_manager.compute_cost()
+    train_manager.compute_cost()
 
     # train
     train_manager.train_multi_task(args.task_num)

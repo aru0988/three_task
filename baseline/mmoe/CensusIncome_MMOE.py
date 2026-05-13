@@ -42,6 +42,16 @@ def main():
     device = torch.device(f"cuda:{gpu}")
     model.to(device)
 
+    from fvcore.nn import FlopCountAnalysis
+    from multitaskrec.utils import count_params
+    count_params(model)
+    for _, _, _, features in train_loader:
+        for key in features.keys():
+            features[key] = features[key].to(device)
+        flops = FlopCountAnalysis(model, features)
+        print(f"MMOE FLOPs: {flops.total()}")
+        break
+
     train_manager = TrainManager(
         model=model,
         train_loader=train_loader,

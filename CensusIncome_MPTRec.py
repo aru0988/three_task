@@ -10,6 +10,8 @@ from config import CensusIncome_Vocabulary_Size
 from multitaskrec.dataset import CensusIncomeDataset
 from multitaskrec.model import MPTRec
 from multitaskrec.train import MPTRecTrainManager
+from fvcore.nn import FlopCountAnalysis
+from multitaskrec.utils import count_params
 
 warnings.filterwarnings('ignore')
 
@@ -45,6 +47,14 @@ def main():
     mptrec.to(device)
     # mptrec.base_network.load_state_dict(torch.load('ci_base.pt'))
     # mptrec.embedding_networks.load_state_dict(torch.load('ci_embedding.pt'))
+
+    count_params(mptrec)
+    for _, _, _, features in train_loader:
+        for key in features.keys():
+            features[key] = features[key].to(device)
+        flops = FlopCountAnalysis(mptrec, features)
+        print(f"MPTRec FLOPs: {flops.total()}")
+        break
 
     train_manager = MPTRecTrainManager(
         model=mptrec,

@@ -36,7 +36,7 @@ def main():
     device = torch.device("cuda:5")
     model.to(device)
 
-    from utils.functions import compute_cost_0
+    from multitaskrec.utils import compute_cost_0
     compute_cost_0(model, train_loader)
 
     train_manager = TrainManager(

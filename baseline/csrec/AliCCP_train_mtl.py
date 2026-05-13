@@ -38,7 +38,7 @@ def main():
         all_mask.append(torch.load(f'baseline/csrec/AliCpp/three_task/mask_{seed}_{i}.pt'))
 
     from fvcore.nn import FlopCountAnalysis
-    from utils.functions import count_params
+    from multitaskrec.utils import count_params
     count_params(model)
     for name in all_mask[0]:
         a = (1 - all_mask[0][name]) * (1 - all_mask[1][name])

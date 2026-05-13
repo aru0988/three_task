@@ -9,6 +9,8 @@ from config import AliCCP_Vocabulary_Size
 from multitaskrec.dataset import AliCCPDataset
 from multitaskrec.model import MPTRec
 from multitaskrec.train import MPTRecTrainManager
+from fvcore.nn import FlopCountAnalysis
+from multitaskrec.utils import count_params
 
 warnings.filterwarnings('ignore')
 
@@ -43,6 +45,14 @@ def main():
 
     # from utils.functions import compute_cost_0
     # compute_cost_0(mptrec, train_loader)
+
+    count_params(mptrec)
+    for _, _, _, features in train_loader:
+        for key in features.keys():
+            features[key] = features[key].to(device)
+        flops = FlopCountAnalysis(mptrec, features)
+        print(f"MPTRec FLOPs: {flops.total()}")
+        break
 
     train_manager = MPTRecTrainManager(
         model=mptrec,
