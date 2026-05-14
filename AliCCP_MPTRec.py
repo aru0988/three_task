@@ -79,7 +79,7 @@ if __name__ == '__main__':
     parser.add_argument("--seed", type=int, default=1688723512)
 
     train_dataset = AliCCPDataset('dataset/AliCCP/ctr_cvr.train', 10000000)
-    val_dataset = AliCCPDataset('dataset/AliCCP/ctr_cvr.dev', 1000000)
+    val_dataset = AliCCPDataset('dataset/AliCCP/ctr_cvr.dev', 100000)
     test_dataset = AliCCPDataset('dataset/AliCCP/ctr_cvr.test', 10000000)
     
     uni_coe = 0.9
