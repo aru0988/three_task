@@ -295,7 +295,7 @@ class CsRecTrainManager(SparseSharingTrainManager):
         self.contrastive_mask = {}
         for name, mask in self.all_mask[0].items():
             p = np.random.random(mask.shape)
-            self.contrastive_mask[name] = np.where(p > 1, 0, 1 - shared_mask[name])
+            self.contrastive_mask[name] = np.where(p > 0.5, 0, 1 - shared_mask[name])
 
     def _train_a_batch(self, y, features):
         for task_id in range(len(y)):
@@ -414,9 +414,8 @@ class MPTRecTrainManager(TrainManager):
                     output["fused_preds"][1].cpu(), y_1.float()
                 )
                 env_loss = self.env_loss_func(output["env_pred"].cpu(), batch_env_ids)
-                # loss = fused_loss_0 + fused_loss_1 + self.uni_coe * (uni_loss_0 + uni_loss_1) + \
-                #        self.env_coe * env_loss + self.model.get_l2_reg()
-                loss = fused_loss_0 + fused_loss_1 + self.model.get_l2_reg()
+                loss = fused_loss_0 + fused_loss_1 + self.uni_coe * (uni_loss_0 + uni_loss_1) + \
+                       self.env_coe * env_loss + self.model.get_l2_reg()
 
                 uni_loss_0_sum += uni_loss_0
                 uni_loss_1_sum += uni_loss_1

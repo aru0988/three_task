@@ -21,8 +21,8 @@ def main():
     torch.cuda.manual_seed_all(seed)
     np.random.seed(seed)
 
-    train_dataset = CensusIncomeDataset('../dataset/CensusIncome/#train.gz')
-    test_dataset = CensusIncomeDataset('../dataset/CensusIncome/#test.gz')
+    train_dataset = CensusIncomeDataset('dataset/Census-income/train.gz', 'education')
+    test_dataset = CensusIncomeDataset('dataset/Census-income/test.gz', 'education')
     val_dataset, test_dataset = train_test_split(test_dataset, test_size=0.5, random_state=seed)
     train_loader = DataLoader(train_dataset, batch_size=256)
     val_loader = DataLoader(val_dataset, batch_size=256)
