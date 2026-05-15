@@ -50,12 +50,13 @@ def main(args):
     env_ids = torch.randint(0, 2, (len(train_dataset),))
 
     # load model
-    AliCCP_Vocabulary_Size.pop("101")  # 干扰特征
-    AliCCP_Vocabulary_Size.pop("301")  # new task
+    ali_vocabulary = AliCCP_Vocabulary_Size.copy()
+    ali_vocabulary.pop("101")  # 干扰特征
+    ali_vocabulary.pop("301")  # new task
     device = torch.device(f"cuda:{args.gpu}")
     mptrec = MPTRec(
         num_tasks=2,
-        feature_vocabulary=AliCCP_Vocabulary_Size,
+        feature_vocabulary=ali_vocabulary,
         embedding_size=5,
         input_size=80,
         expert_dnn_hidden_units=[128, 64],

@@ -51,11 +51,12 @@ def main(args):
     test_loader = DataLoader(test_dataset, batch_size=256)
     env_ids = torch.randint(0, 2, (len(train_dataset),))
 
-    CensusIncome_Vocabulary_Size.pop("education")
+    ci_vocabulary = CensusIncome_Vocabulary_Size.copy()
+    ci_vocabulary.pop("education")
     device = torch.device(f"cuda:{args.gpu}")
     mptrec = MPTRec(
         num_tasks=2,
-        feature_vocabulary=CensusIncome_Vocabulary_Size,
+        feature_vocabulary=ci_vocabulary,
         embedding_size=4,
         input_size=123,
         expert_dnn_hidden_units=[256, 128],

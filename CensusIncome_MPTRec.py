@@ -31,11 +31,12 @@ def main():
     val_loader = DataLoader(val_dataset, batch_size=256)
     test_loader = DataLoader(test_dataset, batch_size=256)
 
-    CensusIncome_Vocabulary_Size.pop("education")
+    ci_vocabulary = CensusIncome_Vocabulary_Size.copy()
+    ci_vocabulary.pop("education")
     device = torch.device(f"cuda:{gpu}")
     mptrec = MPTRec(
         num_tasks=2,
-        feature_vocabulary=CensusIncome_Vocabulary_Size,
+        feature_vocabulary=ci_vocabulary,
         embedding_size=4,
         input_size=123,
         expert_dnn_hidden_units=(256, 128),
@@ -75,7 +76,7 @@ def main():
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description="My script description")
-    parser.add_argument("--gpu", type=int, default=4)
+    parser.add_argument("--gpu", type=int, default=0)
     parser.add_argument("--seed", type=int, default=1685480945)
 
     uni_coe = 0.9
