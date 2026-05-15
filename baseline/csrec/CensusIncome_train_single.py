@@ -12,7 +12,7 @@ from tqdm import tqdm
 
 sys.path.append('')
 
-from utils.functions import count_prune_rate
+from multitaskrec.utils import count_prune_rate
 
 from config import CensusIncome_Vocabulary_Size
 from multitaskrec.dataset import CensusIncomeDataset
@@ -28,8 +28,8 @@ def train_single():
     torch.cuda.manual_seed_all(seed)
     np.random.seed(seed)
 
-    train_dataset = CensusIncomeDataset('data/CensusIncome/#train.gz')
-    test_dataset = CensusIncomeDataset('data/CensusIncome/#test.gz')
+    train_dataset = CensusIncomeDataset('dataset/Census-income/train.gz')
+    test_dataset = CensusIncomeDataset('dataset/Census-income/test.gz')
     val_dataset, test_dataset = train_test_split(test_dataset, test_size=0.5, random_state=seed)
     train_loader = DataLoader(train_dataset, batch_size=256)
     val_loader = DataLoader(val_dataset, batch_size=256)
@@ -117,7 +117,7 @@ def train_single():
                         features[key] = features[key].to(device)
 
                     pred = model(features)
-                    loss_r = loss_func(pred[task_id].cpu(), y[task_id].float()) + model.get_l2_reg()
+                    loss_r = loss_func(pred[task_id], y[task_id].float().to(device)) + model.get_l2_reg()
                     optimizer.zero_grad()
                     loss_r.backward()
                     for name, p in model.shared_bottom.named_parameters():
