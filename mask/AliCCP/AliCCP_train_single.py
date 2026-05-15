@@ -49,7 +49,7 @@ def train_single():
         lr=1e-4,
         epochs=1
     )
-    train_manager.train(2)
+    train_manager.train_multi_task(2)
     print('End warm up!!!')    
 
     optimizer = torch.optim.Adam(params=model.parameters(), lr=1e-4)

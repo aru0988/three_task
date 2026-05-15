@@ -10,9 +10,8 @@ from torch import nn
 from torch.utils.data import DataLoader
 from tqdm import tqdm
 
-sys.path.append('/data/hl/MultiTask/')
 
-from utils.functions import count_prune_rate
+from multitaskrec.utils import count_prune_rate
 
 from config import ByteRec_Vocabulary_Size
 from multitaskrec.dataset import ByteRecDataset
@@ -28,8 +27,8 @@ def train_single():
     torch.cuda.manual_seed_all(seed)
     np.random.seed(seed)
 
-    train_dataset = ByteRecDataset('/data/hl/MultiTask/data/ByteRec/train.gz')
-    test_dataset = ByteRecDataset('/data/hl/MultiTask/data/ByteRec/test.gz')
+    train_dataset = ByteRecDataset('dataset/ByteRec/train.gz')
+    test_dataset = ByteRecDataset('dataset/ByteRec/test.gz')
     val_dataset, test_dataset = train_test_split(test_dataset, test_size=0.5, random_state=seed)
     train_loader = DataLoader(train_dataset, batch_size=4000)
     val_loader = DataLoader(val_dataset, batch_size=4000)
@@ -56,7 +55,7 @@ def train_single():
         lr=1e-4,
         epochs=1
     )
-    train_manager.train(2)
+    train_manager.train_multi_task(2)
     print('End warm up!!!')    
 
     optimizer = torch.optim.Adam(params=model.parameters(), lr=1e-4)
@@ -109,7 +108,7 @@ def train_single():
                         features[key] = features[key].to(device)
 
                     pred = model(features)
-                    loss_r = loss_func(pred[task_id].cpu(), y[task_id].float()) + model.get_l2_reg()
+                    loss_r = loss_func(pred[task_id], y[task_id].float().to(device)) + model.get_l2_reg()
                     optimizer.zero_grad()
                     loss_r.backward()
                     for name, p in model.shared_bottom.named_parameters():
@@ -140,7 +139,7 @@ def train_single():
                 best_mask = cur_mask
                 print('prune_time:{}'.format(_ite))
         all_mask.append(best_mask)
-    torch.save(all_mask, f'/data/hl/MultiTask/mask/ByteRec/mask_{seed}.pt')
+    torch.save(all_mask, f'mask/ByteRec/mask_{seed}.pt')
 
 @torch.no_grad()
 def evaluation(model, data_loader, task_id):
