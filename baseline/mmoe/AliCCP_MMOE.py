@@ -54,9 +54,9 @@ def main():
 
 
 if __name__ == '__main__':
-    train_dataset = AliCCPDataset('/home/huangle/MultiTask/dataset/AliCCP/ctr_cvr.train', 10000000)
-    val_dataset = AliCCPDataset('/home/huangle/MultiTask/dataset/AliCCP/ctr_cvr.dev', 1000000)
-    test_dataset = AliCCPDataset('/home/huangle/MultiTask/dataset/AliCCP/ctr_cvr.test', 10000000)
+    train_dataset = AliCCPDataset('dataset/AliCCP/ctr_cvr.train', 10000000)
+    val_dataset = AliCCPDataset('dataset/AliCCP/ctr_cvr.dev', 1000000)
+    test_dataset = AliCCPDataset('dataset/AliCCP/ctr_cvr.test', 10000000)
     train_loader = DataLoader(train_dataset, batch_size=2000)
     val_loader = DataLoader(val_dataset, batch_size=2000)
     test_loader = DataLoader(test_dataset, batch_size=2000)
