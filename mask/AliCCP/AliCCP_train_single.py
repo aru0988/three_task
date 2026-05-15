@@ -9,9 +9,8 @@ from torch import nn
 from torch.utils.data import DataLoader
 from tqdm import tqdm
 
-sys.path.append('/data/hl/MultiTask/')
 
-from utils.functions import count_prune_rate
+from multitaskrec.utils import count_prune_rate
 
 from config import AliCCP_Vocabulary_Size
 from multitaskrec.dataset import AliCCPDataset
@@ -103,7 +102,7 @@ def train_single():
                         features[key] = features[key].to(device)
 
                     pred = model(features)
-                    loss_r = loss_func(pred[task_id].cpu(), y[task_id].float()) + model.get_l2_reg()
+                    loss_r = loss_func(pred[task_id], y[task_id].float().to(device)) + model.get_l2_reg()
                     optimizer.zero_grad()
                     loss_r.backward()
                     for name, p in model.shared_bottom.named_parameters():
@@ -134,7 +133,7 @@ def train_single():
                 best_mask = cur_mask
                 print('prune_time:{}'.format(_ite))
         all_mask.append(best_mask)
-    torch.save(all_mask, f'/data/hl/MultiTask/mask/AliCCP/mask_{seed}.pt')
+    torch.save(all_mask, f'mask/AliCCP/mask_{seed}.pt')
 
 @torch.no_grad()
 def evaluation(model, data_loader, task_id):
@@ -164,8 +163,8 @@ def make_mask(model):
 
 
 if __name__ == '__main__':
-    train_dataset = AliCCPDataset('/data/hl/MultiTask/data/AliCCP/ctr_cvr.train', 10000000)
-    val_dataset = AliCCPDataset('/data/hl/MultiTask/data/AliCCP/ctr_cvr.dev', 1000000)
+    train_dataset = AliCCPDataset('dataset/AliCCP/ctr_cvr.train', 10000000)
+    val_dataset = AliCCPDataset('dataset/AliCCP/ctr_cvr.dev', 1000000)
     train_loader = DataLoader(train_dataset, batch_size=2000)
     val_loader = DataLoader(val_dataset, batch_size=2000)
 
