@@ -128,9 +128,9 @@ class SingleTask(nn.Module):
         base_network.load_state_dict(params, strict=False)
         tower_network.load_state_dict(params, strict=False)
 
-        dnn_input = self.embedding_network(x)
-        mid_output = self.base_network(dnn_input)
-        final_output = self.tower_network(mid_output)
+        dnn_input = embedding_network(x)
+        mid_output = base_network(dnn_input)
+        final_output = tower_network(mid_output)
         return [final_output.squeeze()]
 
     def get_l2_reg(self):
@@ -415,7 +415,7 @@ class STEM(nn.Module):
 
         return self.reg_embedding * loss_embedding + self.reg_dnn * loss_dnn
 
-    def get_reps(self):
+    def get_reps(self, x):
         shared_feature_embedding = self.shared_embedding_network(x)
         specific_feature_embeddings = []
         for embedding in self.specific_embedding_networks:
@@ -807,6 +807,9 @@ class MPTRec(nn.Module):
         )
         self.tower_networks = nn.ModuleList()
 
+        env_indices = torch.arange(num_tasks)
+        self.register_buffer("env_indices", env_indices, persistent=True)
+
         for _ in range(num_tasks):
             self.specific_expert_networks.append(
                 MLP(expert_dnn_hidden_units, input_size, "relu", dropout)
@@ -838,7 +841,7 @@ class MPTRec(nn.Module):
         fused_preds = []
         for i in range(self.num_tasks):
             spec_rep = self.specific_expert_networks[i](dnn_input)
-            env_embedding = self.env_embedding_network(torch.tensor(i).to(self.device))
+            env_embedding = self.env_embedding_network(self.env_indices[i])
             env_aware_rep = spec_rep * env_embedding
             all_reps = torch.stack([env_aware_rep, gen_rep], dim=2)
             fused_rep = torch.matmul(all_reps, gate_outs[i].unsqueeze(dim=2)).squeeze()
@@ -869,7 +872,7 @@ class MPTRec(nn.Module):
         spec_reps, env_embs = [], []
         for i in range(self.num_tasks):
             spec_reps.append(self.specific_expert_networks[i](dnn_input))
-            env_embs.append(self.env_embedding_network(torch.tensor(i).to(self.device)))
+            env_embs.append(self.env_embedding_network(self.env_indices[i]))
 
         return dnn_input, gen_rep, spec_reps, env_embs
 
