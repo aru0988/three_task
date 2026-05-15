@@ -895,6 +895,7 @@ class NewTask(nn.Module):
         self.device = device
         self.temperature = 150
         self.env_embedding_network = nn.Embedding(1, rep_dim)
+        self.register_buffer("new_env_idx", torch.tensor([0]), persistent=True)
         self.projection_network = nn.Sequential(
             nn.Linear(input_size, rep_dim // 2, bias=False),
             nn.ReLU(),
@@ -915,7 +916,7 @@ class NewTask(nn.Module):
 
     def forward(self, dnn_input, gen_rep, spec_reps, env_embs):
         exist_env_embs = torch.stack(env_embs, dim=1)
-        new_env_emb = self.env_embedding_network(torch.tensor(0).to(self.device))
+        new_env_emb = self.env_embedding_network(self.new_env_idx).squeeze(0)
 
         H_out = self.projection_network(dnn_input)
         W = torch.mm(H_out, exist_env_embs) / self.temperature
