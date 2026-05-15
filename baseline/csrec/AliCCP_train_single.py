@@ -8,12 +8,11 @@ from torch import nn
 from torch.utils.data import DataLoader
 from tqdm import tqdm
 
-sys.path.append('/data/hl/MultiTask/')
 
-from utils.functions import count_prune_rate
+from multitaskrec.utils import count_prune_rate
 
-from config import AliCpp_Vocabulary_Size
-from multitaskrec.dataset import AliCppDataset
+from config import AliCCP_Vocabulary_Size
+from multitaskrec.dataset import AliCCPDataset
 from multitaskrec.model import SharedBottom
 from multitaskrec.train import TrainManager
 
@@ -28,7 +27,7 @@ def train_single():
 
     model = SharedBottom(
         num_tasks=3,
-        feature_vocabulary=AliCpp_Vocabulary_Size,
+        feature_vocabulary=AliCCP_Vocabulary_Size,
         embedding_size=5,
         input_size=80,
         shared_dnn_hidden_units=(128, 64),
@@ -109,7 +108,7 @@ def train_single():
                         features[key] = features[key].to(device)
 
                     pred = model(features)
-                    loss_r = loss_func(pred[task_id].cpu(), y[task_id].float()) + model.get_l2_reg()
+                    loss_r = loss_func(pred[task_id], y[task_id].float().to(device)) + model.get_l2_reg()
                     optimizer.zero_grad()
                     loss_r.backward()
                     for name, p in model.shared_bottom.named_parameters():
@@ -133,7 +132,7 @@ def train_single():
 
             if prune_rate > 0.4 and best_auc_score > best_prune:
                 best_prune = best_auc_score
-                torch.save(cur_mask, f'/data/hl/MultiTask/baseline/csrec/AliCpp/three_task/mask_{seed}_{task_id}.pt')
+                torch.save(cur_mask, f'baseline/csrec/AliCCP/three_task/mask_{seed}_{task_id}.pt')
 
 
 @torch.no_grad()
@@ -164,8 +163,8 @@ def make_mask(model):
 
 
 if __name__ == '__main__':
-    train_dataset = AliCppDataset('/data/hl/MultiTask/data/AliCpp/ctr_cvr.train', 10000000)
-    val_dataset = AliCppDataset('/data/hl/MultiTask/data/AliCpp/ctr_cvr.dev', 1000000)
+    train_dataset = AliCCPDataset('dataset/AliCCP/ctr_cvr.train', 10000000)
+    val_dataset = AliCCPDataset('dataset/AliCCP/ctr_cvr.dev', 1000000)
     train_loader = DataLoader(train_dataset, batch_size=2000)
     val_loader = DataLoader(val_dataset, batch_size=2000)
 
