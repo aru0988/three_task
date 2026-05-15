@@ -28,7 +28,7 @@ class TrainManager:
 
         all_loss = self.model.get_l2_reg()
         for task_id in range(len(y)):
-            all_loss += self.loss_func(pred[task_id].cpu(), y[task_id].float())
+            all_loss += self.loss_func(pred[task_id], y[task_id].float().to(pred[task_id].device))
 
         self.optimizer.zero_grad()
         all_loss.backward()
@@ -215,7 +215,7 @@ class SparseSharingTrainManager(TrainManager):
 
             pred = self.model(features, task_id)
             loss_r = (
-                self.loss_func(pred.cpu(), y[task_id].float()) + self.model.get_l2_reg()
+                self.loss_func(pred, y[task_id].float().to(self.device)) + self.model.get_l2_reg()
             )
             self.optimizer.zero_grad()
             loss_r.backward()
@@ -310,7 +310,7 @@ class CsRecTrainManager(SparseSharingTrainManager):
                     ).to(self.device)
 
             pred = self.model(features, task_id)
-            loss_r_hat = -self.loss_func(pred.cpu(), y[task_id].float())
+            loss_r_hat = -self.loss_func(pred, y[task_id].float().to(self.device))
             self.optimizer.zero_grad()
             loss_r_hat.backward()
 
@@ -333,7 +333,7 @@ class CsRecTrainManager(SparseSharingTrainManager):
 
             pred = self.model(features, task_id)
             loss_r = (
-                self.loss_func(pred.cpu(), y[task_id].float()) + self.model.get_l2_reg()
+                self.loss_func(pred, y[task_id].float().to(self.device)) + self.model.get_l2_reg()
             )
             self.optimizer.zero_grad()
             loss_r.backward()
@@ -405,15 +405,16 @@ class MPTRecTrainManager(TrainManager):
                 batch_env_ids = self.env_ids[
                     self.batch_size * step : self.batch_size * (step + 1)
                 ]
-                uni_loss_0 = self.loss_func(output["gen_preds"][0].cpu(), y_0.float())
-                uni_loss_1 = self.loss_func(output["gen_preds"][1].cpu(), y_1.float())
+                device = output["gen_preds"][0].device
+                uni_loss_0 = self.loss_func(output["gen_preds"][0], y_0.float().to(device))
+                uni_loss_1 = self.loss_func(output["gen_preds"][1], y_1.float().to(device))
                 fused_loss_0 = self.loss_func(
-                    output["fused_preds"][0].cpu(), y_0.float()
+                    output["fused_preds"][0], y_0.float().to(device)
                 )
                 fused_loss_1 = self.loss_func(
-                    output["fused_preds"][1].cpu(), y_1.float()
+                    output["fused_preds"][1], y_1.float().to(device)
                 )
-                env_loss = self.env_loss_func(output["env_pred"].cpu(), batch_env_ids)
+                env_loss = self.env_loss_func(output["env_pred"], batch_env_ids.to(device))
                 loss = fused_loss_0 + fused_loss_1 + self.uni_coe * (uni_loss_0 + uni_loss_1) + \
                        self.env_coe * env_loss + self.model.get_l2_reg()
 
@@ -492,19 +493,20 @@ class MPTRecTrainManager(TrainManager):
                 batch_env_ids = self.env_ids[
                     self.batch_size * step : self.batch_size * (step + 1)
                 ]
-                uni_loss_0 = self.loss_func(output["gen_preds"][0].cpu(), y_0.float())
-                uni_loss_1 = self.loss_func(output["gen_preds"][1].cpu(), y_1.float())
-                uni_loss_2 = self.loss_func(output["gen_preds"][2].cpu(), y_2.float())
+                device = output["gen_preds"][0].device
+                uni_loss_0 = self.loss_func(output["gen_preds"][0], y_0.float().to(device))
+                uni_loss_1 = self.loss_func(output["gen_preds"][1], y_1.float().to(device))
+                uni_loss_2 = self.loss_func(output["gen_preds"][2], y_2.float().to(device))
                 fused_loss_0 = self.loss_func(
-                    output["fused_preds"][0].cpu(), y_0.float()
+                    output["fused_preds"][0], y_0.float().to(device)
                 )
                 fused_loss_1 = self.loss_func(
-                    output["fused_preds"][1].cpu(), y_1.float()
+                    output["fused_preds"][1], y_1.float().to(device)
                 )
                 fused_loss_2 = self.loss_func(
-                    output["fused_preds"][2].cpu(), y_2.float()
+                    output["fused_preds"][2], y_2.float().to(device)
                 )
-                env_loss = self.env_loss_func(output["env_pred"].cpu(), batch_env_ids)
+                env_loss = self.env_loss_func(output["env_pred"], batch_env_ids.to(device))
                 loss = (
                     fused_loss_0
                     + fused_loss_1
