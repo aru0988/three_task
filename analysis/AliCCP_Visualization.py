@@ -8,7 +8,6 @@ from matplotlib import pyplot as plt
 from sklearn import manifold
 from torch.utils.data import DataLoader
 
-sys.path.append('/home/hl/MultiTask')
 from config import AliCCP_Vocabulary_Size
 from multitaskrec.dataset import AliCCPDataset
 from multitaskrec.model import PLE, MPTRec
@@ -21,13 +20,13 @@ torch.cuda.manual_seed(seed)
 torch.cuda.manual_seed_all(seed)
 np.random.seed(seed)
 
-train_dataset = AliCCPDataset('data/AliCCP/ctr_cvr.train', 1000000)
-val_dataset = AliCCPDataset('data/AliCCP/ctr_cvr.dev', 100000)
-test_dataset = AliCCPDataset('data/AliCCP/ctr_cvr.test', 1000000)
+train_dataset = AliCCPDataset('dataset/AliCCP/ctr_cvr.train', 1000000)
+val_dataset = AliCCPDataset('dataset/AliCCP/ctr_cvr.dev', 100000)
+test_dataset = AliCCPDataset('dataset/AliCCP/ctr_cvr.test', 1000000)
 train_loader = DataLoader(train_dataset, batch_size=2000)
 val_loader = DataLoader(val_dataset, batch_size=2000)
 test_loader = DataLoader(test_dataset, batch_size=2000)
-env_ids = torch.load('data/AliCCP/env_id.gz')[:len(train_dataset)]
+env_ids = torch.load('dataset/AliCCP/env_id.gz')[:len(train_dataset)]
 device = torch.device("cuda:7")
 
 # %% 选择模型MPTRec
