@@ -9,7 +9,6 @@ from sklearn import manifold
 from sklearn.model_selection import train_test_split
 from torch.utils.data import DataLoader
 
-sys.path.append('/home/hl/MultiTask')
 from config import CensusIncome_Vocabulary_Size
 from multitaskrec.dataset import CensusIncomeDataset
 from multitaskrec.model import PLE, MPTRec
@@ -22,10 +21,10 @@ torch.cuda.manual_seed(seed)
 torch.cuda.manual_seed_all(seed)
 np.random.seed(seed)
 
-train_dataset = CensusIncomeDataset('data/CensusIncome/train.gz')
-test_dataset = CensusIncomeDataset('data/CensusIncome/test.gz')
+train_dataset = CensusIncomeDataset('dataset/Census-income/train.gz')
+test_dataset = CensusIncomeDataset('dataset/Census-income/test.gz')
 val_dataset, test_dataset = train_test_split(test_dataset, test_size=0.5, random_state=seed)
-env_ids = torch.load('data/CensusIncome/#env_id.gz')
+env_ids = torch.load('dataset/Census-income/#env_id.gz')
 train_loader = DataLoader(train_dataset, batch_size=2000)
 val_loader = DataLoader(val_dataset, batch_size=2000)
 test_loader = DataLoader(test_dataset, batch_size=2000)
