@@ -30,6 +30,18 @@ CensusIncome_Vocabulary_Size = {
     'vet_question': 3
 }
 
+# ByteRec 数据集特征词汇量（需根据实际数据调整）
+ByteRec_Vocabulary_Size = {
+    'uid': 1000,
+    'user_city': 400,
+    'item_id': 400000,
+    'author_id': 500000,
+    'item_city': 500,
+    'channel': 300,
+    'music_id': 60000,
+    'device': 60000,
+}
+
 AliCCP_Vocabulary_Size = {
     '101': 238635,
     '121': 98,
