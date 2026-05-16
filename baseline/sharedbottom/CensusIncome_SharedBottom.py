@@ -1,3 +1,4 @@
+import argparse
 import sys
 import warnings
 
@@ -16,22 +17,23 @@ from multitaskrec.train import TrainManager
 warnings.filterwarnings('ignore')
 
 
-def main():
-    torch.manual_seed(seed)
-    torch.cuda.manual_seed(seed)
-    torch.cuda.manual_seed_all(seed)
-    np.random.seed(seed)
+def main(args):
+    torch.manual_seed(args.seed)
+    torch.cuda.manual_seed(args.seed)
+    torch.cuda.manual_seed_all(args.seed)
+    np.random.seed(args.seed)
 
-    train_dataset = CensusIncomeDataset('dataset/Census-income/train.gz', 'education')
-    test_dataset = CensusIncomeDataset('dataset/Census-income/test.gz', 'education')
-    val_dataset, test_dataset = train_test_split(test_dataset, test_size=0.5, random_state=seed)
+    new_task = args.new_task
+    train_dataset = CensusIncomeDataset('dataset/Census-income/train.gz', new_task)
+    test_dataset = CensusIncomeDataset('dataset/Census-income/test.gz', new_task)
+    val_dataset, test_dataset = train_test_split(test_dataset, test_size=0.5, random_state=args.seed)
     train_loader = DataLoader(train_dataset, batch_size=256)
     val_loader = DataLoader(val_dataset, batch_size=256)
     test_loader = DataLoader(test_dataset, batch_size=256)
 
-    task_num = 2
+    task_num = args.task_num
     ci_vocabulary = CensusIncome_Vocabulary_Size.copy()
-    ci_vocabulary.pop("education")
+    ci_vocabulary.pop(new_task)
     model = SharedBottom(
         num_tasks=task_num,
         feature_vocabulary=ci_vocabulary,
@@ -42,10 +44,9 @@ def main():
         reg_embedding=3e-4,
         reg_dnn=3e-4
     )
-    device = torch.device("cuda:0")
+    device = torch.device(f"cuda:{args.gpu}")
     model.to(device)
-    
-    # from utils.functions import compute_cost_0
+
     from multitaskrec.utils import compute_cost_0
     compute_cost_0(model, train_loader)
 
@@ -53,22 +54,30 @@ def main():
         model=model,
         train_loader=train_loader,
         val_loader=val_loader,
-        task_name=['Income', 'Marital', 'Sex'],
+        task_name=['Income', 'Marital', new_task.capitalize()],
         lr=1e-3
     )
     train_manager.train_multi_task(task_num)
-    torch.save(train_manager.best_weight, f'baseline/sharedbottom/census_income_{seed}.pt')
 
     model.load_state_dict(train_manager.best_weight)
     auc_test = train_manager.evaluation_multi_task(test_loader, task_num)
+    torch.save(train_manager.best_weight, f'baseline/sharedbottom/census_income_{args.seed}.pt')
     if task_num == 2:
         print('AUC-Test-Income:{:.4f}, AUC-Test-Marital:{:.4f}'.format(auc_test[0], auc_test[1]))
     else:
-        print('AUC-Test-Income:{:.4f}, AUC-Test-Marital:{:.4f}, AUC-Test-Sex:{:.4f}'.format(auc_test[0], auc_test[1], auc_test[2]))
+        print('AUC-Test-Income:{:.4f}, AUC-Test-Marital:{:.4f}, AUC-Test-{}:{:.4f}'.format(auc_test[0], auc_test[1], new_task.capitalize(), auc_test[2]))
 
 
 if __name__ == '__main__':
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--gpu", type=int, default=0)
+    parser.add_argument("--seed", type=int, default=1685480945)
+    parser.add_argument("--new_task", type=str, default="education")
+    parser.add_argument("--task_num", type=int, default=3)
+    args = parser.parse_args()
+
     for seed in [1685480945, 1685463909, 1685477428, 1685459668, 1685496394]:
-        main()
+        args.seed = seed
+        main(args)
 
     print('full-training')
