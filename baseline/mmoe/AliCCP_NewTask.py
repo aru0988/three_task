@@ -36,7 +36,7 @@ def main():
         reg_dnn=reg_dnn,
         dropout=(0.1, 0.3),
     )
-    weight = torch.load(f'baseline/mmoe/alicpp_{seed}.pt')
+    weight = torch.load(f'baseline/mmoe/AliCCP_{seed}.pt')
     param_names = [n for n in weight]
     trainable_params = 0
     for name in param_names:

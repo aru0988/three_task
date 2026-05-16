@@ -58,7 +58,7 @@ def main():
         model=model,
         train_loader=train_loader,
         val_loader=val_loader,
-        task_name=['Income', 'Marital', 'Euducation'],
+        task_name=['Income', 'Marital', 'Education'],
         lr=1e-3,
     )
     train_manager.train_multi_task(3)
