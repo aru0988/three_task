@@ -415,8 +415,12 @@ class MPTRecTrainManager(TrainManager):
                     output["fused_preds"][1], y_1.float().to(device)
                 )
                 env_loss = self.env_loss_func(output["env_pred"], batch_env_ids.to(device))
-                loss = fused_loss_0 + fused_loss_1 + self.uni_coe * (uni_loss_0 + uni_loss_1) + \
-                       self.env_coe * env_loss + self.model.get_l2_reg()
+                if self.model.variant == "no_gan":
+                    loss = fused_loss_0 + fused_loss_1 + self.uni_coe * (uni_loss_0 + uni_loss_1) + \
+                           self.model.get_l2_reg()
+                else:
+                    loss = fused_loss_0 + fused_loss_1 + self.uni_coe * (uni_loss_0 + uni_loss_1) + \
+                           self.env_coe * env_loss + self.model.get_l2_reg()
 
                 uni_loss_0_sum += uni_loss_0
                 uni_loss_1_sum += uni_loss_1
@@ -507,14 +511,23 @@ class MPTRecTrainManager(TrainManager):
                     output["fused_preds"][2], y_2.float().to(device)
                 )
                 env_loss = self.env_loss_func(output["env_pred"], batch_env_ids.to(device))
-                loss = (
-                    fused_loss_0
-                    + fused_loss_1
-                    + fused_loss_2
-                    + self.uni_coe * (uni_loss_0 + uni_loss_1 + uni_loss_2)
-                    + self.env_coe * env_loss
-                    + self.model.get_l2_reg()
-                )
+                if self.model.variant == "no_gan":
+                    loss = (
+                        fused_loss_0
+                        + fused_loss_1
+                        + fused_loss_2
+                        + self.uni_coe * (uni_loss_0 + uni_loss_1 + uni_loss_2)
+                        + self.model.get_l2_reg()
+                    )
+                else:
+                    loss = (
+                        fused_loss_0
+                        + fused_loss_1
+                        + fused_loss_2
+                        + self.uni_coe * (uni_loss_0 + uni_loss_1 + uni_loss_2)
+                        + self.env_coe * env_loss
+                        + self.model.get_l2_reg()
+                    )
 
                 self.optimizer.zero_grad()
                 loss.backward()

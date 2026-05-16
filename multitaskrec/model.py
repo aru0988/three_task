@@ -791,12 +791,14 @@ class MPTRec(nn.Module):
         reg_dnn=0,
         dropout=None,
         device=None,
+        variant="full",
     ):
         super(MPTRec, self).__init__()
         self.num_tasks = num_tasks
         self.reg_embedding = reg_embedding
         self.reg_dnn = reg_dnn
         self.device = device
+        self.variant = variant
         self.embedding_network = EmbeddingNetwork(feature_vocabulary, embedding_size)
         self.shared_expert_network = MLP(expert_dnn_hidden_units, input_size, "relu", dropout)
         self.specific_expert_networks = nn.ModuleList()
@@ -834,22 +836,36 @@ class MPTRec(nn.Module):
             output = self.tower_networks[i](gen_rep)
             gen_preds.append(output.squeeze())
 
-        gate_outs = []
-        for gate in self.gate_networks:
-            gate_outs.append(gate(dnn_input))
+        if self.variant == "share_only":
+            fused_preds = gen_preds
+        elif self.variant == "specific_only":
+            fused_preds = []
+            for i in range(self.num_tasks):
+                spec_rep = self.specific_expert_networks[i](dnn_input)
+                env_embedding = self.env_embedding_network(self.env_indices[i])
+                env_aware_rep = spec_rep * env_embedding
+                output = self.tower_networks[i](env_aware_rep)
+                fused_preds.append(output.squeeze())
+        else:
+            gate_outs = []
+            for gate in self.gate_networks:
+                gate_outs.append(gate(dnn_input))
 
-        fused_preds = []
-        for i in range(self.num_tasks):
-            spec_rep = self.specific_expert_networks[i](dnn_input)
-            env_embedding = self.env_embedding_network(self.env_indices[i])
-            env_aware_rep = spec_rep * env_embedding
-            all_reps = torch.stack([env_aware_rep, gen_rep], dim=2)
-            fused_rep = torch.matmul(all_reps, gate_outs[i].unsqueeze(dim=2)).squeeze()
-            output = self.tower_networks[i](fused_rep)
-            fused_preds.append(output.squeeze())
+            fused_preds = []
+            for i in range(self.num_tasks):
+                spec_rep = self.specific_expert_networks[i](dnn_input)
+                env_embedding = self.env_embedding_network(self.env_indices[i])
+                env_aware_rep = spec_rep * env_embedding
+                all_reps = torch.stack([env_aware_rep, gen_rep], dim=2)
+                fused_rep = torch.matmul(all_reps, gate_outs[i].unsqueeze(dim=2)).squeeze()
+                output = self.tower_networks[i](fused_rep)
+                fused_preds.append(output.squeeze())
 
-        rev_gen_rep = ReverseLayerF.apply(gen_rep, alpha)
-        env_pred = self.env_classifier(rev_gen_rep)
+        if self.variant == "no_gan":
+            env_pred = torch.zeros(gen_rep.shape[0], self.num_tasks, device=gen_rep.device)
+        else:
+            rev_gen_rep = ReverseLayerF.apply(gen_rep, alpha)
+            env_pred = self.env_classifier(rev_gen_rep)
 
         return {
             "gen_preds": gen_preds,
@@ -862,7 +878,6 @@ class MPTRec(nn.Module):
         return output["fused_preds"]
 
     def cluster_predict(self, x):
-        # TODO: 尝试仅使用通用表征的预测结果做聚类预测
         return self.predict(x)
 
     def get_infos(self, x):
@@ -871,8 +886,14 @@ class MPTRec(nn.Module):
 
         spec_reps, env_embs = [], []
         for i in range(self.num_tasks):
-            spec_reps.append(self.specific_expert_networks[i](dnn_input))
+            if self.variant == "share_only":
+                spec_reps.append(torch.zeros_like(gen_rep))
+            else:
+                spec_reps.append(self.specific_expert_networks[i](dnn_input))
             env_embs.append(self.env_embedding_network(self.env_indices[i]))
+
+        if self.variant == "specific_only":
+            gen_rep = torch.zeros_like(gen_rep)
 
         return dnn_input, gen_rep, spec_reps, env_embs
 
@@ -888,11 +909,13 @@ class MPTRec(nn.Module):
 
 class NewTask(nn.Module):
     def __init__(
-        self, input_size, rep_dim, tower_dnn_hidden_units, reg_dnn, device=None
+        self, input_size, rep_dim, tower_dnn_hidden_units, reg_dnn, device=None,
+        fusion_mode="prompt"
     ):
         super(NewTask, self).__init__()
         self.reg_dnn = reg_dnn
         self.device = device
+        self.fusion_mode = fusion_mode
         self.temperature = 150
         self.env_embedding_network = nn.Embedding(1, rep_dim)
         self.register_buffer("new_env_idx", torch.tensor([0]), persistent=True)
@@ -905,9 +928,6 @@ class NewTask(nn.Module):
         self.gate_network = nn.Sequential(
             nn.Linear(input_size, 2, bias=False), nn.Softmax(dim=-1)
         )
-        # self.gate_network_2 = nn.Sequential(
-        #     nn.Linear(input_size, 2, bias=False), nn.Softmax()
-        # )
         self.tower_network = MLP(
             list(tower_dnn_hidden_units) + [1],
             input_size=rep_dim,
@@ -917,10 +937,18 @@ class NewTask(nn.Module):
     def forward(self, dnn_input, gen_rep, spec_reps, env_embs):
         exist_env_embs = torch.stack(env_embs, dim=1)
         new_env_emb = self.env_embedding_network(self.new_env_idx).squeeze(0)
+        num_tasks = len(spec_reps)
 
-        H_out = self.projection_network(dnn_input)
-        W = torch.mm(H_out, exist_env_embs) / self.temperature
-        W = F.softmax(W, dim=-1).unsqueeze(2)
+        if self.fusion_mode == "fw":
+            W = torch.ones(dnn_input.shape[0], num_tasks, device=dnn_input.device) / num_tasks
+            W = W.unsqueeze(2)
+        elif self.fusion_mode == "tes":
+            W = torch.mm(new_env_emb.unsqueeze(0), exist_env_embs) / self.temperature
+            W = F.softmax(W, dim=-1).unsqueeze(0).expand(dnn_input.shape[0], -1, -1)
+        else:
+            H_out = self.projection_network(dnn_input)
+            W = torch.mm(H_out, exist_env_embs) / self.temperature
+            W = F.softmax(W, dim=-1).unsqueeze(2)
 
         gate_out = self.gate_network(dnn_input).unsqueeze(dim=2)
         new_spec_rep = torch.matmul(torch.stack(spec_reps, dim=2), W).squeeze()
