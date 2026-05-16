@@ -77,7 +77,7 @@ if __name__ == '__main__':
     args = parser.parse_args()
     gpu = args.gpu
 
-    for seed in [1685480945, 1685463909, 1685477428, 1685459668, 1685496394]:
+    for seed in [1685480945, 1685463909, 1685477428]:
         main()
     print('full-training')
     
