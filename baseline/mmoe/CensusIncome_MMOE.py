@@ -72,14 +72,12 @@ def main():
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description="My script description")
     parser.add_argument("--gpu", type=int, default=0)
-    parser.add_argument("--seed", type=int, default=1688723512)
-
-    # for seed in [1685480945, 1685463909, 1685477428, 1685459668, 1685496394]:
-    #     main()
+    parser.add_argument("--seed", type=int, default=1685480945)
 
     args = parser.parse_args()
     gpu = args.gpu
-    seed = args.seed
-    print(f'gpu:{gpu}, seed:{seed}')
-    main()
+
+    for seed in [1685480945, 1685463909, 1685477428, 1685459668, 1685496394]:
+        main()
+    print('full-training')
     
