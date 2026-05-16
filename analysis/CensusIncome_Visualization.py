@@ -21,13 +21,16 @@ torch.cuda.manual_seed(seed)
 torch.cuda.manual_seed_all(seed)
 np.random.seed(seed)
 
-train_dataset = CensusIncomeDataset('dataset/Census-income/train.gz')
-test_dataset = CensusIncomeDataset('dataset/Census-income/test.gz')
+train_dataset = CensusIncomeDataset('dataset/Census-income/train.gz', 'education')
+test_dataset = CensusIncomeDataset('dataset/Census-income/test.gz', 'education')
 val_dataset, test_dataset = train_test_split(test_dataset, test_size=0.5, random_state=seed)
 env_ids = torch.load('dataset/Census-income/#env_id.gz')
 train_loader = DataLoader(train_dataset, batch_size=2000)
 val_loader = DataLoader(val_dataset, batch_size=2000)
 test_loader = DataLoader(test_dataset, batch_size=2000)
+
+ci_vocabulary = CensusIncome_Vocabulary_Size.copy()
+ci_vocabulary.pop("education")
 
 
 # %% 选择模型MPTRec
@@ -35,7 +38,7 @@ task_num = 2
 device = torch.device("cuda:0")
 model = MPTRec(
     num_tasks=task_num,
-    feature_vocabulary=CensusIncome_Vocabulary_Size,
+    feature_vocabulary=ci_vocabulary,
     embedding_size=4,
     input_size=123,
     expert_dnn_hidden_units=(256, 128),
@@ -51,7 +54,7 @@ model.to(device)
 # model = PLE(
 #     num_tasks=2,
 #     input_size=123,
-#     feature_vocabulary=CensusIncome_Vocabulary_Size,
+#     feature_vocabulary=ci_vocabulary,
 #     embedding_size=4,
 #     shared_expert_num=1,
 #     specific_expert_num=1,
