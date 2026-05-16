@@ -47,7 +47,7 @@ def main(args):
     device = torch.device(f"cuda:{args.gpu}")
     model.to(device)
 
-    weight = torch.load(f'stem_census_{args.seed}.pt')
+    weight = torch.load(f'baseline/stem/census_income_{args.seed}.pt')
     shared_weight = OrderedDict((n, weight[n]) for n in weight if "shared" in n)
     
     frozen_params_num = 0
