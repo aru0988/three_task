@@ -27,14 +27,15 @@ def main(args):
     test_loader = DataLoader(test_dataset, batch_size=2000)
 
     # load model
-    AliCCP_Vocabulary_Size.pop("101")  # 干扰特征
-    AliCCP_Vocabulary_Size.pop("301")
+    ci_vocabulary = AliCCP_Vocabulary_Size.copy()
+    ci_vocabulary.pop("101")  # 干扰特征
+    ci_vocabulary.pop("301")
     device = torch.device(f"cuda:{args.gpu}")
     model = STEM(
         task_num=1,
         shared_expert_num=1,
         specific_expert_num=1,
-        feature_vocabulary=AliCCP_Vocabulary_Size,
+        feature_vocabulary=ci_vocabulary,
         embedding_size=5,
         input_size=80,
         expert_dnn_hidden_unit=[128, 64],

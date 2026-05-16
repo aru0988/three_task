@@ -64,7 +64,7 @@ def main():
     model.load_state_dict(train_manager.best_weight)
     auc_test = train_manager.evaluation_multi_task(test_loader, task_num)
     if task_num == 2:
-        # torch.save(train_manager.best_weight, f'baseline/ple/CensusIncome_{seed}.pt')
+        torch.save(train_manager.best_weight, f'baseline/ple/CensusIncome_{seed}.pt')
         print('AUC-Test-Income:{:.4f}, AUC-Test-Marital:{:.4f}'.format(auc_test[0], auc_test[1]))
     else:
         print('AUC-Test-Income:{:.4f}, AUC-Test-Marital:{:.4f}, AUC-Test-Sex:{:.4f}'.format(auc_test[0], auc_test[1], auc_test[2]))

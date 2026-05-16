@@ -47,7 +47,8 @@ def main():
         lr=1e-4
     )
     train_manager.train_multi_task(3)
-   
+    torch.save(train_manager.best_weight, f'baseline/mmoe/alicpp_{seed}.pt')
+
     model.load_state_dict(train_manager.best_weight)
     auc_test = train_manager.evaluation_multi_task(test_loader, 3)
     print('AUC-Test-CTR:{:.4f}, AUC-Test-CVR:{:.4f}, AUC-Test-BSI:{:.4f}'.format(auc_test[0], auc_test[1], auc_test[2]))

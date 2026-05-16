@@ -26,14 +26,15 @@ def main():
     test_loader = DataLoader(test_dataset, batch_size=2000)
 
     # load model
-    AliCCP_Vocabulary_Size.pop("101")  # 干扰特征
-    AliCCP_Vocabulary_Size.pop("301")
+    ci_vocabulary = AliCCP_Vocabulary_Size.copy()
+    ci_vocabulary.pop("101")  # 干扰特征
+    ci_vocabulary.pop("301")
     device = torch.device(f"cuda:{args.gpu}")
     model = STEM(
         task_num=args.task_num,
         shared_expert_num=1,
         specific_expert_num=1,
-        feature_vocabulary=AliCCP_Vocabulary_Size,
+        feature_vocabulary=ci_vocabulary,
         embedding_size=5,
         input_size=80,
         expert_dnn_hidden_unit=[128, 64],
@@ -60,7 +61,7 @@ def main():
     train_manager.train_multi_task(args.task_num)
 
     # save best weight
-    # torch.save(train_manager.best_weight, f"stem_alicpp_{args.seed}.pt")
+    torch.save(train_manager.best_weight, f"stem_alicpp_{args.seed}.pt")
 
     model.load_state_dict(train_manager.best_weight)
     auc_test = train_manager.evaluation_multi_task(test_loader, args.task_num)

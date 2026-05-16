@@ -57,6 +57,7 @@ def main():
         lr=1e-3
     )
     train_manager.train_multi_task(task_num)
+    torch.save(train_manager.best_weight, f'baseline/sharedbottom/census_income_{seed}.pt')
 
     model.load_state_dict(train_manager.best_weight)
     auc_test = train_manager.evaluation_multi_task(test_loader, task_num)
