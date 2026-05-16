@@ -49,9 +49,9 @@ def main():
     train_manager.train_multi_task(task_num)
     
     model.load_state_dict(train_manager.best_weight)
+    torch.save(train_manager.best_weight, f'baseline/sharedbottom/AliCCP_{seed}.pt')
     auc_test = train_manager.evaluation_multi_task(test_loader, task_num)
     if task_num == 2:
-        torch.save(train_manager.best_weight, f'baseline/sharedbottom/AliCCP_{seed}.pt')
         print('AUC-Test-CTR:{:.4f}, AUC-Test-CVR:{:.4f}'.format(auc_test[0], auc_test[1]))
     else:
         print('AUC-Test-CTR:{:.4f}, AUC-Test-CVR:{:.4f}, AUC-Test-BSI:{:.4f}'.format(auc_test[0], auc_test[1], auc_test[2]))
