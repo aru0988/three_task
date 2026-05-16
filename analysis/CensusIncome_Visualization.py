@@ -32,7 +32,7 @@ test_loader = DataLoader(test_dataset, batch_size=2000)
 
 # %% 选择模型MPTRec
 task_num = 2
-device = torch.device("cuda:1")
+device = torch.device("cuda:0")
 model = MPTRec(
     num_tasks=task_num,
     feature_vocabulary=CensusIncome_Vocabulary_Size,

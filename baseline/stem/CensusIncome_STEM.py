@@ -69,7 +69,7 @@ def main(args):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument("--gpu", type=int, default=2)
+    parser.add_argument("--gpu", type=int, default=0)
     # 1685480945, 1685463909, 1685477428
     parser.add_argument("--seed", type=int, default=1685480945)
     parser.add_argument("--new_task", type=str, default="education")

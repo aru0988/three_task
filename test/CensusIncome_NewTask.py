@@ -60,7 +60,7 @@ def main():
         reg_embedding = 0.006
         reg_dnn = 3e-5
 
-        device = torch.device("cuda:3")
+        device = torch.device("cuda:0")
         invchar = MPTRec(
             num_tasks=2,
             feature_vocabulary=CensusIncome_Vocabulary_Size,

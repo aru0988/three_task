@@ -59,7 +59,7 @@ def main():
         reg_embedding = 0.0001
         reg_dnn = 7e-6
        
-        device = torch.device("cuda:5")
+        device = torch.device("cuda:0")
         mptrec = MPTRec(
             num_tasks=2,
             feature_vocabulary=AliCCP_Vocabulary_Size,

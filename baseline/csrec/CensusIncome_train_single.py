@@ -44,7 +44,7 @@ def train_single():
         reg_embedding=3e-4,
         reg_dnn=0
     )
-    device = torch.device("cuda:1")
+    device = torch.device("cuda:0")
     model.to(device)
 
     from fvcore.nn import FlopCountAnalysis

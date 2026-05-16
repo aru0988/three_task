@@ -54,7 +54,7 @@ def main():
             del weight[name]
     print(f'trainable_params:{trainable_params}')
     model.load_state_dict(weight, strict=False)
-    device = torch.device("cuda:5")
+    device = torch.device("cuda:0")
     model.to(device)
     model.freeze_params()
 

@@ -30,7 +30,7 @@ def main():
         tower_dnn_hidden_units=(32, 32),
         reg_embedding=1e-6
     )
-    device = torch.device("cuda:5")
+    device = torch.device("cuda:0")
     model.to(device)
     
     all_mask = []
@@ -67,9 +67,9 @@ def main():
 
 
 if __name__ == '__main__':
-    train_dataset = AliCCPDataset('data/AliCCP/ctr_cvr.train', 100000)
-    val_dataset = AliCCPDataset('data/AliCCP/ctr_cvr.dev', 10000)
-    test_dataset = AliCCPDataset('data/AliCCP/ctr_cvr.test', 100000)
+    train_dataset = AliCCPDataset('dataset/AliCCP/ctr_cvr.train', 100000)
+    val_dataset = AliCCPDataset('dataset/AliCCP/ctr_cvr.dev', 10000)
+    test_dataset = AliCCPDataset('dataset/AliCCP/ctr_cvr.test', 100000)
     train_loader = DataLoader(train_dataset, batch_size=2000)
     val_loader = DataLoader(val_dataset, batch_size=2000)
     test_loader = DataLoader(test_dataset, batch_size=2000)

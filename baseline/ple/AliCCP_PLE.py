@@ -36,7 +36,7 @@ def main():
         reg_dnn=1e-6,
         dropout=(0.1, 0.3),
     )
-    device = torch.device("cuda:7")
+    device = torch.device("cuda:0")
     model.to(device)
 
     # from utils.functions import compute_cost_0
@@ -62,9 +62,9 @@ def main():
 
 
 if __name__ == '__main__':
-    train_dataset = AliCCPDataset('data/AliCCP/ctr_cvr.train', 1000000)
-    val_dataset = AliCCPDataset('data/AliCCP/ctr_cvr.dev', 100000)
-    test_dataset = AliCCPDataset('data/AliCCP/ctr_cvr.test', 1000000)
+    train_dataset = AliCCPDataset('dataset/AliCCP/ctr_cvr.train', 1000000)
+    val_dataset = AliCCPDataset('dataset/AliCCP/ctr_cvr.dev', 100000)
+    test_dataset = AliCCPDataset('dataset/AliCCP/ctr_cvr.test', 1000000)
     train_loader = DataLoader(train_dataset, batch_size=2000)
     val_loader = DataLoader(val_dataset, batch_size=2000)
     test_loader = DataLoader(test_dataset, batch_size=2000)

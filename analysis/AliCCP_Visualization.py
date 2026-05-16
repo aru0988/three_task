@@ -27,7 +27,7 @@ train_loader = DataLoader(train_dataset, batch_size=2000)
 val_loader = DataLoader(val_dataset, batch_size=2000)
 test_loader = DataLoader(test_dataset, batch_size=2000)
 env_ids = torch.load('dataset/AliCCP/env_id.gz')[:len(train_dataset)]
-device = torch.device("cuda:7")
+device = torch.device("cuda:0")
 
 # %% 选择模型MPTRec
 uni_coe = 0.9

@@ -38,7 +38,7 @@ def main():
         tower_dnn_hidden_units=(64, 32),
         reg_embedding=3e-4,
     )
-    device = torch.device("cuda:3")
+    device = torch.device("cuda:0")
     model.to(device)
 
     all_mask = []

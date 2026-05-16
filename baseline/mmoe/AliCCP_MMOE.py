@@ -65,7 +65,7 @@ if __name__ == '__main__':
     #     main()
 
     parser = argparse.ArgumentParser(description="My script description")
-    parser.add_argument("--gpu", type=int, default=4)
+    parser.add_argument("--gpu", type=int, default=0)
     parser.add_argument("--seed", type=int, default=1688723512)
 
     args = parser.parse_args()

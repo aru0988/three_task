@@ -42,7 +42,7 @@ def main():
         reg_embedding=1e-6,
         reg_dnn=1e-6
     )
-    device = torch.device("cuda:5")
+    device = torch.device("cuda:0")
     model.to(device)
 
     # from utils.functions import compute_cost_0

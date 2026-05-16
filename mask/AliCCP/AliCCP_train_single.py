@@ -37,7 +37,7 @@ def train_single():
         reg_dnn=0,
         dropout=(0.1, 0.3)
     )
-    device = torch.device("cuda:5")
+    device = torch.device("cuda:0")
     model.to(device)
 
     print('Start warm up!!!')
