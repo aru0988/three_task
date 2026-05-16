@@ -79,6 +79,6 @@ if __name__ == '__main__':
     parser.add_argument("--task_num", type=int, default=3)
     args = parser.parse_args()
 
-    for seed in [1685480945, 1685463909, 1685477428]:
+    for seed in [1685480945, 1685463909, 1685477428, 1685459668, 1685496394]:
         args.seed = seed
         main(args)

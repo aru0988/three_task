@@ -71,11 +71,13 @@ def main(args):
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument("--gpu", type=int, default=0)
-    # 1685480945, 1685463909, 1685477428
     parser.add_argument("--seed", type=int, default=1685480945)
     parser.add_argument("--new_task", type=str, default="education")
     parser.add_argument("--task_num", type=int, default=3)
     args = parser.parse_args()
- 
-    main(args)
+
+    for seed in [1685480945, 1685463909, 1685477428, 1685459668, 1685496394]:
+        args.seed = seed
+        main(args)
+    print('full-training')
     
