@@ -29,12 +29,13 @@ def main(args):
     test_loader = DataLoader(test_dataset, batch_size=256)
     
     # load model
-    CensusIncome_Vocabulary_Size.pop(args.new_task)
+    ci_vocabulary = CensusIncome_Vocabulary_Size.copy()
+    ci_vocabulary.pop(args.new_task)
     model = STEM(
         task_num=args.task_num,
         shared_expert_num=1,
         specific_expert_num=1,
-        feature_vocabulary=CensusIncome_Vocabulary_Size,
+        feature_vocabulary=ci_vocabulary,
         embedding_size=4,
         input_size=123,
         expert_dnn_hidden_unit=[256, 128],

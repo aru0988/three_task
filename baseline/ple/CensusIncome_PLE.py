@@ -30,10 +30,12 @@ def main():
     test_loader = DataLoader(test_dataset, batch_size=256)
     
     task_num = 2
+    ci_vocabulary = CensusIncome_Vocabulary_Size.copy()
+    ci_vocabulary.pop("education")
     model = PLE(
         num_tasks=task_num,
         input_size=123,
-        feature_vocabulary=CensusIncome_Vocabulary_Size,
+        feature_vocabulary=ci_vocabulary,
         embedding_size=4,
         shared_expert_num=1,
         specific_expert_num=1,
