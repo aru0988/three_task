@@ -22,9 +22,12 @@ def main():
     np.random.seed(seed)
 
     task_num = 3
+    ali_vocab = AliCCP_Vocabulary_Size.copy()
+    ali_vocab.pop("101")
+    ali_vocab.pop("301")
     model = SharedBottom(
         num_tasks=task_num,
-        feature_vocabulary=AliCCP_Vocabulary_Size,
+        feature_vocabulary=ali_vocab,
         embedding_size=5,
         input_size=80,
         shared_dnn_hidden_units=(128, 64),
@@ -36,8 +39,8 @@ def main():
     device = torch.device("cuda:0")
     model.to(device)
 
-    from multitaskrec.utils import compute_cost_0
-    compute_cost_0(model, train_loader)
+    from multitaskrec.utils import count_params
+    count_params(model)
 
     train_manager = TrainManager(
         model=model,
@@ -58,9 +61,9 @@ def main():
 
 
 if __name__ == '__main__':
-    train_dataset = AliCCPDataset('dataset/AliCCP/ctr_cvr.train', 100000)
-    val_dataset = AliCCPDataset('dataset/AliCCP/ctr_cvr.dev', 10000)
-    test_dataset = AliCCPDataset('dataset/AliCCP/ctr_cvr.test', 100000)
+    train_dataset = AliCCPDataset('dataset/AliCCP/ctr_cvr.train', 5000000)
+    val_dataset = AliCCPDataset('dataset/AliCCP/ctr_cvr.dev', 500000)
+    test_dataset = AliCCPDataset('dataset/AliCCP/ctr_cvr.test', 5000000)
     train_loader = DataLoader(train_dataset, batch_size=2000)
     val_loader = DataLoader(val_dataset, batch_size=2000)
     test_loader = DataLoader(test_dataset, batch_size=2000)

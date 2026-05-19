@@ -19,9 +19,9 @@ def main(args):
     np.random.seed(args.seed)
 
     # load data
-    train_dataset = AliCCPDataset("dataset/AliCCP/ctr_cvr.train", 100000)
-    val_dataset = AliCCPDataset("dataset/AliCCP/ctr_cvr.dev", 10000)
-    test_dataset = AliCCPDataset("dataset/AliCCP/ctr_cvr.test", 100000)
+    train_dataset = AliCCPDataset("dataset/AliCCP/ctr_cvr.train", 5000000)
+    val_dataset = AliCCPDataset("dataset/AliCCP/ctr_cvr.dev", 500000)
+    test_dataset = AliCCPDataset("dataset/AliCCP/ctr_cvr.test", 5000000)
     train_loader = DataLoader(train_dataset, batch_size=2000)
     val_loader = DataLoader(val_dataset, batch_size=2000)
     test_loader = DataLoader(test_dataset, batch_size=2000)
@@ -64,8 +64,8 @@ def main(args):
         lr=1e-4
     )
 
-    train_manager.compute_cost()
-    
+    train_manager.count_params()
+
     train_manager.train_one_task(2)
     model.load_state_dict(train_manager.best_weight)
     auc_test = train_manager.evaluation_one_task(test_loader, 2)

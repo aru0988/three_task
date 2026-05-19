@@ -20,10 +20,13 @@ def main():
     torch.cuda.manual_seed_all(seed)
     np.random.seed(seed)
 
+    ali_vocab = AliCCP_Vocabulary_Size.copy()
+    ali_vocab.pop("101")
+    ali_vocab.pop("301")
     model = MMOE(
         num_tasks=3,
         num_experts=3,
-        feature_vocabulary=AliCCP_Vocabulary_Size,
+        feature_vocabulary=ali_vocab,
         embedding_size=5,
         input_size=80,
         expert_dnn_hidden_units=(128, 64),
@@ -35,9 +38,8 @@ def main():
     device = torch.device(f"cuda:{gpu}")
     model.to(device)
     
-    # from utils.functions import compute_cost_0
-    from multitaskrec.utils import compute_cost_0
-    compute_cost_0(model, train_loader)
+    from multitaskrec.utils import count_params
+    count_params(model)
 
     train_manager = TrainManager(
         model=model,
@@ -47,7 +49,7 @@ def main():
         lr=1e-4
     )
     train_manager.train_multi_task(3)
-    torch.save(train_manager.best_weight, f'baseline/mmoe/alicpp_{seed}.pt')
+    torch.save(train_manager.best_weight, f'baseline/mmoe/AliCCP_{seed}.pt')
 
     model.load_state_dict(train_manager.best_weight)
     auc_test = train_manager.evaluation_multi_task(test_loader, 3)
@@ -55,9 +57,9 @@ def main():
 
 
 if __name__ == '__main__':
-    train_dataset = AliCCPDataset('dataset/AliCCP/ctr_cvr.train', 10000000)
-    val_dataset = AliCCPDataset('dataset/AliCCP/ctr_cvr.dev', 1000000)
-    test_dataset = AliCCPDataset('dataset/AliCCP/ctr_cvr.test', 10000000)
+    train_dataset = AliCCPDataset('dataset/AliCCP/ctr_cvr.train', 5000000)
+    val_dataset = AliCCPDataset('dataset/AliCCP/ctr_cvr.dev', 500000)
+    test_dataset = AliCCPDataset('dataset/AliCCP/ctr_cvr.test', 5000000)
     train_loader = DataLoader(train_dataset, batch_size=2000)
     val_loader = DataLoader(val_dataset, batch_size=2000)
     test_loader = DataLoader(test_dataset, batch_size=2000)

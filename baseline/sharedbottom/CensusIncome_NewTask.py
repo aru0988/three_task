@@ -59,16 +59,9 @@ def main():
     model.to(device)
     model.freeze_params()
 
-    from fvcore.nn import FlopCountAnalysis
     from multitaskrec.utils import count_params
     count_params(model)
-    for _, _, _, features in train_loader:
-        for key in features.keys():
-            features[key] = features[key].to(device)
-        flops = FlopCountAnalysis(model, features)
-        print(flops.by_module())
-        break
-    
+
     train_manager = TrainManager(
         model=model,
         train_loader=train_loader,
@@ -83,5 +76,5 @@ def main():
 
 
 if __name__ == '__main__':
-    for seed in [1685463909]:
+    for seed in [1685480945, 1685463909, 1685477428]:
         main()

@@ -944,7 +944,7 @@ class NewTask(nn.Module):
             W = W.unsqueeze(2)
         elif self.fusion_mode == "tes":
             W = torch.mm(new_env_emb.unsqueeze(0), exist_env_embs) / self.temperature
-            W = F.softmax(W, dim=-1).unsqueeze(0).expand(dnn_input.shape[0], -1, -1)
+            W = F.softmax(W, dim=-1).T.unsqueeze(0).expand(dnn_input.shape[0], -1, -1)
         else:
             H_out = self.projection_network(dnn_input)
             W = torch.mm(H_out, exist_env_embs) / self.temperature

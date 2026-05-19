@@ -21,11 +21,14 @@ def main():
     torch.cuda.manual_seed_all(seed)
     np.random.seed(seed)
 
-    task_num = 2
+    task_num = 3
+    ali_vocab = AliCCP_Vocabulary_Size.copy()
+    ali_vocab.pop("101")
+    ali_vocab.pop("301")
     model = PLE(
         num_tasks=task_num,
         input_size=80,
-        feature_vocabulary=AliCCP_Vocabulary_Size,
+        feature_vocabulary=ali_vocab,
         embedding_size=5,
         shared_expert_num=1,
         specific_expert_num=1,
@@ -39,9 +42,8 @@ def main():
     device = torch.device("cuda:0")
     model.to(device)
 
-    # from utils.functions import compute_cost_0
-    from multitaskrec.utils import compute_cost_0
-    compute_cost_0(model, train_loader)
+    from multitaskrec.utils import count_params
+    count_params(model)
 
     train_manager = TrainManager(
         model=model,
@@ -51,20 +53,17 @@ def main():
         lr=1e-4,
     )
     train_manager.train_multi_task(task_num)
+    torch.save(train_manager.best_weight, f'baseline/ple/AliCCP_{seed}.pt')
 
     model.load_state_dict(train_manager.best_weight)
     auc_test = train_manager.evaluation_multi_task(test_loader, task_num)
-    if task_num == 2:
-        torch.save(train_manager.best_weight, f'baseline/ple/AliCCP_{seed}.pt')
-        print('AUC-Test-CTR:{:.4f}, AUC-Test-CVR:{:.4f}'.format(auc_test[0], auc_test[1]))
-    else:
-        print('AUC-Test-CTR:{:.4f}, AUC-Test-CVR:{:.4f}, AUC-Test-BSI:{:.4f}'.format(auc_test[0], auc_test[1], auc_test[2]))
+    print('AUC-Test-CTR:{:.4f}, AUC-Test-CVR:{:.4f}, AUC-Test-BSI:{:.4f}'.format(auc_test[0], auc_test[1], auc_test[2]))
 
 
 if __name__ == '__main__':
-    train_dataset = AliCCPDataset('dataset/AliCCP/ctr_cvr.train', 1000000)
-    val_dataset = AliCCPDataset('dataset/AliCCP/ctr_cvr.dev', 100000)
-    test_dataset = AliCCPDataset('dataset/AliCCP/ctr_cvr.test', 1000000)
+    train_dataset = AliCCPDataset('dataset/AliCCP/ctr_cvr.train', 5000000)
+    val_dataset = AliCCPDataset('dataset/AliCCP/ctr_cvr.dev', 500000)
+    test_dataset = AliCCPDataset('dataset/AliCCP/ctr_cvr.test', 5000000)
     train_loader = DataLoader(train_dataset, batch_size=2000)
     val_loader = DataLoader(val_dataset, batch_size=2000)
     test_loader = DataLoader(test_dataset, batch_size=2000)

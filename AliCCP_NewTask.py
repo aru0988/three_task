@@ -11,8 +11,7 @@ from config import AliCCP_Vocabulary_Size
 from multitaskrec.dataset import AliCCPDataset
 from multitaskrec.model import MPTRec, NewTask
 from multitaskrec.train import MPTRecTrainManager
-from fvcore.nn import FlopCountAnalysis
-from multitaskrec.utils import count_params, compute_cost_2
+from multitaskrec.utils import count_params
 
 
 @torch.no_grad()
@@ -41,9 +40,9 @@ def main(args):
     np.random.seed(args.seed)
 
     # load data
-    train_dataset = AliCCPDataset("dataset/AliCCP/ctr_cvr.train", 10000000)
-    val_dataset = AliCCPDataset("dataset/AliCCP/ctr_cvr.dev", 100000)
-    test_dataset = AliCCPDataset("dataset/AliCCP/ctr_cvr.test", 10000000)
+    train_dataset = AliCCPDataset("dataset/AliCCP/ctr_cvr.train", 5000000)
+    val_dataset = AliCCPDataset("dataset/AliCCP/ctr_cvr.dev", 500000)
+    test_dataset = AliCCPDataset("dataset/AliCCP/ctr_cvr.test", 5000000)
     train_loader = DataLoader(train_dataset, batch_size=2000)
     val_loader = DataLoader(val_dataset, batch_size=2000)
     test_loader = DataLoader(test_dataset, batch_size=2000)
@@ -69,12 +68,6 @@ def main(args):
     mptrec.to(device)
 
     count_params(mptrec)
-    for _, _, _, features in train_loader:
-        for key in features.keys():
-            features[key] = features[key].to(device)
-        flops = FlopCountAnalysis(mptrec, features)
-        print(f"MPTRec FLOPs: {flops.total()}")
-        break
 
     newtask = NewTask(
         input_size=80,
@@ -85,7 +78,7 @@ def main(args):
     )
     newtask.to(device)
 
-    compute_cost_2(mptrec, newtask, train_loader)
+    count_params(newtask)
 
     print("-" * 32, "Multi-task pre-training phase", "-" * 32)
     train_manager = MPTRecTrainManager(

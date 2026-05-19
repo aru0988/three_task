@@ -24,10 +24,13 @@ def main():
     reg_embedding = 1e-6
     reg_dnn = 1e-6
 
+    ali_vocab = AliCCP_Vocabulary_Size.copy()
+    ali_vocab.pop("101")
+    ali_vocab.pop("301")
     model = PLE(
         num_tasks=1,
         input_size=80,
-        feature_vocabulary=AliCCP_Vocabulary_Size,
+        feature_vocabulary=ali_vocab,
         embedding_size=5,
         shared_expert_num=1,
         specific_expert_num=1,
@@ -51,15 +54,8 @@ def main():
     model.to(device)
     model.freeze_params()
 
-    from fvcore.nn import FlopCountAnalysis
     from multitaskrec.utils import count_params
     count_params(model)
-    for _, _, _, features in train_loader:
-        for key in features.keys():
-            features[key] = features[key].to(device)
-        flops = FlopCountAnalysis(model, features)
-        print(flops.by_module())
-        break
 
     train_manager = TrainManager(
         model=model,
@@ -75,12 +71,12 @@ def main():
 
 
 if __name__ == '__main__':
-    train_dataset = AliCCPDataset('dataset/AliCCP/ctr_cvr.train', 100000)
-    val_dataset = AliCCPDataset('dataset/AliCCP/ctr_cvr.dev', 10000)
-    test_dataset = AliCCPDataset('dataset/AliCCP/ctr_cvr.test', 100000)
+    train_dataset = AliCCPDataset('dataset/AliCCP/ctr_cvr.train', 5000000)
+    val_dataset = AliCCPDataset('dataset/AliCCP/ctr_cvr.dev', 500000)
+    test_dataset = AliCCPDataset('dataset/AliCCP/ctr_cvr.test', 5000000)
     train_loader = DataLoader(train_dataset, batch_size=2000)
     val_loader = DataLoader(val_dataset, batch_size=2000)
     test_loader = DataLoader(test_dataset, batch_size=2000)
     
-    for seed in [1688723512]:
+    for seed in [1688723740]:
         main()

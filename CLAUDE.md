@@ -12,7 +12,7 @@ MPT-Rec 多任务推荐系统研究项目，复现论文实验。包含 MPTRec�
 # 激活虚拟环境
 .venv\Scripts\activate
 
-# Python 3.10, PyTorch (CUDA), 单 GPU (cuda:0)
+# Python 3.10, PyTorch (CUDA), 单 GPU: NVIDIA GeForce RTX 3060 Laptop (6 GB VRAM)
 ```
 
 ## 运行命令

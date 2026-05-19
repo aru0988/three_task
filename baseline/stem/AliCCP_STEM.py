@@ -18,9 +18,9 @@ def main():
     np.random.seed(args.seed)
 
     # load data
-    train_dataset = AliCCPDataset("dataset/AliCCP/ctr_cvr.train", 10000000)
-    val_dataset = AliCCPDataset("dataset/AliCCP/ctr_cvr.dev", 1000000)
-    test_dataset = AliCCPDataset("dataset/AliCCP/ctr_cvr.test", 10000000)
+    train_dataset = AliCCPDataset("dataset/AliCCP/ctr_cvr.train", 5000000)
+    val_dataset = AliCCPDataset("dataset/AliCCP/ctr_cvr.dev", 500000)
+    test_dataset = AliCCPDataset("dataset/AliCCP/ctr_cvr.test", 5000000)
     train_loader = DataLoader(train_dataset, batch_size=2000)
     val_loader = DataLoader(val_dataset, batch_size=2000)
     test_loader = DataLoader(test_dataset, batch_size=2000)
@@ -54,8 +54,8 @@ def main():
         epochs=10,
     )
 
-    # compute cost
-    train_manager.compute_cost()
+    # compute cost (skip FLOPs for AliCCP)
+    train_manager.count_params()
 
     # train
     train_manager.train_multi_task(args.task_num)
