@@ -910,7 +910,8 @@ class MPTRec(nn.Module):
 class NewTask(nn.Module):
     def __init__(
         self, input_size, rep_dim, tower_dnn_hidden_units, reg_dnn, device=None,
-        fusion_mode="prompt"
+        fusion_mode="prompt", rho_vector=None, lambda_init=0.5,
+        lambda_learnable=True,
     ):
         super(NewTask, self).__init__()
         self.reg_dnn = reg_dnn
@@ -919,12 +920,31 @@ class NewTask(nn.Module):
         self.temperature = 150
         self.env_embedding_network = nn.Embedding(1, rep_dim)
         self.register_buffer("new_env_idx", torch.tensor([0]), persistent=True)
-        self.projection_network = nn.Sequential(
-            nn.Linear(input_size, rep_dim // 2, bias=False),
-            nn.ReLU(),
-            nn.Linear(rep_dim // 2, rep_dim, bias=False),
-            nn.LayerNorm(rep_dim),
-        )
+
+        if fusion_mode == "tcprompt":
+            from multitaskrec.tc_prompt import TCPromptFusion
+            if rho_vector is None:
+                raise ValueError("rho_vector is required for fusion_mode='tcprompt'")
+            self.tc_fusion = TCPromptFusion(
+                input_size=input_size,
+                rep_dim=rep_dim,
+                num_source_tasks=len(rho_vector),
+                rho_vector=rho_vector,
+                temperature=self.temperature,
+                lambda_init=lambda_init,
+                lambda_learnable=lambda_learnable,
+            )
+            # Keep projection_network for backward-compatible attribute access
+            self.projection_network = self.tc_fusion.projection_network
+        else:
+            self.projection_network = nn.Sequential(
+                nn.Linear(input_size, rep_dim // 2, bias=False),
+                nn.ReLU(),
+                nn.Linear(rep_dim // 2, rep_dim, bias=False),
+                nn.LayerNorm(rep_dim),
+            )
+            self.tc_fusion = None
+
         self.gate_network = nn.Sequential(
             nn.Linear(input_size, 2, bias=False), nn.Softmax(dim=-1)
         )
@@ -945,6 +965,8 @@ class NewTask(nn.Module):
         elif self.fusion_mode == "tes":
             W = torch.mm(new_env_emb.unsqueeze(0), exist_env_embs) / self.temperature
             W = F.softmax(W, dim=-1).T.unsqueeze(0).expand(dnn_input.shape[0], -1, -1)
+        elif self.fusion_mode == "tcprompt":
+            W = self.tc_fusion(dnn_input, exist_env_embs)
         else:
             H_out = self.projection_network(dnn_input)
             W = torch.mm(H_out, exist_env_embs) / self.temperature
