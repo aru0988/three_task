@@ -1,18 +1,17 @@
 """
 TC-Prompt Experiment: Compare fusion strategies for new-task generalization.
+Optimized version: reuses Stage 1 pretrained weights across fusion modes.
 
-Runs MPT-Rec Stage 1 (pretraining) + Stage 2 (new-task) on CensusIncome T3=Education
-with multiple fusion modes, multi-seed evaluation.
-
-Fusion modes:
+Runs MPT-Rec Stage 1 (pretraining) once per seed, then Stage 2 with:
   - fw:           Fixed Weights (equal, non-learnable)
   - tes:          Task Embedding Similarity (task-level)
-  - prompt:       Original MPT-Rec instance-level attention (baseline)
-  - tcprompt_05:  TC-Prompt with fixed λ=0.5
-  - tcprompt_L:   TC-Prompt with learnable λ (init=0.5)
+  - prompt:       Original MPT-Rec instance-level attention
+  - tcprompt_fixed:  TC-Prompt with fixed lambda=0.5
+  - tcprompt_learnable: TC-Prompt with learnable lambda (init=0.5)
 """
 import argparse
 import copy
+import os
 import warnings
 
 import numpy as np
@@ -29,6 +28,8 @@ from multitaskrec.train import MPTRecTrainManager
 from utils.task_correlation import get_task_correlation
 
 warnings.filterwarnings("ignore")
+
+CHECKPOINT_DIR = "checkpoints/tcprompt_exp"
 
 
 @torch.no_grad()
@@ -80,7 +81,8 @@ def train_newtask(newtask, mptrec, train_loader, val_loader, device,
     return best_auc
 
 
-def run_experiment(seed, gpu, fusion_mode, lambda_init=0.5, lambda_learnable=False):
+def run_stage1(seed, gpu):
+    """Run Stage 1 pretraining once. Returns (mptrec, data_loaders)."""
     torch.manual_seed(seed)
     torch.cuda.manual_seed_all(seed)
     np.random.seed(seed)
@@ -99,7 +101,6 @@ def run_experiment(seed, gpu, fusion_mode, lambda_init=0.5, lambda_learnable=Fal
     ci_vocabulary.pop("education")
     device = torch.device(f"cuda:{gpu}")
 
-    # Stage 1: Pretraining
     mptrec = MPTRec(
         num_tasks=2, feature_vocabulary=ci_vocabulary, embedding_size=4,
         input_size=123, expert_dnn_hidden_units=(256, 128),
@@ -116,15 +117,18 @@ def run_experiment(seed, gpu, fusion_mode, lambda_init=0.5, lambda_learnable=Fal
     train_manager.train_two_task()
     mptrec.load_state_dict(train_manager.best_weight)
 
-    # Stage 2: New-task generalization
-    if fusion_mode == "tcprompt_fixed" or fusion_mode == "tcprompt_learnable":
-        rho_vector = get_task_correlation("CensusIncome", new_task_idx=2)
-        is_learnable = (fusion_mode == "tcprompt_learnable")
+    return mptrec, train_loader, val_loader, test_loader, device
+
+
+def run_stage2(mptrec, train_loader, val_loader, test_loader, device,
+               fusion_mode, rho_vector, lambda_init, lambda_learnable):
+    """Run Stage 2 new-task training with given fusion mode."""
+    if fusion_mode in ("tcprompt_fixed", "tcprompt_learnable"):
         newtask = NewTask(
             input_size=123, rep_dim=128, tower_dnn_hidden_units=[64, 32],
             reg_dnn=3e-5, device=device, fusion_mode="tcprompt",
             rho_vector=rho_vector, lambda_init=lambda_init,
-            lambda_learnable=is_learnable,
+            lambda_learnable=lambda_learnable,
         )
     else:
         newtask = NewTask(
@@ -136,86 +140,115 @@ def run_experiment(seed, gpu, fusion_mode, lambda_init=0.5, lambda_learnable=Fal
     val_auc = train_newtask(newtask, mptrec, train_loader, val_loader, device)
     test_auc = evaluate(newtask, mptrec, test_loader)
 
-    if fusion_mode.startswith("tcprompt"):
+    lambda_val = None
+    if fusion_mode in ("tcprompt_fixed", "tcprompt_learnable"):
         lambda_val = newtask.tc_fusion.get_lambda()
-        return val_auc, test_auc, lambda_val
-    return val_auc, test_auc, None
+
+    return val_auc, test_auc, lambda_val
 
 
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--gpu", type=int, default=0)
+    parser.add_argument("--skip-stage1", action="store_true",
+                        help="Load cached Stage 1 weights")
     args = parser.parse_args()
 
+    os.makedirs(CHECKPOINT_DIR, exist_ok=True)
     seeds = [1685480945, 1688723512, 1689453621]
+    rho_vector = get_task_correlation("CensusIncome", new_task_idx=2)
+
     configs = [
         ("fw", "Fixed Weights", False, 0.0),
         ("tes", "Task Emb Similarity", False, 0.0),
         ("prompt", "Prompt-tuning (original)", False, 0.0),
-        ("tcprompt_fixed", "TC-Prompt (λ=0.5 fixed)", False, 0.5),
-        ("tcprompt_learnable", "TC-Prompt (λ learnable)", True, 0.5),
+        ("tcprompt_fixed", "TC-Prompt (lambda=0.5)", False, 0.5),
+        ("tcprompt_learnable", "TC-Prompt (lambda learn)", True, 0.5),
     ]
 
     print("=" * 72)
     print("TC-Prompt Experiment: CensusIncome T3 (Education)")
+    print(f"Seeds: {seeds}")
+    print(f"Task correlations: Income-Edu={rho_vector[0]:.3f}, "
+          f"Marital-Edu={rho_vector[1]:.3f}")
     print("=" * 72)
-    print(f"{'Fusion Strategy':<28} {'Val AUC':<12} {'Test AUC':<12} {'λ final':<10}")
-    print("-" * 72)
 
     all_results = {}
 
-    for mode, label, is_learnable, lam_init in configs:
-        val_aucs, test_aucs, lambdas = [], [], []
-        print(f"\n--- {label} ---")
+    for seed_idx, seed in enumerate(seeds):
+        ckpt_path = os.path.join(CHECKPOINT_DIR, f"stage1_seed{seed}.pt")
 
-        for seed in seeds:
-            val_auc, test_auc, lam = run_experiment(
-                seed, args.gpu, mode, lambda_init=lam_init,
-                lambda_learnable=is_learnable,
+        if args.skip_stage1 and os.path.exists(ckpt_path):
+            print(f"\n[Seed {seed}] Loading cached Stage 1 from {ckpt_path}")
+            mptrec = MPTRec(
+                num_tasks=2, feature_vocabulary=CensusIncome_Vocabulary_Size,
+                embedding_size=4, input_size=123, expert_dnn_hidden_units=(256, 128),
+                tower_dnn_hidden_units=(64, 32), reg_embedding=0.006, reg_dnn=3e-5,
+                device=torch.device(f"cuda:{args.gpu}"),
             )
-            val_aucs.append(val_auc)
-            test_aucs.append(test_auc)
+            mptrec.to(torch.device(f"cuda:{args.gpu}"))
+            train_dataset = CensusIncomeDataset("dataset/Census-income/train.gz", "education")
+            test_dataset = CensusIncomeDataset("dataset/Census-income/test.gz", "education")
+            val_dataset, test_dataset = train_test_split(
+                test_dataset, test_size=0.5, random_state=seed
+            )
+            train_loader = DataLoader(train_dataset, batch_size=256)
+            val_loader = DataLoader(val_dataset, batch_size=256)
+            test_loader = DataLoader(test_dataset, batch_size=256)
+            device = torch.device(f"cuda:{args.gpu}")
+            mptrec.load_state_dict(torch.load(ckpt_path))
+        else:
+            print(f"\n[Seed {seed}] Running Stage 1 pretraining...")
+            mptrec, train_loader, val_loader, test_loader, device = run_stage1(
+                seed, args.gpu
+            )
+            torch.save(mptrec.state_dict(), ckpt_path)
+            print(f"  Stage 1 checkpoint saved to {ckpt_path}")
+
+        for mode, label, is_learnable, lam_init in configs:
+            val_auc, test_auc, lam = run_stage2(
+                mptrec, train_loader, val_loader, test_loader, device,
+                mode, rho_vector, lam_init, is_learnable,
+            )
+
+            if label not in all_results:
+                all_results[label] = {"val": [], "test": [], "lam": []}
+            all_results[label]["val"].append(val_auc)
+            all_results[label]["test"].append(test_auc)
             if lam is not None:
-                lambdas.append(lam)
-            print(f"  seed={seed}: val={val_auc:.4f}, test={test_auc:.4f}", end="")
-            if lam is not None:
-                print(f", λ={lam:.4f}")
-            else:
-                print()
+                all_results[label]["lam"].append(lam)
 
-        mean_val = np.mean(val_aucs)
-        std_val = np.std(val_aucs)
-        mean_test = np.mean(test_aucs)
-        std_test = np.std(test_aucs)
-        lam_str = f"{np.mean(lambdas):.4f}" if lambdas else "---"
+            lam_str = f"lambda={lam:.4f}" if lam is not None else ""
+            print(f"  {label:<30} val={val_auc:.4f}  test={test_auc:.4f}  {lam_str}")
 
-        all_results[label] = {
-            "val_mean": mean_val, "val_std": std_val,
-            "test_mean": mean_test, "test_std": std_test,
-            "lambda": lam_str,
-        }
-        print(f"  MEAN: val={mean_val:.4f}±{std_val:.4f}, test={mean_test:.4f}±{std_test:.4f}")
-
+    # Print final summary
     print("\n" + "=" * 72)
     print("FINAL RESULTS — CensusIncome T3 (Education)")
     print("=" * 72)
-    print(f"{'Fusion Strategy':<28} {'Test AUC':<18} {'λ':<10}")
-    print("-" * 56)
+    print(f"{'Fusion Strategy':<30} {'Test AUC':<20} {'Val AUC':<20} {'Lambda':<10}")
+    print("-" * 80)
+
     for label, res in all_results.items():
-        print(f"{label:<28} {res['test_mean']:.4f}±{res['test_std']:.4f}   {res['lambda']:<10}")
+        test_mean = np.mean(res["test"])
+        test_std = np.std(res["test"])
+        val_mean = np.mean(res["val"])
+        val_std = np.std(res["val"])
+        lam_str = f"{np.mean(res['lam']):.4f}" if res["lam"] else "---"
+        print(f"{label:<30} {test_mean:.4f}+-{test_std:.4f}    "
+              f"{val_mean:.4f}+-{val_std:.4f}    {lam_str}")
 
-    # Find best
-    best_label = max(all_results, key=lambda k: all_results[k]["test_mean"])
-    best_auc = all_results[best_label]["test_mean"]
-    prompt_auc = all_results["Prompt-tuning (original)"]["test_mean"]
-    delta = best_auc - prompt_auc
-    print(f"\nBest: {best_label} (AUC={best_auc:.4f})")
-    print(f"Δ over original prompt: {delta:+.4f}")
+    # Compare best vs prompt baseline
+    prompt_test = np.mean(all_results["Prompt-tuning (original)"]["test"])
+    best_label = max(all_results, key=lambda k: np.mean(all_results[k]["test"]))
+    best_test = np.mean(all_results[best_label]["test"])
+    delta = best_test - prompt_test
 
+    print(f"\nBest: {best_label} (Test AUC={best_test:.4f})")
+    print(f"Delta over original prompt: {delta:+.4f}")
     if delta > 0:
-        print("TC-Prompt shows POSITIVE improvement over original MPT-Rec.")
+        print(">>> TC-Prompt shows POSITIVE improvement over original MPT-Rec.")
     else:
-        print("TC-Prompt did NOT improve over original MPT-Rec.")
+        print(">>> TC-Prompt did NOT improve over original MPT-Rec.")
 
 
 if __name__ == "__main__":
