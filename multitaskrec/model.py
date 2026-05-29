@@ -945,6 +945,32 @@ class NewTask(nn.Module):
             )
             self.tc_fusion = None
 
+        # Confidence-Gated Routing: learnable confidence g ∈ [0,1]
+        # Gate uses task-embedding + shared-rep statistics (decoupled from projection input)
+        if fusion_mode == "cgr":
+            self.confidence_mlp = nn.Sequential(
+                nn.Linear(5 * rep_dim, 32),
+                nn.ReLU(),
+                nn.Linear(32, 1),
+                nn.Sigmoid(),
+            )
+            # Bias init so g starts close to 1 (behave like prompt initially)
+            nn.init.constant_(self.confidence_mlp[0].weight, 0.01)
+            nn.init.constant_(self.confidence_mlp[0].bias, 0.01)
+            nn.init.constant_(self.confidence_mlp[2].weight, 0.1)
+            nn.init.constant_(self.confidence_mlp[2].bias, 2.0)
+            # Routing warm-up: alpha=0 → g=0.5 (neutral), alpha=1 → full gate
+            self.gate_warmup_alpha = 1.0
+
+        # Affinity Gate: OOD-aware hard switching between Attention and FW
+        if fusion_mode == "affinity_gate":
+            self.affinity_mlp = nn.Sequential(
+                nn.Linear(4, 16),
+                nn.ReLU(),
+                nn.Linear(16, 1),
+                nn.Sigmoid(),
+            )
+
         self.gate_network = nn.Sequential(
             nn.Linear(input_size, 2, bias=False), nn.Softmax(dim=-1)
         )
@@ -967,10 +993,75 @@ class NewTask(nn.Module):
             W = F.softmax(W, dim=-1).T.unsqueeze(0).expand(dnn_input.shape[0], -1, -1)
         elif self.fusion_mode == "tcprompt":
             W = self.tc_fusion(dnn_input, exist_env_embs)
+        elif self.fusion_mode == "cgr":
+            H_out = self.projection_network(dnn_input)
+            W_attn = torch.mm(H_out, exist_env_embs) / self.temperature
+            W_attn = F.softmax(W_attn, dim=-1).unsqueeze(2)
+            W_fw = torch.ones(dnn_input.shape[0], num_tasks, device=dnn_input.device) / num_tasks
+            W_fw = W_fw.unsqueeze(2)
+            # Decoupled gate: task-embedding + shared-rep statistics
+            source_mean = exist_env_embs.mean(dim=1)
+            source_var = exist_env_embs.var(dim=1)
+            gen_mean = gen_rep.mean(dim=0)
+            gen_var = gen_rep.var(dim=0)
+            gate_input = torch.cat([new_env_emb, source_mean, source_var,
+                                    gen_mean, gen_var], dim=-1)
+            gate_input = gate_input.unsqueeze(0).expand(dnn_input.shape[0], -1)
+            g_raw = self.confidence_mlp(gate_input)
+            # Routing warm-up: alpha annealed from 0→1, g starts neutral at 0.5
+            g = self.gate_warmup_alpha * g_raw + (1 - self.gate_warmup_alpha) * 0.5
+            W = g.unsqueeze(-1) * W_attn + (1 - g.unsqueeze(-1)) * W_fw
+        elif self.fusion_mode == "affinity_gate":
+            H_out = self.projection_network(dnn_input)
+
+            # Step 1: Normalize for cosine similarity
+            h_p_norm = F.normalize(H_out, dim=-1)
+            E_norm = F.normalize(exist_env_embs, dim=0)
+            cos_sim = torch.mm(h_p_norm, E_norm)
+            # cos_sim: [batch, num_tasks], values in [-1, 1]
+
+            # Step 2: Compute 4 compatibility features
+            max_cos = cos_sim.max(dim=-1, keepdim=True)[0]
+            min_cos = cos_sim.min(dim=-1, keepdim=True)[0]
+            affinity_input = torch.cat([
+                max_cos,
+                min_cos,
+                max_cos - min_cos,
+                cos_sim.abs().mean(dim=-1, keepdim=True),
+            ], dim=-1)  # [batch, 4]
+
+            # Step 3: Learn affinity score with Gumbel-Sigmoid
+            g_logit = self.affinity_mlp(affinity_input).squeeze(-1)  # [batch]
+
+            # Gumbel noise for stochastic hard selection
+            if self.training:
+                gumbel_noise = -(-torch.rand_like(g_logit).clamp(1e-10).log()).clamp(1e-10).log()
+                g_soft = torch.sigmoid((g_logit + gumbel_noise) / 0.5)
+            else:
+                g_soft = torch.sigmoid(g_logit / 0.5)
+
+            g_hard = (g_soft > 0.5).float()
+            g = g_hard.detach() + g_soft - g_soft.detach()  # straight-through
+
+            # Step 4: Compute both weight sets
+            W_attn = torch.mm(H_out, exist_env_embs) / self.temperature
+            W_attn = F.softmax(W_attn, dim=-1).unsqueeze(2)
+            W_fw = torch.ones_like(W_attn) / num_tasks
+
+            # Step 5: Hard switch
+            W = g.view(-1, 1, 1) * W_attn + (1 - g.view(-1, 1, 1)) * W_fw
         else:
             H_out = self.projection_network(dnn_input)
-            W = torch.mm(H_out, exist_env_embs) / self.temperature
-            W = F.softmax(W, dim=-1).unsqueeze(2)
+            W_logits = torch.mm(H_out, exist_env_embs) / self.temperature
+            W = F.softmax(W_logits, dim=-1).unsqueeze(2)
+
+        # KL regularization: penalize deviation from uniform attention
+        if self.fusion_mode == "kl_prompt":
+            W_flat = W.squeeze(-1).clamp(min=1e-8)  # [B, K]
+            log_uniform = torch.log(torch.tensor(1.0 / num_tasks, device=W.device))
+            self.kl_loss = (W_flat * (W_flat.log() - log_uniform)).sum(dim=1).mean()
+        else:
+            self.kl_loss = torch.tensor(0.0, device=W.device)
 
         gate_out = self.gate_network(dnn_input).unsqueeze(dim=2)
         new_spec_rep = torch.matmul(torch.stack(spec_reps, dim=2), W).squeeze()
