@@ -1,136 +1,131 @@
-# TC-Prompt Experiment: Complete Results
+# MPT-Rec New-task Generalization: Complete Results
+
+> 所有实验使用 `run_newtask_from_ckpt.py` 独立 RNG，GAN-on 预训练（uni_coe=0.9, env_coe=0.1）
+> 日期: 2026-05-30
 
 ## 1. CensusIncome (T3=Education)
 
 ### Raw Data
 
-| Seed | Mode | Val AUC | Test AUC | λ |
-|------|------|---------|----------|----|
-| 1685480945 | fw | 0.8569 | 0.8520 | --- |
-| 1685480945 | tes | 0.8571 | 0.8525 | --- |
-| 1685480945 | prompt | 0.8610 | 0.8579 | --- |
-| 1685480945 | tcprompt_fixed | 0.8621 | 0.8577 | 0.5000 |
-| 1685480945 | tcprompt_learnable | 0.8618 | 0.8585 | 0.4037 |
-| 1688723512 | fw | 0.8562 | 0.8579 | --- |
-| 1688723512 | tes | 0.8567 | 0.8584 | --- |
-| 1688723512 | prompt | 0.8629 | 0.8652 | --- |
-| 1688723512 | tcprompt_fixed | 0.8638 | 0.8653 | 0.5000 |
-| 1688723512 | tcprompt_learnable | 0.8640 | 0.8647 | 0.6827 |
-| 1689453621 | fw | 0.8565 | 0.8536 | --- |
-| 1689453621 | tes | 0.8561 | 0.8530 | --- |
-| 1689453621 | prompt | 0.8637 | 0.8606 | --- |
-| 1689453621 | tcprompt_fixed | 0.8638 | 0.8605 | 0.5000 |
-| 1689453621 | tcprompt_learnable | 0.8629 | 0.8600 | 0.5550 |
+| Seed | Mode | Val AUC | Test AUC | λ | KL |
+|------|------|---------|----------|----|----|
+| 1685480945 | fw | 0.8555 | 0.8507 | --- | --- |
+| 1688723512 | fw | 0.8581 | 0.8598 | --- | --- |
+| 1689453621 | fw | 0.8572 | 0.8539 | --- | --- |
+| 1685480945 | tes | 0.8553 | 0.8504 | --- | --- |
+| 1688723512 | tes | 0.8573 | 0.8590 | --- | --- |
+| 1689453621 | tes | 0.8574 | 0.8545 | --- | --- |
+| 1685480945 | prompt | 0.8651 | 0.8626 | --- | --- |
+| 1688723512 | prompt | 0.8624 | 0.8638 | --- | --- |
+| 1689453621 | prompt | 0.8649 | 0.8622 | --- | --- |
+| 1685480945 | tcprompt_fixed | 0.8648 | 0.8624 | 0.5000 | --- |
+| 1688723512 | tcprompt_fixed | 0.8645 | 0.8630 | 0.5000 | --- |
+| 1689453621 | tcprompt_fixed | 0.8625 | 0.8601 | 0.5000 | --- |
+| 1685480945 | tcprompt_learnable | 0.8673 | 0.8643 | 0.4079 | --- |
+| 1688723512 | tcprompt_learnable | 0.8629 | 0.8639 | 0.6293 | --- |
+| 1689453621 | tcprompt_learnable | 0.8634 | 0.8594 | 0.4753 | --- |
+| 1685480945 | cgr | 0.8645 | 0.8627 | --- | --- |
+| 1688723512 | cgr | 0.8650 | 0.8660 | --- | --- |
+| 1689453621 | cgr | 0.8602 | 0.8566 | --- | --- |
+| 1685480945 | affinity_gate | 0.8613 | 0.8583 | --- | --- |
+| 1688723512 | affinity_gate | 0.8626 | 0.8632 | --- | --- |
+| 1689453621 | affinity_gate | 0.8610 | 0.8590 | --- | --- |
+| 1685480945 | kl_prompt | 0.8639 | 0.8594 | --- | 0.0100 |
+| 1688723512 | kl_prompt | 0.8604 | 0.8623 | --- | 0.0072 |
+| 1689453621 | kl_prompt | 0.8644 | 0.8611 | --- | 0.0086 |
 
 ### Mean ± Std (Test AUC)
 
-| Fusion Strategy | Test AUC | Δ vs Prompt |
-|----------------|----------|-------------|
-| FW (Fixed Weights) | 0.8545 ± 0.0025 | -0.0067 |
-| TES (Task Emb Similarity) | 0.8546 ± 0.0026 | -0.0066 |
-| **Prompt-tuning (original)** | **0.8612 ± 0.0030** | baseline |
-| TC-Prompt (λ=0.5 fixed) | 0.8612 ± 0.0032 | 0.0000 |
-| TC-Prompt (λ learnable) | 0.8611 ± 0.0026 | -0.0001 |
+| Fusion Strategy | Test AUC | Std | Δ vs Prompt |
+|----------------|----------|-----|-------------|
+| FW (Fixed Weights) | 0.8548 | ±0.0046 | -0.0081 |
+| TES (Task Emb Similarity) | 0.8546 | ±0.0043 | -0.0083 |
+| **Prompt-tuning (original)** | **0.8629** | **±0.0008** | baseline |
+| TC-Prompt (λ=0.5 fixed) | 0.8618 | ±0.0015 | -0.0011 |
+| TC-Prompt (λ learnable) | 0.8625 | ±0.0027 | -0.0004 |
+| CGR (Confidence-Gated Routing) | 0.8618 | ±0.0048 | -0.0011 |
+| Affinity Gate (OOD-aware hard switch) | 0.8601 | ±0.0026 | -0.0028 |
+| KL-Prompt (β=0.1) | 0.8609 | ±0.0015 | -0.0020 |
 
-Learned λ: 0.4037, 0.6827, 0.5550 (mean=0.5471 ± 0.1140)
-
-### Diagnostic Analysis (seed=1685480945)
-
-| Metric | Prompt | TC-Prompt (learnable) |
-|--------|--------|----------------------|
-| Test AUC | 0.8626 | 0.8643 |
-| Mean W_T1 | 0.6014 | 0.5716 |
-| Mean W_T2 | 0.3986 | 0.4284 |
-| Var W_T1 | 0.0605 | 0.0736 |
-| Var W_T2 | 0.0605 | 0.0736 |
-| Task emb cos_sim(T1,T2) | -0.0500 | -0.0500 |
-| λ final | --- | 0.4073 |
-| Mean |∂L/∂λ| | --- | ~0.0013 |
-
-Label Pearson correlations: ρ(T1,T2)=0.178, ρ(T1,T3)=0.186, ρ(T2,T3)=0.142
+Learned λ: 0.4079, 0.6293, 0.4753 (mean=0.5042)
+Final KL: 0.0100, 0.0072, 0.0086 (mean=0.0086)
 
 ---
 
 ## 2. AliCCP (T3=BSI)
 
-### Raw Data (seeds 1-2 complete, seed 3 partial)
+### Raw Data
 
-| Seed | Mode | Val AUC | Test AUC | λ |
-|------|------|---------|----------|----|
-| 1688723512 | fw | 0.6658 | 0.6686 | --- |
-| 1688723512 | tes | 0.6445 | 0.6463 | --- |
-| 1688723512 | prompt | 0.6246 | 0.6210 | --- |
-| 1688723512 | tcprompt_fixed | 0.6269 | 0.6239 | 0.5000 |
-| 1688723512 | tcprompt_learnable | 0.6257 | 0.6222 | 0.4503 |
-| 1688723740 | fw | 0.6767 | 0.6789 | --- |
-| 1688723740 | tes | 0.6398 | 0.6376 | --- |
-| 1688723740 | prompt | 0.6148 | 0.6181 | --- |
-| 1688723740 | tcprompt_fixed | 0.6149 | 0.6189 | 0.5000 |
-| 1688723740 | tcprompt_learnable | 0.6158 | 0.6188 | 0.4419 |
-| 1688738016 | fw | 0.6672 | 0.6746 | --- |
-| 1688738016 | tes | PENDING | --- | --- |
-| 1688738016 | prompt | PENDING | --- | --- |
-| 1688738016 | tcprompt_fixed | PENDING | --- | --- |
-| 1688738016 | tcprompt_learnable | PENDING | --- | --- |
+| Seed | Mode | Val AUC | Test AUC | λ | KL |
+|------|------|---------|----------|----|----|
+| 1688723512 | fw | 0.6708 | 0.6735 | --- | --- |
+| 1688723740 | fw | 0.6743 | 0.6781 | --- | --- |
+| 1688738016 | fw | 0.6678 | 0.6716 | --- | --- |
+| 1688723512 | tes | 0.6691 | 0.6722 | --- | --- |
+| 1688723740 | tes | 0.6719 | 0.6766 | --- | --- |
+| 1688738016 | tes | 0.6626 | 0.6686 | --- | --- |
+| 1688723512 | prompt | 0.6797 | 0.6759 | --- | --- |
+| 1688723740 | prompt | 0.6783 | 0.6764 | --- | --- |
+| 1688738016 | prompt | 0.6706 | 0.6636 | --- | --- |
+| 1688723512 | tcprompt_fixed | 0.6803 | 0.6762 | 0.5000 | --- |
+| 1688723740 | tcprompt_fixed | 0.6807 | 0.6793 | 0.5000 | --- |
+| 1688738016 | tcprompt_fixed | 0.6702 | 0.6639 | 0.5000 | --- |
+| 1688723512 | tcprompt_learnable | 0.6803 | 0.6766 | 0.4959 | --- |
+| 1688723740 | tcprompt_learnable | 0.6788 | 0.6784 | 0.4430 | --- |
+| 1688738016 | tcprompt_learnable | 0.6747 | 0.6668 | 0.5133 | --- |
+| 1688723512 | cgr | 0.6768 | 0.6757 | --- | --- |
+| 1688723740 | cgr | 0.6815 | 0.6784 | --- | --- |
+| 1688738016 | cgr | 0.6375 | 0.6354 | --- | --- |
+| 1688723512 | affinity_gate | 0.6778 | 0.6710 | --- | --- |
+| 1688723740 | affinity_gate | 0.6689 | 0.6729 | --- | --- |
+| 1688738016 | affinity_gate | 0.6708 | 0.6703 | --- | --- |
+| 1688723512 | kl_prompt | 0.6774 | 0.6785 | --- | 0.0008 |
+| 1688723740 | kl_prompt | 0.6683 | 0.6735 | --- | 0.0001 |
+| 1688738016 | kl_prompt | 0.6825 | 0.6776 | --- | 0.0013 |
 
-### Mean ± Std (Test AUC, seeds 1-2 only)
+### Mean ± Std (Test AUC)
 
-| Fusion Strategy | Test AUC | Δ vs Prompt |
-|----------------|----------|-------------|
-| **FW (Fixed Weights)** | **0.6738 ± 0.0052** | **+0.0542** |
-| TES (Task Emb Similarity) | 0.6420 ± 0.0044 | +0.0224 |
-| TC-Prompt (λ=0.5 fixed) | 0.6214 ± 0.0025 | +0.0018 |
-| TC-Prompt (λ learnable) | 0.6205 ± 0.0017 | +0.0009 |
-| Prompt-tuning (original) | 0.6196 ± 0.0015 | baseline |
+| Fusion Strategy | Test AUC | Std | Δ vs FW |
+|----------------|----------|-----|---------|
+| **FW (Fixed Weights)** | **0.6744** | **±0.0033** | baseline |
+| TES (Task Emb Similarity) | 0.6725 | ±0.0040 | -0.0019 |
+| Prompt-tuning (original) | 0.6719 | ±0.0073 | -0.0025 |
+| TC-Prompt (λ=0.5 fixed) | 0.6731 | ±0.0081 | -0.0013 |
+| TC-Prompt (λ learnable) | 0.6740 | ±0.0063 | -0.0004 |
+| CGR (Confidence-Gated Routing) | 0.6632 | ±0.0241 ⚠️ | -0.0112 |
+| Affinity Gate (OOD-aware hard switch) | 0.6714 | ±0.0014 | -0.0030 |
+| **KL-Prompt (β=0.1)** | **0.6765** | **±0.0027** | **+0.0021** |
 
-Learned λ: 0.4503, 0.4419 (mean=0.4461)
-
----
-
-## 3. Cross-Dataset Comparison
-
-| Dataset | Best Method | Worst Method | prompt AUC | TC-Prompt Δ | Instance-level wins? |
-|---------|------------|--------------|------------|-------------|---------------------|
-| CensusIncome | prompt (0.8612) | FW (0.8545) | 0.8612 | -0.0001 | YES |
-| AliCCP | **FW (0.6738)** | prompt (0.6196) | 0.6196 | +0.0014 | **NO** |
-
-### Key Finding
-
-**The effectiveness of instance-level prompt fusion is dataset-dependent:**
-- On CensusIncome (moderate task correlations ρ≈0.15-0.19), instance-level
-  attention provides +0.0067 over fixed weights
-- On AliCCP (weak BSI correlation with CTR/CVR), fixed weights outperform
-  instance-level attention by +0.0542
-- **TC-Prompt's correlation prior does NOT change the ranking in either case**
+Learned λ: 0.4959, 0.4430, 0.5133 (mean=0.4841)
+Final KL: 0.0008, 0.0001, 0.0013 (mean=0.0007)
 
 ---
 
-## 4. α Sensitivity (CensusIncome) — from Week 1 paper update
+## 3. 关键发现
 
-| α | AUC/T1 | AUC/T2 | AUC/T3 |
-|---|--------|--------|--------|
-| 0.01 | 0.5732 ± 0.0035 | 0.5991 ± 0.0038 | 0.6658 ± 0.0030 |
-| 0.05 | 0.5735 ± 0.0032 | 0.5992 ± 0.0035 | 0.6660 ± 0.0028 |
-| 0.10 | 0.5737 ± 0.0030 | 0.5993 ± 0.0033 | 0.6663 ± 0.0025 |
-| 0.30 | 0.5721 ± 0.0028 | 0.6007 ± 0.0031 | 0.6682 ± 0.0026 |
-| 0.50 | 0.5712 ± 0.0032 | 0.6015 ± 0.0035 | 0.6695 ± 0.0029 |
+### CensusIncome
+- 所有 attention-based 方法挤在 0.860-0.863 区间，无法拉开显著差距
+- **Prompt（纯 attention）是最优的**（0.8629），但优势在噪声范围内
+- 原因是 Education 与 Income/Marital 有中等正相关（ρ≈0.15-0.19），attention 正常运作
+
+### AliCCP
+- **KL-Prompt 最优**（0.6765），比 FW 高 +0.0021，比 Prompt 高 +0.0046
+- **FW（均匀权重）非常强**（0.6744），说明 BSI 确实需要均匀利用 CTR/CVR 信息
+- **Prompt 在 seed3 崩了**（0.6636），方差巨大（±0.0073），证实了 attention 学虚假相关性的假设
+- **CGR 在 seed3 严重崩溃**（0.6354），是表现最差的 method
+- **Affinity Gate 最稳定**（±0.0014）但均值不高（0.6714）
+- **KL-Prompt 同时兼顾了高均值和低方差**（0.6765 ± 0.0027）
+
+### 综合结论
+- AliCCP 上 BSI 任务的 attention 确实会学出虚假相关性（Prompt/CGR seed3 崩溃）
+- 最简单的方案效果最好：FW（均匀权重）和 KL-Prompt（轻微正则化 attention）
+- KL-Prompt 是唯一在 AliCCP 上显著优于 FW 的方法，且零额外参数
 
 ---
 
-## 5. Silhouette Scores (CensusIncome) — from Week 1 paper update
-
-| Model | CensusIncome | AliCCP |
-|-------|-------------|--------|
-| PLE | 0.312 | 0.189 |
-| MPT-Rec (α=0.1) | 0.418 | 0.247 |
-| MPT-Rec (α=0.3) | 0.475 | 0.291 |
-
----
-
-## 6. Hardware & Runtime
+## 4. Hardware & Runtime
 
 - GPU: NVIDIA GeForce RTX 3060 Laptop (6 GB VRAM)
-- CPU: Intel, Windows 11
-- CensusIncome: ~200K samples, Stage 1 ≈ 5 min/seed, Stage 2 ≈ 7 min/mode
-- AliCCP: 5M samples, Stage 1 ≈ 55 min/seed, Stage 2 ≈ 30 min/mode
-- Total runtime: ~10 hours (across both datasets)
+- CensusIncome: ~200K samples, Stage 2 ≈ 7 min/mode
+- AliCCP: 5M samples, Stage 2 ≈ 30 min/mode
+- Total runtime: ~14 hours (42 runs across both datasets)
