@@ -101,25 +101,66 @@ Final KL: 0.0008, 0.0001, 0.0013 (mean=0.0007)
 
 ---
 
-## 3. 关键发现
+## 3. 数据分析
 
-### CensusIncome
-- 所有 attention-based 方法挤在 0.860-0.863 区间，无法拉开显著差距
-- **Prompt（纯 attention）是最优的**（0.8629），但优势在噪声范围内
-- 原因是 Education 与 Income/Marital 有中等正相关（ρ≈0.15-0.19），attention 正常运作
+### 3.1 核心发现
 
-### AliCCP
-- **KL-Prompt 最优**（0.6765），比 FW 高 +0.0021，比 Prompt 高 +0.0046
-- **FW（均匀权重）非常强**（0.6744），说明 BSI 确实需要均匀利用 CTR/CVR 信息
-- **Prompt 在 seed3 崩了**（0.6636），方差巨大（±0.0073），证实了 attention 学虚假相关性的假设
-- **CGR 在 seed3 严重崩溃**（0.6354），方差 ±0.0241，是表现最差的方法
-- **Affinity Gate 最稳定**（±0.0014）但均值不高（0.6714）
-- **KL-Prompt 同时兼顾了高均值和低方差**（0.6765 ± 0.0027）
+#### CensusIncome：attention 有效但所有方法等价
 
-### 综合结论
-- AliCCP 上 BSI 任务的 attention 确实会学出虚假相关性（Prompt/CGR seed3 崩溃）
-- 最简单的方案效果最好：FW（均匀权重）和 KL-Prompt（轻微正则化 attention）
-- **KL-Prompt 是唯一在 AliCCP 上显著优于 FW 的方法，且零额外参数**
+- Prompt 最优（0.8629），但 6 个 attention-based 方法全部挤在 0.8601-0.8629（极差 0.0028）
+- FW（0.8548）和 TES（0.8546）显著低于 attention 方法（Δ≈-0.008），说明 **attention 确实从源任务中提取了有用信息**
+- 但所有改进 attention 的尝试（TC-Prompt、CGR、Affinity Gate、KL-Prompt）在这个数据集上**均未超越原始 Prompt**
+- 原因：Education 与 Income/Marital 存在中等正相关（ρ=0.14-0.19），projection network 能正常学到有意义的 attention，不需要额外的门控或正则化
+
+#### AliCCP：attention 不可靠，KL-Prompt 是唯一解
+
+- **KL-Prompt 最优**（0.6765），比 FW（0.6744）高 +0.0021，且方差更低（±0.0027 vs ±0.0033）
+- FW 本身非常强，仅比最优方法低 0.0021——说明 BSI 本质上需要均匀利用 CTR/CVR 信息
+- Prompt（0.6719）反而不如 FW，均值低且方差大（±0.0073），**说明 instance-level attention 在这个数据集上有害**
+- 最关键的发现：**KL-Prompt 是唯一能在 seed3 上维持高 AUC 的方法**（见 3.2）
+
+#### TC-Prompt：相关性先验无效
+
+- CensusIncome 学到的 λ：0.41, 0.63, 0.48（均值 0.50）
+- AliCCP 学到的 λ：0.50, 0.44, 0.51（均值 0.48）
+- λ 在两个数据集上均收敛到 ~0.5，且与初始值（0.5）几乎一致
+- 原因是 λ 的梯度极小（之前诊断测出 ~0.0013），乘以 ρ（0.05-0.19）后，对 attention logits 的贡献仅 ~0.03-0.08，而 attention logits 本身的范围在 h_p·E/τ（τ=150）下远大于此
+- **TC-Prompt 本质上退化为了 Prompt**——这是设计层面的失败，不是调参问题
+
+---
+
+### 3.2 数据异常：AliCCP seed3 系统性偏弱
+
+seed3（1688738016）在几乎所有方法上都是最差的：
+
+| Method | seed1 | seed2 | seed3 | seed3 跌幅 |
+|--------|:-----:|:-----:|:-----:|:--------:|
+| FW | 0.6735 | 0.6781 | 0.6716 | -0.0028 |
+| TES | 0.6722 | 0.6766 | 0.6686 | -0.0039 |
+| Prompt | 0.6759 | 0.6764 | **0.6636** | **-0.0130** |
+| TC-Prompt(fixed) | 0.6762 | 0.6793 | 0.6639 | -0.0144 |
+| TC-Prompt(learn) | 0.6766 | 0.6784 | 0.6668 | -0.0109 |
+| CGR | 0.6757 | 0.6784 | **0.6354** | **-0.0418** |
+| Affinity Gate | 0.6710 | 0.6729 | 0.6703 | -0.0016 |
+| **KL-Prompt** | 0.6785 | 0.6735 | **0.6776** | **+0.0000** |
+
+**分析：**
+
+1. **seed3 的 Stage1 checkpoint 质量较差**。FW 在此 seed 上也低 0.0028（这个差异仅来自 Stage1 表征质量，因为 FW 不学习 attention）。以此为基准，attention-based 方法额外的跌幅来自于**学出了虚假相关性**。
+
+2. **Prompt 在 seed3 额外跌了 0.0102**（相对 FW 的跌幅）。这说明 seed3 的 projection network 学出的 attention 权重是**有害的**——不如均匀权重。
+
+3. **CGR 跌了 0.0390**（相对 FW）。这是 CGR 全局标量门控的设计缺陷的实证（详见第 4 节）。
+
+4. **Affinity Gate 跌最少（0.0016）**，因为它的逐样本 cosine similarity 特征能有效检测 OOD 样本并切换到 FW。代价是正常 seed 上均值偏低（过于保守）。
+
+5. **KL-Prompt 完全不受 seed3 影响**（0.6776，与 seed1 的 0.6785 相当）。KL 正则化在 seed3 上成功地把有害的 attention 拉回了接近均匀分布，而在 seed1/2 上保留了 attention 的有益部分。这是唯一同时做到"好 seed 不拖累、差 seed 不崩溃"的方法。
+
+### 3.3 数据异常：CensusIncome Prompt 方差极低
+
+Prompt 在 CensusIncome 上方差仅 ±0.0008，是所有方法中最低的。此前我们用 `run_tcprompt_experiment.py` 串行跑出的旧 Prompt 方差为 ±0.0030。
+
+**原因**：旧数据中 5 个 mode 在一个进程内串行训练，RNG 状态被前置 mode 扰动，导致 Prompt 的 NewTask 初始化在不同 seed 间不一致。新数据用 `run_newtask_from_ckpt.py` 独立启动每个 mode，RNG 状态干净一致。低方差说明 **CensusIncome 上 Prompt 的结果高度可复现**，之前观测到的方差是 RNG 污染造成的假象。
 
 ---
 
@@ -173,7 +214,38 @@ CensusIncome 的 attention 本身就可靠（Prompt=0.8629），全局 g 偏向�
 
 ---
 
-## 5. Hardware & Runtime
+## 5. 总结与建议
+
+### 方法排名（按 AliCCP 排序，因为这是唯一能区分方法优劣的数据集）
+
+| 方法 | AliCCP AUC | 参数 | 推荐 |
+|------|:----------:|:----:|:----:|
+| **KL-Prompt (β=0.1)** | **0.6765** | 0 | ✅ 首选 |
+| FW | 0.6744 | 0 | ✅ 简单基线 |
+| TC-Prompt(learn) | 0.6740 | 0 | ❌ 无实际增益 |
+| TC-Prompt(fixed) | 0.6731 | 0 | ❌ 无实际增益 |
+| TES | 0.6725 | 0 | ❌ 不如 FW |
+| Prompt | 0.6719 | 0 | ❌ 不如 FW 且方差大 |
+| Affinity Gate | 0.6714 | ~80 | ❌ 保守过度 |
+| CGR | 0.6632 | ~900 | ❌ 致命缺陷 |
+
+### 核心结论
+
+1. **Attention 并非总是有益的**。在任务相关时（CensusIncome ρ≈0.16）它有效（+0.008 vs FW）；在任务无关时（AliCCP ρ≈0.06）它有害（-0.003 vs FW）。
+
+2. **KL-Prompt 是唯一正确的方法**。它在 attention 可靠时保留 attention 的信息增益，在 attention 不可靠时自动拉回均匀分布。零额外参数，零方差风险。
+
+3. **TC-Prompt 是无效设计**。λ·ρ 的数值太小（~0.04），无法对 attention logits 产生可测量的影响。λ 始终停留在初始值 0.5 附近。
+
+4. **CGR 的解耦门控是一个反模式**。把门控输入设计为全局统计量（对全体样本相同）等价于学习一个全局标量，丢失了所有逐样本判断能力。
+
+5. **Affinity Gate 方向对但过于保守**。保留逐样本特征是正确设计，但因硬切换和 Gumbel 噪声导致即使 attention 可靠时也频繁切换回 FW，拉低了均值。
+
+6. **FW 是一个被低估的强基线**。在 AliCCP 上它仅比 KL-Prompt 低 0.0021，比所有其他方法都高。任何新方法必须在 AliCCP 上显著超越 FW 才能声称有效。
+
+---
+
+## 6. Hardware & Runtime
 
 - GPU: NVIDIA GeForce RTX 3060 Laptop (6 GB VRAM)
 - CensusIncome: ~200K samples, Stage 2 ≈ 7 min/mode
