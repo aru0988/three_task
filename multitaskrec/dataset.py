@@ -160,3 +160,54 @@ class ByteRecDataset(
         duration_time = line[-1]
         features = dict(zip(self.feature_names, list(line[:6]) + list(line[8:-1])))
         return finish, like, duration_time, features
+
+
+class CensusIncome4TaskDataset(Dataset):
+    """4-label dataset for T4 experiment.
+
+    Returns (income, marital, education, new_task_label, features).
+    Removes both 'education' and new_task from features.
+    Supports new_task='sex' or new_task='race'.
+    """
+    def __init__(self, datafile, new_task):
+        self.feature_names = [
+            "age", "class_worker", "det_ind_code", "det_occ_code", "education",
+            "wage_per_hour", "hs_college", "major_ind_code", "major_occ_code",
+            "race", "hisp_origin", "sex", "union_member", "unemp_reason",
+            "full_or_part_emp", "capital_gains", "capital_losses", "stock_dividends",
+            "tax_filer_stat", "region_prev_res", "state_prev_res", "det_hh_fam_stat",
+            "det_hh_summ", "instance_weight", "mig_chg_msa", "mig_chg_reg",
+            "mig_move_reg", "mig_same", "mig_prev_sunbelt", "num_emp", "fam_under_18",
+            "country_father", "country_mother", "country_self", "citizenship",
+            "own_or_self", "vet_question", "vet_benefits", "weeks_worked", "year",
+        ]
+
+        df = pd.read_csv(datafile, delimiter=",")
+
+        self.feature_names.remove("education")
+        df["label_education"] = df["education"].apply(lambda x: 1 if x == 9 else 0)
+        df.pop("education")
+
+        self.feature_names.remove(new_task)
+        if new_task == "sex":
+            df[f"label_{new_task}"] = df[new_task]
+        elif new_task == "race":
+            df[f"label_{new_task}"] = df[new_task].apply(lambda x: 1 if x == 0 else 0)
+        else:
+            raise ValueError(f"Unsupported new task: {new_task}")
+        df.pop(new_task)
+
+        self.data = df.values
+        self.new_task = new_task
+
+    def __len__(self):
+        return len(self.data)
+
+    def __getitem__(self, idx):
+        line = self.data[idx]
+        income = line[-4]
+        marital = line[-3]
+        education = line[-2]
+        new_task_label = line[-1]
+        features = dict(zip(self.feature_names, line[:-4]))
+        return income, marital, education, new_task_label, features

@@ -911,12 +911,13 @@ class NewTask(nn.Module):
     def __init__(
         self, input_size, rep_dim, tower_dnn_hidden_units, reg_dnn, device=None,
         fusion_mode="prompt", rho_vector=None, lambda_init=0.5,
-        lambda_learnable=True,
+        lambda_learnable=True, num_source_tasks=None,
     ):
         super(NewTask, self).__init__()
         self.reg_dnn = reg_dnn
         self.device = device
         self.fusion_mode = fusion_mode
+        self.num_source_tasks = num_source_tasks  # None = use all, K = use first K only
         self.temperature = 150
         self.env_embedding_network = nn.Embedding(1, rep_dim)
         self.register_buffer("new_env_idx", torch.tensor([0]), persistent=True)
@@ -983,7 +984,13 @@ class NewTask(nn.Module):
     def forward(self, dnn_input, gen_rep, spec_reps, env_embs):
         exist_env_embs = torch.stack(env_embs, dim=1)
         new_env_emb = self.env_embedding_network(self.new_env_idx).squeeze(0)
-        num_tasks = len(spec_reps)
+
+        if self.num_source_tasks is not None:
+            exist_env_embs = exist_env_embs[:, :self.num_source_tasks, :]
+            spec_reps = spec_reps[:self.num_source_tasks]
+            num_tasks = self.num_source_tasks
+        else:
+            num_tasks = len(spec_reps)
 
         if self.fusion_mode == "fw":
             W = torch.ones(dnn_input.shape[0], num_tasks, device=dnn_input.device) / num_tasks
