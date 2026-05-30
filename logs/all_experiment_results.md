@@ -112,12 +112,12 @@ Final KL: 0.0008, 0.0001, 0.0013 (mean=0.0007)
 - 但所有改进 attention 的尝试（TC-Prompt、CGR、Affinity Gate、KL-Prompt）在这个数据集上**均未超越原始 Prompt**
 - 原因：Education 与 Income/Marital 存在中等正相关（ρ=0.14-0.19），projection network 能正常学到有意义的 attention，不需要额外的门控或正则化
 
-#### AliCCP：attention 不可靠，KL-Prompt 是唯一解
+#### AliCCP：attention 不帮助且增方差，KL-Prompt 稳定
 
-- **KL-Prompt 最优**（0.6765），比 FW（0.6744）高 +0.0021，且方差更低（±0.0027 vs ±0.0033）
-- FW 本身非常强，仅比最优方法低 0.0021——说明 BSI 本质上需要均匀利用 CTR/CVR 信息
-- Prompt（0.6719）反而不如 FW，均值低且方差大（±0.0073），**说明 instance-level attention 在这个数据集上有害**
-- 最关键的发现：**KL-Prompt 是唯一能在 seed3 上维持高 AUC 的方法**（见 3.2）
+- KL-Prompt（0.6765）与 FW（0.6744）仅差 +0.0021，**无统计显著性**，二者实为并列最优
+- FW 本身非常强——说明 BSI 任务大致需要均匀利用 CTR/CVR 信息，attention 提供的额外信息极少
+- Prompt（0.6719）均值不如 FW 且方差更大（±0.0073），**attention 在此数据集上不帮助反而增加不稳定性**
+- 值得注意：KL-Prompt 在 seed3 上未明显变差（0.6776），而其他方法均下降（见 3.2）
 
 #### TC-Prompt：相关性先验无效
 
@@ -154,7 +154,7 @@ seed3（1688738016）在几乎所有方法上都是最差的：
 
 4. **Affinity Gate 跌最少（0.0016）**，因为它的逐样本 cosine similarity 特征能有效检测 OOD 样本并切换到 FW。代价是正常 seed 上均值偏低（过于保守）。
 
-5. **KL-Prompt 完全不受 seed3 影响**（0.6776，与 seed1 的 0.6785 相当）。KL 正则化在 seed3 上成功地把有害的 attention 拉回了接近均匀分布，而在 seed1/2 上保留了 attention 的有益部分。这是唯一同时做到"好 seed 不拖累、差 seed 不崩溃"的方法。
+5. **KL-Prompt 不受 seed3 影响**（0.6776，与 seed1 的 0.6785 相当）。KL 正则化将 attention 约束在均匀分布附近，这恰好阻止了 seed3 上 attention 学出差权重。但此结论基于 3 个 seed，需要更多种子验证其泛化性。
 
 ### 3.3 数据异常：CensusIncome Prompt 方差极低
 
@@ -218,30 +218,30 @@ CensusIncome 的 attention 本身就可靠（Prompt=0.8629），全局 g 偏向�
 
 ### 方法排名（按 AliCCP 排序，因为这是唯一能区分方法优劣的数据集）
 
-| 方法 | AliCCP AUC | 参数 | 推荐 |
-|------|:----------:|:----:|:----:|
-| **KL-Prompt (β=0.1)** | **0.6765** | 0 | ✅ 首选 |
-| FW | 0.6744 | 0 | ✅ 简单基线 |
-| TC-Prompt(learn) | 0.6740 | 0 | ❌ 无实际增益 |
-| TC-Prompt(fixed) | 0.6731 | 0 | ❌ 无实际增益 |
-| TES | 0.6725 | 0 | ❌ 不如 FW |
-| Prompt | 0.6719 | 0 | ❌ 不如 FW 且方差大 |
-| Affinity Gate | 0.6714 | ~80 | ❌ 保守过度 |
-| CGR | 0.6632 | ~900 | ❌ 致命缺陷 |
+| 方法 | AliCCP AUC | 参数 |
+|------|:----------:|:----:|
+| KL-Prompt (β=0.1) | 0.6765 | 0 |
+| FW | 0.6744 | 0 |
+| TC-Prompt(learn) | 0.6740 | 0 |
+| TC-Prompt(fixed) | 0.6731 | 0 |
+| TES | 0.6725 | 0 |
+| Prompt | 0.6719 | 0 |
+| Affinity Gate | 0.6714 | ~80 |
+| CGR | 0.6632 | ~900 |
 
 ### 核心结论
 
-1. **Attention 并非总是有益的**。在任务相关时（CensusIncome ρ≈0.16）它有效（+0.008 vs FW）；在任务无关时（AliCCP ρ≈0.06）它有害（-0.003 vs FW）。
+1. **Attention 的效果依赖于任务相关性**。在 CensusIncome（ρ≈0.16）上，attention 相对 FW 提升约 +0.008，效果明确。在 AliCCP（ρ≈0.06）上，attention 不提供增益（Prompt 0.6719 vs FW 0.6744），仅增加方差。
 
-2. **KL-Prompt 是唯一正确的方法**。它在 attention 可靠时保留 attention 的信息增益，在 attention 不可靠时自动拉回均匀分布。零额外参数，零方差风险。
+2. **KL-Prompt 是当前最实用的方法**。与 FW 并列最优（差异 +0.0021 无统计显著性），零额外参数，方差控制好（±0.0027）。但 "KL-Prompt 优于 FW" 的证据不够充分，需要更多种子或更大数据集验证。
 
 3. **TC-Prompt 是无效设计**。λ·ρ 的数值太小（~0.04），无法对 attention logits 产生可测量的影响。λ 始终停留在初始值 0.5 附近。
 
-4. **CGR 的解耦门控是一个反模式**。把门控输入设计为全局统计量（对全体样本相同）等价于学习一个全局标量，丢失了所有逐样本判断能力。
+4. **CGR 的解耦门控是反模式**。把门控输入设计为全局统计量等同于学习一个全局标量，丢失了逐样本判断能力。在 AliCCP seed3 上崩溃（0.6354）。
 
-5. **Affinity Gate 方向对但过于保守**。保留逐样本特征是正确设计，但因硬切换和 Gumbel 噪声导致即使 attention 可靠时也频繁切换回 FW，拉低了均值。
+5. **Affinity Gate 方向对但保守**。保留逐样本特征是正确设计，但因硬切换导致均值偏低。
 
-6. **FW 是一个被低估的强基线**。在 AliCCP 上它仅比 KL-Prompt 低 0.0021，比所有其他方法都高。任何新方法必须在 AliCCP 上显著超越 FW 才能声称有效。
+6. **FW 是被低估的强基线**。任何新方法必须在 AliCCP 上显著超越 FW 才能声称有效。
 
 ---
 
@@ -289,9 +289,9 @@ gen-spec 相似度低 (0.33) → 抑制 spec 损失了互补信息
 Stage2 输入质量差 + attention 放大低质量信号 → 崩盘
 ```
 
-#### 3. KL-Prompt 免疫种子差异的机理
+#### 3. KL-Prompt 的种子稳定性
 
-KL-Prompt 在所有 seed 上稳定，因为它不依赖门控或 attention 质量判断。KL 正则化将 attention 推向均匀分布，在差 seed 上避免了"在低质量表征上过度信任 attention"的陷阱，在好 seed 上又保留了 attention 的信息增益。
+KL-Prompt 在 3 个 seed 上波动最小（极差 0.0050 vs Prompt 极差 0.0128）。一个可能的解释是 KL 正则化约束 attention 接近均匀分布，阻止了在差表征上学出极端权重。但 3 个 seed 不足以做结论性归因。
 
 #### 4. env_ids 随机初始化的深远影响
 
