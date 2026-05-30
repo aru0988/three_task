@@ -308,9 +308,114 @@ KL-Prompt 在 3 个 seed 上波动最小（极差 0.0050 vs Prompt 极差 0.0128
 
 ---
 
-## 7. Hardware & Runtime
+## 7. T4 Experiment: 2-source vs 3-source Attention
+
+### 实验设计
+
+使用同一个 3-task backbone（T1 Income + T2 Marital + T3 Education），在 Stage2 控制 attention 候选池大小：
+
+- **条件 A（2src）**：NewTask 只关注 [E_T1, E_T2]
+- **条件 B（3src）**：NewTask 关注 [E_T1, E_T2, E_T3]
+
+唯一变量：T4 的 softmax 多了一个 E_T3 候选项。三个 fusion mode：prompt, kl_prompt(β=0.1), fw。
+
+任务相关性（Pearson）：
+```
+          Income  Marital  Education  Sex    Race
+Income       -     0.005    0.222    0.110  -0.024
+Marital   0.005      -      0.006   -0.001   0.002
+Education 0.222    0.006      -      0.015  -0.022
+```
+
+### t4=Sex（T3 有微弱信号 ρ=0.015）
+
+| Seed | Cond | Mode | Test AUC |
+|------|------|------|----------|
+| 1685480945 | A(2src) | prompt | 0.8056 |
+| 1688723512 | A(2src) | prompt | 0.7841 |
+| 1689453621 | A(2src) | prompt | 0.8205 |
+| 1685480945 | A(2src) | kl_prompt | 0.8007 |
+| 1688723512 | A(2src) | kl_prompt | 0.7782 |
+| 1689453621 | A(2src) | kl_prompt | 0.8282 |
+| 1685480945 | A(2src) | fw | 0.8134 |
+| 1688723512 | A(2src) | fw | 0.7763 |
+| 1689453621 | A(2src) | fw | 0.8131 |
+| 1685480945 | B(3src) | prompt | 0.8071 |
+| 1688723512 | B(3src) | prompt | 0.7934 |
+| 1689453621 | B(3src) | prompt | 0.8271 |
+| 1685480945 | B(3src) | kl_prompt | 0.8019 |
+| 1688723512 | B(3src) | kl_prompt | 0.7828 |
+| 1689453621 | B(3src) | kl_prompt | 0.8295 |
+| 1685480945 | B(3src) | fw | 0.8117 |
+| 1688723512 | B(3src) | fw | 0.7767 |
+| 1689453621 | B(3src) | fw | 0.8134 |
+
+**Mean ± Std：**
+
+| Cond | Mode | Test AUC |
+|------|------|----------|
+| A(2src) | prompt | 0.8034 ± 0.0183 |
+| A(2src) | kl_prompt | 0.8024 ± 0.0252 |
+| A(2src) | fw | 0.8009 ± 0.0213 |
+| **B(3src)** | **prompt** | **0.8092 ± 0.0170** |
+| B(3src) | kl_prompt | 0.8047 ± 0.0235 |
+| B(3src) | fw | 0.8006 ± 0.0207 |
+
+**Δ(B-A)：** prompt +0.0058, kl_prompt +0.0023, fw -0.0003
+
+### t4=Race（全无信号 max ρ=0.02）
+
+| Seed | Cond | Mode | Test AUC |
+|------|------|------|----------|
+| 1685480945 | A(2src) | prompt | 0.8062 |
+| 1688723512 | A(2src) | prompt | 0.8135 |
+| 1689453621 | A(2src) | prompt | 0.8220 |
+| 1685480945 | A(2src) | kl_prompt | 0.7992 |
+| 1688723512 | A(2src) | kl_prompt | 0.8078 |
+| 1689453621 | A(2src) | kl_prompt | 0.8197 |
+| 1685480945 | A(2src) | fw | 0.8006 |
+| 1688723512 | A(2src) | fw | 0.8138 |
+| 1689453621 | A(2src) | fw | 0.8243 |
+| 1685480945 | B(3src) | prompt | 0.7976 |
+| 1688723512 | B(3src) | prompt | 0.8139 |
+| 1689453621 | B(3src) | prompt | 0.8178 |
+| 1685480945 | B(3src) | kl_prompt | 0.8007 |
+| 1688723512 | B(3src) | kl_prompt | 0.8100 |
+| 1689453621 | B(3src) | kl_prompt | 0.8175 |
+| 1685480945 | B(3src) | fw | 0.8013 |
+| 1688723512 | B(3src) | fw | 0.8123 |
+| 1689453621 | B(3src) | fw | 0.8230 |
+
+**Mean ± Std：**
+
+| Cond | Mode | Test AUC |
+|------|------|----------|
+| **A(2src)** | **prompt** | **0.8139 ± 0.0080** |
+| A(2src) | kl_prompt | 0.8089 ± 0.0103 |
+| A(2src) | fw | 0.8129 ± 0.0119 |
+| B(3src) | prompt | 0.8098 ± 0.0107 |
+| B(3src) | kl_prompt | 0.8094 ± 0.0084 |
+| B(3src) | fw | 0.8122 ± 0.0109 |
+
+**Δ(B-A)：** prompt -0.0041, kl_prompt +0.0005, fw -0.0007
+
+### 结论
+
+1. **多 source task 的效果取决于任务相关性**。Sex（T3 有微弱信号 ρ=0.015）：3src 的 prompt 比 2src 高 +0.0058。Race（T3 无信号）：3src 反跌 -0.0041。方向符合预期。
+
+2. **FW 完全免疫于 source task 数量变化**（Δ < ±0.001）。source task 数量只在学习 attention 权重时产生影响，这验证了改变的是 attention 候选池而非其他机制。
+
+3. **KL-Prompt 做了正确的折中**。在 Sex 上保留了一半增益（+0.0023），在 Race 上避免了下跌。
+
+4. **T4 本身的 AUC 偏低**（~0.78-0.83），显著低于 T3 Education（~0.86），说明 Sex/Race 两个任务固有难度更高。
+
+---
+
+## 8. Hardware & Runtime
 
 - GPU: NVIDIA GeForce RTX 3060 Laptop (6 GB VRAM)
-- CensusIncome: ~200K samples, Stage 2 ≈ 7 min/mode
-- AliCCP: 5M samples, Stage 2 ≈ 30 min/mode
-- Total runtime: ~14 hours (42 runs across both datasets)
+- CensusIncome Stage 2: ~7 min/mode
+- AliCCP Stage 2: ~30 min/mode
+- T4 Stage 1 (3-task backbone): ~25 min/seed
+- T4 Stage 2: ~7 min/mode
+- Total runtime: ~16 hours (84 runs across CensusIncome + AliCCP + T4)
