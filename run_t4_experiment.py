@@ -44,9 +44,13 @@ def get_cfg(t4):
     vocab.pop("education")
     if t4 in vocab:
         vocab.pop(t4)
+    embedding_size = 4
+    dense_count = len(CensusIncome4TaskDataset(
+        "dataset/Census-income/train.gz", t4, return_t4=False)[0][-1]) - len(vocab)
+    input_size = len(vocab) * embedding_size + dense_count
     return dict(
         vocabulary=vocab,
-        embedding_size=4, input_size=123, rep_dim=128,
+        embedding_size=embedding_size, input_size=input_size, rep_dim=128,
         expert_hidden=(256, 128), tower_hidden=(64, 32),
         reg_embedding=0.006, reg_dnn=3e-5,
         lr_stage1=1e-3, lr_stage2=1e-3,
