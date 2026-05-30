@@ -986,7 +986,7 @@ class NewTask(nn.Module):
         new_env_emb = self.env_embedding_network(self.new_env_idx).squeeze(0)
 
         if self.num_source_tasks is not None:
-            exist_env_embs = exist_env_embs[:, :self.num_source_tasks, :]
+            exist_env_embs = exist_env_embs[:, :self.num_source_tasks]
             spec_reps = spec_reps[:self.num_source_tasks]
             num_tasks = self.num_source_tasks
         else:
