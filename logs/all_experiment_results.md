@@ -112,18 +112,68 @@ Final KL: 0.0008, 0.0001, 0.0013 (mean=0.0007)
 - **KL-Prompt 最优**（0.6765），比 FW 高 +0.0021，比 Prompt 高 +0.0046
 - **FW（均匀权重）非常强**（0.6744），说明 BSI 确实需要均匀利用 CTR/CVR 信息
 - **Prompt 在 seed3 崩了**（0.6636），方差巨大（±0.0073），证实了 attention 学虚假相关性的假设
-- **CGR 在 seed3 严重崩溃**（0.6354），是表现最差的 method
+- **CGR 在 seed3 严重崩溃**（0.6354），方差 ±0.0241，是表现最差的方法
 - **Affinity Gate 最稳定**（±0.0014）但均值不高（0.6714）
 - **KL-Prompt 同时兼顾了高均值和低方差**（0.6765 ± 0.0027）
 
 ### 综合结论
 - AliCCP 上 BSI 任务的 attention 确实会学出虚假相关性（Prompt/CGR seed3 崩溃）
 - 最简单的方案效果最好：FW（均匀权重）和 KL-Prompt（轻微正则化 attention）
-- KL-Prompt 是唯一在 AliCCP 上显著优于 FW 的方法，且零额外参数
+- **KL-Prompt 是唯一在 AliCCP 上显著优于 FW 的方法，且零额外参数**
 
 ---
 
-## 4. Hardware & Runtime
+## 4. CGR 方差爆炸根因分析
+
+### 现象
+
+CGR 在 AliCCP 上 3 个 seed 的 Test AUC：0.6757, 0.6784, **0.6354**（±0.0241）
+
+seed3 的 epoch 级轨迹：
+```
+Epoch  1: val=0.4682   ← 起步极低（FW seed3 epoch1 约 0.57）
+Epoch 10: val=0.6051   ← 恢复缓慢
+Epoch 20: val=0.6235
+Epoch 30: val=0.6252   ← 最终也远低于其他方法（FW=0.6716, KL=0.6776）
+```
+
+### 根因：CGR 的置信门控是全局标量，无实例级信息
+
+CGR 的门控输入为：
+```python
+gate_input = [new_env_emb, source_mean, source_var, gen_mean, gen_var]
+# shape: (5 * rep_dim,) = 320 维（AliCCP）
+# 所有统计量均来自冻结的 MPTRec，对全部样本完全相同
+```
+
+这意味着 **g 是一个全局标量——对所有样本都一样**。门控 MLP 的输入不包含任何逐样本信息。
+
+对比三个方法的设计：
+
+| 方法 | 门控输入 | 是否逐样本变化 |
+|---|---|---|
+| CGR | task-embedding 统计量（全局固定） | ❌ 全局标量 |
+| Affinity Gate | 每个样本的 cosine similarity 特征 | ✅ 逐样本 |
+| KL-Prompt | 无门控，固定 β 正则化 | — |
+
+### 为什么 seed3 崩溃
+
+1. **CGR 的 confidence_mlp 初始 bias=2.0**（sigmoid≈0.88），warmup 后 g 初始偏向信任 attention
+2. seed3 的 Stage1 checkpoint 恰好 attention 质量较差（Prompt seed3 也只有 0.6636）
+3. 由于 g 是全局标量，**无法对不同样本做差异化处理**——差的 attention 被同等信任
+4. 梯度通过全局 g 反向传播到 MLP 权重时信号极弱，模型无法自救
+
+### 为什么 CensusIncome 上没问题
+
+CensusIncome 的 attention 本身就可靠（Prompt=0.8629），全局 g 偏向信任 attention 是正确的策略。CGR 的设计缺陷只在 attention 不可靠的数据集上暴露。
+
+### 教训
+
+**解耦（decoupling）不等于丢弃信息**。CGR 为了避免 projection network 的虚假相关性，把门控输入设计为全局统计量，结果丢弃了所有逐样本信息。Affinity Gate 保留了逐样本的 cosine similarity 特征，因此方差极低（±0.0014）。KL-Prompt 更彻底——直接不学习门控，用固定正则化，零方差风险。
+
+---
+
+## 5. Hardware & Runtime
 
 - GPU: NVIDIA GeForce RTX 3060 Laptop (6 GB VRAM)
 - CensusIncome: ~200K samples, Stage 2 ≈ 7 min/mode
