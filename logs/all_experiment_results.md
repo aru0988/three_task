@@ -245,7 +245,70 @@ CensusIncome 的 attention 本身就可靠（Prompt=0.8629），全局 g 偏向�
 
 ---
 
-## 6. Hardware & Runtime
+## 6. Stage1 Checkpoint 诊断：种子间差异
+
+### 诊断数据
+
+| 指标 | seed1 | seed2 | seed3 |
+|---|---|---|---|
+| Stage2 Test AUC 均值 (all methods) | 0.6747 | 0.6767 | **0.6653** |
+| FW Test AUC (纯表征质量) | 0.6735 | 0.6781 | 0.6716 |
+| **\|gen_rep\|** (共享表征 L2 范数) | **22.71** | 9.19 | 14.88 |
+| cos(gen, spec0) (共享-专属解耦度) | 0.32 | **0.58** | 0.33 |
+| Gate: gen_weight (门控偏向共享) | **0.895** | 0.632 | **0.832** |
+| Gate: spec_weight (门控偏向专属) | 0.105 | 0.368 | 0.168 |
+| gate_std (门控逐样本方差) | 0.028 | 0.028 | **0.044** |
+| Shared expert 权重与其他种子 cos_sim | 0.175 | 0.155 | **0.151** |
+| cos_sim(env_T0, env_T1) (环境嵌入正交性) | -0.055 | +0.014 | +0.057 |
+
+### 发现
+
+#### 1. seed2 与 seed1/3 的解法完全不同
+
+seed2 的门控更平衡（gen=0.63, spec=0.37），而 seed1/3 几乎完全信任 gen_rep（gen=0.90/0.83）。同时 seed2 的 gen-spec 余弦相似度高达 0.58，远超 seed1/3 的 0.32-0.33。
+
+**解读**：seed2 的 GAN 解耦不彻底，gen 和 spec 共享了更多信息。但这种"不彻底的解耦"反而让门控的混合（gen+spec fusion）更有意义。seed1/3 解耦更彻底（cos 低），但 gate 过度依赖 gen_rep，spec 信息几乎被丢弃。
+
+#### 2. seed3 的崩溃是叠加效应
+
+seed3 的特征模式与 seed1 相似（gate 偏 gen、cos 低），但关键差异在于：
+- **共享表征范数**（14.88）在 seed1（22.71）和 seed2（9.19）之间，无明显异常
+- **共享 expert 权重与其他种子最不相似**（cos 仅 0.151 vs seed1-to-seed2 的 0.179）
+- **门控方差更高**（0.044 vs 0.028），意味着个别样本的 gate 决策更不稳定
+
+seed3 不是单一指标出问题，而是：
+```
+gen_rep 来自"最异类"的共享 expert → gen 的表征空间与其他 seed 不同
+   +
+gate 过度偏向 gen (0.83) → spec 信号被抑制
+   +
+gate 方差更高 (0.044) → 个别样本门控抖动
+   +
+gen-spec 相似度低 (0.33) → 抑制 spec 损失了互补信息
+   ↓
+Stage2 输入质量差 + attention 放大低质量信号 → 崩盘
+```
+
+#### 3. KL-Prompt 免疫种子差异的机理
+
+KL-Prompt 在所有 seed 上稳定，因为它不依赖门控或 attention 质量判断。KL 正则化将 attention 推向均匀分布，在差 seed 上避免了"在低质量表征上过度信任 attention"的陷阱，在好 seed 上又保留了 attention 的信息增益。
+
+#### 4. env_ids 随机初始化的深远影响
+
+三个种子的 env 嵌入余弦相似度从 -0.055 到 +0.057，说明 GAN 的初始化随机性导致了解耦策略的根本性分歧。这是 Stage1 训练不稳定的根源。
+
+### 改进方向
+
+| 改进 | 针对问题 |
+|---|---|
+| 用数据驱动方式初始化 env_ids（如 K-Means on raw features）替代 `torch.randint` | env_ids 随机初始化导致解耦策略分歧 |
+| 在 GAN 训练前增加 warmup 阶段（纯监督学习，不加对抗损失） | 表征质量初始化不稳定 |
+| 在 Stage1 增加多轮聚类收敛判定，而非固定每 2 epoch 更新 | 环境标签抖动导致解耦不稳定 |
+| 记录并选择最佳 Stage1 checkpoint（按 validation sum AUC） | 当前无 checkpoint 选择机制 |
+
+---
+
+## 7. Hardware & Runtime
 
 - GPU: NVIDIA GeForce RTX 3060 Laptop (6 GB VRAM)
 - CensusIncome: ~200K samples, Stage 2 ≈ 7 min/mode
