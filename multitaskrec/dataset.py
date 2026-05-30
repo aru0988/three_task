@@ -165,11 +165,13 @@ class ByteRecDataset(
 class CensusIncome4TaskDataset(Dataset):
     """4-label dataset for T4 experiment.
 
-    Returns (income, marital, education, new_task_label, features).
+    Returns (income, marital, education, new_task_label, features) when return_t4=True,
+    or (income, marital, education, features) when return_t4=False (for Stage 1).
     Removes both 'education' and new_task from features.
     Supports new_task='sex' or new_task='race'.
     """
-    def __init__(self, datafile, new_task):
+    def __init__(self, datafile, new_task, return_t4=True):
+        self.return_t4 = return_t4
         self.feature_names = [
             "age", "class_worker", "det_ind_code", "det_occ_code", "education",
             "wage_per_hour", "hs_college", "major_ind_code", "major_occ_code",
@@ -210,4 +212,7 @@ class CensusIncome4TaskDataset(Dataset):
         education = line[-2]
         new_task_label = line[-1]
         features = dict(zip(self.feature_names, line[:-4]))
-        return income, marital, education, new_task_label, features
+        if self.return_t4:
+            return income, marital, education, new_task_label, features
+        else:
+            return income, marital, education, features

@@ -67,8 +67,8 @@ def run_stage1(seed, t4, gpu):
     device = torch.device(f"cuda:{gpu}")
 
     cfg = get_cfg(t4)
-    train_ds = CensusIncome4TaskDataset(cfg["train_path"], t4)
-    test_ds = CensusIncome4TaskDataset(cfg["test_path"], t4)
+    train_ds = CensusIncome4TaskDataset(cfg["train_path"], t4, return_t4=False)
+    test_ds = CensusIncome4TaskDataset(cfg["test_path"], t4, return_t4=False)
     val_ds, test_ds = train_test_split(test_ds, test_size=0.5, random_state=seed)
 
     train_loader = DataLoader(train_ds, batch_size=cfg["batch_size"])
