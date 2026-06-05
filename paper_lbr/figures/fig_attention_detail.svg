@@ -1,0 +1,171 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1100 480" width="520" height="227" font-family="Arial, Helvetica, sans-serif">
+  <defs>
+    <marker id="arrow-f" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#555"/>
+    </marker>
+    <marker id="arrow-red-f" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#D32F2F"/>
+    </marker>
+  </defs>
+
+  <!-- Background panels -->
+  <rect x="10" y="5" width="530" height="470" fill="#F5F7FA" stroke="#CFD8DC" stroke-width="1" rx="8"/>
+  <rect x="555" y="5" width="535" height="470" fill="#F5F7FA" stroke="#CFD8DC" stroke-width="1" rx="8"/>
+  <line x1="547" y1="15" x2="547" y2="465" stroke="#B0BEC5" stroke-width="1.5" stroke-dasharray="6,4"/>
+
+  <!-- ============ LEFT PANEL: 2-source ============ -->
+  <rect x="20" y="15" width="510" height="36" fill="#E8F5E9" rx="6"/>
+  <text x="275" y="38" font-size="15" font-weight="bold" fill="#2E7D32" text-anchor="middle">Condition A: 2-source candidate pool [E₁, E₂],  K = 2</text>
+
+  <!-- [1] Query -->
+  <rect x="25" y="170" width="95" height="90" fill="#7B1FA2" rx="8"/>
+  <text x="72" y="210" font-size="15" font-weight="bold" fill="white" text-anchor="middle">Query h_p</text>
+  <text x="72" y="230" font-size="11" fill="#E1BEE7" text-anchor="middle">Projection</text>
+  <text x="72" y="247" font-size="11" fill="#E1BEE7" text-anchor="middle">Network output</text>
+
+  <!-- Arrows: Query → E1, E2 -->
+  <path d="M 120 200 L 140 200 L 140 135 L 165 135" stroke="#555" stroke-width="1.6" fill="none" marker-end="url(#arrow-f)"/>
+  <path d="M 120 230 L 140 230 L 140 285 L 165 285" stroke="#555" stroke-width="1.6" fill="none" marker-end="url(#arrow-f)"/>
+
+  <!-- [2] Candidate Embeddings -->
+  <rect x="170" y="110" width="100" height="50" fill="#1E88E5" rx="6"/>
+  <text x="220" y="140" font-size="14" font-weight="bold" fill="white" text-anchor="middle">E₁ (Income)</text>
+
+  <rect x="170" y="260" width="100" height="50" fill="#43A047" rx="6"/>
+  <text x="220" y="290" font-size="14" font-weight="bold" fill="white" text-anchor="middle">E₂ (Marital)</text>
+
+  <!-- Arrows: E1, E2 → dot product -->
+  <path d="M 270 135 L 300 135" stroke="#555" stroke-width="1.6" fill="none" marker-end="url(#arrow-f)"/>
+  <path d="M 270 285 L 300 285" stroke="#555" stroke-width="1.6" fill="none" marker-end="url(#arrow-f)"/>
+
+  <!-- [3] Scaled Dot-Product -->
+  <rect x="305" y="100" width="120" height="70" fill="#ECEFF1" stroke="#B0BEC5" stroke-width="1.5" rx="8"/>
+  <text x="365" y="127" font-size="13" font-weight="bold" fill="#333" text-anchor="middle">h_p · E_i</text>
+  <text x="365" y="147" font-size="11" fill="#888" text-anchor="middle">÷ τ  (τ = 150)</text>
+  <text x="365" y="163" font-size="9" fill="#B0BEC5" text-anchor="middle">Scaled dot-product</text>
+
+  <rect x="305" y="250" width="120" height="70" fill="#ECEFF1" stroke="#B0BEC5" stroke-width="1.5" rx="8"/>
+  <text x="365" y="277" font-size="13" font-weight="bold" fill="#333" text-anchor="middle">h_p · E_i</text>
+  <text x="365" y="297" font-size="11" fill="#888" text-anchor="middle">÷ τ  (τ = 150)</text>
+  <text x="365" y="313" font-size="9" fill="#B0BEC5" text-anchor="middle">Scaled dot-product</text>
+
+  <!-- Arrows: dot-product → Softmax (routed through top/bottom) -->
+  <path d="M 425 135 L 440 135 L 440 175 L 455 175" stroke="#555" stroke-width="1.6" fill="none" marker-end="url(#arrow-f)"/>
+  <path d="M 425 285 L 440 285 L 440 250 L 455 250" stroke="#555" stroke-width="1.6" fill="none" marker-end="url(#arrow-f)"/>
+
+  <!-- [4] Softmax -->
+  <rect x="460" y="140" width="55" height="145" fill="#37474F" rx="8"/>
+  <text x="487" y="218" font-size="14" font-weight="bold" fill="white" text-anchor="middle" transform="rotate(-90 487,218)">Softmax</text>
+
+  <!-- Arrow: Softmax → Weights -->
+  <path d="M 515 212 L 535 212" stroke="#555" stroke-width="1.6" fill="none"/>
+
+  <!-- [5] Attention Weights -->
+  <rect x="535" y="345" width="50" height="28" fill="white" stroke="#B0BEC5" stroke-width="1" rx="4"/>
+  <text x="560" y="364" font-size="12" font-weight="bold" fill="#555" text-anchor="middle">W_i</text>
+
+  <rect x="460" y="380" width="62" height="24" fill="#1E88E5" rx="4"/>
+  <text x="491" y="396" font-size="12" font-weight="bold" fill="white" text-anchor="middle">W₁ = 0.62</text>
+
+  <rect x="460" y="412" width="38" height="24" fill="#43A047" rx="4"/>
+  <text x="479" y="428" font-size="12" font-weight="bold" fill="white" text-anchor="middle">W₂ = 0.38</text>
+
+  <!-- FW reference -->
+  <line x1="500" y1="380" x2="500" y2="436" stroke="#9E9E9E" stroke-width="1.8" stroke-dasharray="5,3"/>
+  <text x="506" y="412" font-size="11" font-weight="bold" fill="#9E9E9E">FW = 1/2</text>
+
+  <!-- Transfer sum -->
+  <text x="450" y="465" font-size="11" fill="#555" text-anchor="middle">x_trans = Σ W_i · x_t^i</text>
+
+  <!-- ============ RIGHT PANEL: 3-source ============ -->
+  <rect x="565" y="15" width="515" height="36" fill="#FFEBEE" rx="6"/>
+  <text x="822" y="38" font-size="15" font-weight="bold" fill="#C62828" text-anchor="middle">Condition B: 3-source candidate pool [E₁, E₂, E₃],  K = 3</text>
+
+  <!-- [1] Query -->
+  <rect x="570" y="170" width="95" height="90" fill="#7B1FA2" rx="8"/>
+  <text x="617" y="210" font-size="15" font-weight="bold" fill="white" text-anchor="middle">Query h_p</text>
+  <text x="617" y="230" font-size="11" fill="#E1BEE7" text-anchor="middle">Projection</text>
+  <text x="617" y="247" font-size="11" fill="#E1BEE7" text-anchor="middle">Network output</text>
+
+  <!-- Arrows: Query → E1, E2, E3 -->
+  <path d="M 665 200 L 685 200 L 685 95 L 710 95" stroke="#555" stroke-width="1.6" fill="none" marker-end="url(#arrow-f)"/>
+  <path d="M 665 215 L 710 215" stroke="#555" stroke-width="1.6" fill="none" marker-end="url(#arrow-f)"/>
+  <path d="M 665 230 L 685 230 L 685 335 L 710 335" stroke="#555" stroke-width="1.6" fill="none" marker-end="url(#arrow-f)"/>
+
+  <!-- [2] Candidate Embeddings -->
+  <rect x="715" y="72" width="100" height="46" fill="#1E88E5" rx="6"/>
+  <text x="765" y="100" font-size="14" font-weight="bold" fill="white" text-anchor="middle">E₁ (Income)</text>
+
+  <rect x="715" y="192" width="100" height="46" fill="#43A047" rx="6"/>
+  <text x="765" y="220" font-size="14" font-weight="bold" fill="white" text-anchor="middle">E₂ (Marital)</text>
+
+  <!-- E3 with "added" highlight -->
+  <rect x="710" y="305" width="110" height="56" fill="none" stroke="#D32F2F" stroke-width="2" stroke-dasharray="4,3" rx="8"/>
+  <rect x="715" y="312" width="100" height="46" fill="#FB8C00" rx="6"/>
+  <text x="765" y="340" font-size="14" font-weight="bold" fill="white" text-anchor="middle">E₃ (Education)</text>
+  <rect x="700" y="298" width="50" height="18" fill="#D32F2F" rx="4"/>
+  <text x="725" y="311" font-size="10" font-weight="bold" fill="white" text-anchor="middle">added</text>
+
+  <!-- Arrows: E1,E2,E3 → dot product -->
+  <path d="M 815 95 L 845 95" stroke="#555" stroke-width="1.6" fill="none" marker-end="url(#arrow-f)"/>
+  <path d="M 815 215 L 845 215" stroke="#555" stroke-width="1.6" fill="none" marker-end="url(#arrow-f)"/>
+  <path d="M 815 335 L 845 335" stroke="#555" stroke-width="1.6" fill="none" marker-end="url(#arrow-f)"/>
+
+  <!-- [3] Scaled Dot-Product -->
+  <rect x="850" y="65" width="110" height="60" fill="#ECEFF1" stroke="#B0BEC5" stroke-width="1.5" rx="8"/>
+  <text x="905" y="88" font-size="13" font-weight="bold" fill="#333" text-anchor="middle">h_p · E_i</text>
+  <text x="905" y="106" font-size="11" fill="#888" text-anchor="middle">÷ τ  (τ = 150)</text>
+
+  <rect x="850" y="185" width="110" height="60" fill="#ECEFF1" stroke="#B0BEC5" stroke-width="1.5" rx="8"/>
+  <text x="905" y="208" font-size="13" font-weight="bold" fill="#333" text-anchor="middle">h_p · E_i</text>
+  <text x="905" y="226" font-size="11" fill="#888" text-anchor="middle">÷ τ  (τ = 150)</text>
+
+  <rect x="850" y="305" width="110" height="60" fill="#ECEFF1" stroke="#B0BEC5" stroke-width="1.5" rx="8"/>
+  <text x="905" y="328" font-size="13" font-weight="bold" fill="#333" text-anchor="middle">h_p · E_i</text>
+  <text x="905" y="346" font-size="11" fill="#888" text-anchor="middle">÷ τ  (τ = 150)</text>
+
+  <!-- Arrows: dot-product → Softmax -->
+  <path d="M 960 95 L 975 95 L 975 180 L 985 180" stroke="#555" stroke-width="1.6" fill="none" marker-end="url(#arrow-f)"/>
+  <path d="M 960 215 L 985 215" stroke="#555" stroke-width="1.6" fill="none" marker-end="url(#arrow-f)"/>
+  <path d="M 960 335 L 975 335 L 975 255 L 985 255" stroke="#555" stroke-width="1.6" fill="none" marker-end="url(#arrow-f)"/>
+
+  <!-- [4] Softmax -->
+  <rect x="990" y="125" width="50" height="185" fill="#37474F" rx="8"/>
+  <text x="1015" y="218" font-size="14" font-weight="bold" fill="white" text-anchor="middle" transform="rotate(-90 1015,218)">Softmax</text>
+
+  <!-- Arrow: Softmax → Weights -->
+  <path d="M 1040 218 L 1055 218" stroke="#555" stroke-width="1.6" fill="none"/>
+
+  <!-- [5] Attention Weights + Dilution -->
+  <rect x="1055" y="345" width="45" height="24" fill="white" stroke="#B0BEC5" stroke-width="1" rx="4"/>
+  <text x="1077" y="362" font-size="12" font-weight="bold" fill="#555" text-anchor="middle">W_i</text>
+
+  <!-- Weight bars (left-aligned, positioned below the flow) -->
+  <rect x="720" y="385" width="75" height="26" fill="#1E88E5" rx="4"/>
+  <text x="757" y="403" font-size="13" font-weight="bold" fill="white" text-anchor="middle">W₁ = 0.47</text>
+
+  <rect x="720" y="418" width="48" height="26" fill="#43A047" rx="4"/>
+  <text x="744" y="436" font-size="13" font-weight="bold" fill="white" text-anchor="middle">W₂ = 0.30</text>
+
+  <rect x="720" y="451" width="37" height="26" fill="#FB8C00" rx="4"/>
+  <text x="738" y="469" font-size="13" font-weight="bold" fill="white" text-anchor="middle">W₃ = 0.23</text>
+
+  <!-- Dilution arrows -->
+  <text x="640" y="403" font-size="11" font-weight="bold" fill="#D32F2F" text-anchor="middle">↓ 0.15</text>
+  <path d="M 715 398 L 695 398" stroke="#D32F2F" stroke-width="2" fill="none" marker-end="url(#arrow-red-f)"/>
+
+  <text x="640" y="436" font-size="11" font-weight="bold" fill="#D32F2F" text-anchor="middle">↓ 0.08</text>
+  <path d="M 715 431 L 695 431" stroke="#D32F2F" stroke-width="2" fill="none" marker-end="url(#arrow-red-f)"/>
+
+  <!-- Dilution label box -->
+  <rect x="590" y="445" width="120" height="26" fill="#FFF5F5" stroke="#D32F2F" stroke-width="1.5" rx="6"/>
+  <text x="650" y="462" font-size="11" font-weight="bold" fill="#D32F2F" text-anchor="middle">E₃ dilutes W₁ and W₂</text>
+
+  <!-- FW reference (vertical line) -->
+  <line x1="800" y1="383" x2="800" y2="475" stroke="#9E9E9E" stroke-width="1.8" stroke-dasharray="5,3"/>
+  <text x="806" y="433" font-size="11" font-weight="bold" fill="#9E9E9E">FW = 1/3</text>
+
+  <!-- Transfer sum -->
+  <text x="800" y="468" font-size="11" fill="#555" text-anchor="middle">x_trans = Σ W_i · x_t^i</text>
+
+</svg>

@@ -1,0 +1,64 @@
+\relax 
+\providecommand\hyper@newdestlabel[2]{}
+\providecommand\HyField@AuxAddToFields[1]{}
+\providecommand\HyField@AuxAddToCoFields[2]{}
+\citation{ma2018modeling,tang2020progressive}
+\citation{crawshaw2020multitask}
+\citation{bai2025efficient}
+\citation{bai2025efficient}
+\@writefile{toc}{\contentsline {section}{Abstract}{1}{section*.1}\protected@file@percent }
+\@writefile{toc}{\contentsline {section}{\numberline {1}Introduction}{1}{section.1}\protected@file@percent }
+\@writefile{lof}{\contentsline {figure}{\numberline {1}{\ignorespaces \textbf  {Experimental design and causal manipulation.} Stage\nonbreakingspace 1 (top): 3-task backbone pre-trained on $T_1$ (Income), $T_2$ (Marital), $T_3$ (Education), then frozen. Stage\nonbreakingspace 2 (bottom): for new task $T_4$, only the projection network and tower are trained. \textbf  {Condition A}: softmax over $[E_1,E_2]$. \textbf  {Condition B}: softmax over $[E_1,E_2,E_3]$. The backbone is identical across conditions $\Rightarrow $ $\Delta $(B$-$A) is causal. FW serves as control ($\Delta _{FW} \approx 0$).}}{1}{figure.caption.5}\protected@file@percent }
+\providecommand*\caption@xref[2]{\@setref\relax\@undefined{#1}}
+\newlabel{fig:framework}{{1}{1}{\textbf {Experimental design and causal manipulation.} Stage~1 (top): 3-task backbone pre-trained on $T_1$ (Income), $T_2$ (Marital), $T_3$ (Education), then frozen. Stage~2 (bottom): for new task $T_4$, only the projection network and tower are trained. \textbf {Condition A}: softmax over $[E_1,E_2]$. \textbf {Condition B}: softmax over $[E_1,E_2,E_3]$. The backbone is identical across conditions $\Rightarrow $ $\Delta $(B$-$A) is causal. FW serves as control ($\Delta _{FW} \approx 0$)}{figure.caption.5}{}}
+\newlabel{fig:framework@cref}{{[figure][1][]1}{[1][1][]1}{}{}{}}
+\citation{asuncion2007uci}
+\@writefile{lof}{\contentsline {figure}{\numberline {2}{\ignorespaces \textbf  {Attention mechanism under pool size manipulation.} \textbf  {Left (Condition A, 2-source):} Query $\mathbf  {h}_p$ attends over $[\mathbf  {E}_1, \mathbf  {E}_2]$ via scaled dot-product ($\div \tau =150$) followed by softmax, producing weights $W_1, W_2$. \textbf  {Right (Condition B, 3-source):} $\mathbf  {E}_3$ enters the candidate pool. The softmax now distributes attention over 3 candidates, diluting $W_1$ (0.62$\rightarrow $0.47) and $W_2$ (0.38$\rightarrow $0.30). When $\mathbf  {E}_3$ carries task-relevant signal, the dilution is offset by useful information from the new candidate. When $\mathbf  {E}_3$ is irrelevant, the dilution is pure noise. Red arrows mark the ``dilution effect.'' Dashed gray lines show the fixed-weight baseline (FW), demonstrating that FW is unaffected by pool size.}}{2}{figure.caption.6}\protected@file@percent }
+\newlabel{fig:attention_detail}{{2}{2}{\textbf {Attention mechanism under pool size manipulation.} \textbf {Left (Condition A, 2-source):} Query $\mathbf {h}_p$ attends over $[\mathbf {E}_1, \mathbf {E}_2]$ via scaled dot-product ($\div \tau =150$) followed by softmax, producing weights $W_1, W_2$. \textbf {Right (Condition B, 3-source):} $\mathbf {E}_3$ enters the candidate pool. The softmax now distributes attention over 3 candidates, diluting $W_1$ (0.62$\rightarrow $0.47) and $W_2$ (0.38$\rightarrow $0.30). When $\mathbf {E}_3$ carries task-relevant signal, the dilution is offset by useful information from the new candidate. When $\mathbf {E}_3$ is irrelevant, the dilution is pure noise. Red arrows mark the ``dilution effect.'' Dashed gray lines show the fixed-weight baseline (FW), demonstrating that FW is unaffected by pool size}{figure.caption.6}{}}
+\newlabel{fig:attention_detail@cref}{{[figure][2][]2}{[1][2][]2}{}{}{}}
+\@writefile{toc}{\contentsline {section}{\numberline {2}Experimental Design}{2}{section.2}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {2.1}Two-Stage Framework}{2}{subsection.2.1}\protected@file@percent }
+\newlabel{eq:attention}{{1}{2}{Two-Stage Framework}{equation.1}{}}
+\newlabel{eq:attention@cref}{{[equation][1][]1}{[1][2][]2}{}{}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {2.2}The Causal Manipulation}{2}{subsection.2.2}\protected@file@percent }
+\@writefile{lof}{\contentsline {figure}{\numberline {3}{\ignorespaces \textbf  {T4 causal experiment results.} Left: $T_4$=Sex ($\rho \approx 0.015$); Right: $T_4$=Race ($\max \rho \approx 0.02$). Bars: Prompt (blue), KL-Prompt (purple), FW (orange). Error bars: $\pm 1$ std (3 seeds). Red annotations: $\Delta $(B$-$A) for Prompt---positive on Sex ($+0.0058$), negative on Race ($-0.0041$). FW is immune ($\Delta < \pm 0.001$).}}{2}{figure.caption.7}\protected@file@percent }
+\newlabel{fig:t4}{{3}{2}{\textbf {T4 causal experiment results.} Left: $T_4$=Sex ($\rho \approx 0.015$); Right: $T_4$=Race ($\max \rho \approx 0.02$). Bars: Prompt (blue), KL-Prompt (purple), FW (orange). Error bars: $\pm 1$ std (3 seeds). Red annotations: $\Delta $(B$-$A) for Prompt---positive on Sex ($+0.0058$), negative on Race ($-0.0041$). FW is immune ($\Delta < \pm 0.001$)}{figure.caption.7}{}}
+\newlabel{fig:t4@cref}{{[figure][3][]3}{[1][2][]2}{}{}{}}
+\@writefile{lot}{\contentsline {table}{\numberline {1}{\ignorespaces Mean test AUC $\pm $ std over 3 seeds. $\Delta $ = B(3src) $-$ A(2src). \textbf  {Bold} marks the best mode per condition.}}{2}{table.caption.8}\protected@file@percent }
+\newlabel{tab:t4}{{1}{2}{Mean test AUC $\pm $ std over 3 seeds. $\Delta $ = B(3src) $-$ A(2src). \textbf {Bold} marks the best mode per condition}{table.caption.8}{}}
+\newlabel{tab:t4@cref}{{[table][1][]1}{[1][2][]2}{}{}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {2.3}Fusion Modes}{2}{subsection.2.3}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {2.4}Dataset and Setup}{2}{subsection.2.4}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {2.5}Validity Check}{2}{subsection.2.5}\protected@file@percent }
+\bibcite{bai2025efficient}{{1}{}{{}}{{}}}
+\bibcite{ma2018modeling}{{2}{}{{}}{{}}}
+\bibcite{tang2020progressive}{{3}{}{{}}{{}}}
+\bibcite{crawshaw2020multitask}{{4}{}{{}}{{}}}
+\bibcite{wang2023multi}{{5}{}{{}}{{}}}
+\bibcite{ruder2017overview}{{6}{}{{}}{{}}}
+\bibcite{lester2021power}{{7}{}{{}}{{}}}
+\bibcite{caruana1997multitask}{{8}{}{{}}{{}}}
+\bibcite{asuncion2007uci}{{9}{}{{}}{{}}}
+\bibcite{ma2018entire}{{10}{}{{}}{{}}}
+\bibcite{su2023stem}{{11}{}{{}}{{}}}
+\bibcite{sun2020learning}{{12}{}{{}}{{}}}
+\newlabel{tocindent-1}{0pt}
+\newlabel{tocindent0}{0pt}
+\newlabel{tocindent1}{4.185pt}
+\newlabel{tocindent2}{10.34999pt}
+\newlabel{tocindent3}{0pt}
+\newlabel{tocindent4}{0pt}
+\newlabel{tocindent5}{0pt}
+\providecommand\NAT@force@numbers{}\NAT@force@numbers
+\@writefile{toc}{\contentsline {section}{\numberline {3}Results}{3}{section.3}\protected@file@percent }
+\newlabel{sec:results}{{3}{3}{Results}{section.3}{}}
+\newlabel{sec:results@cref}{{[section][3][]3}{[1][2][]3}{}{}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {3.1}Main Finding: Causal Direction Depends on Task Affinity}{3}{subsection.3.1}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {3.2}KL-Prompt as a Practical Compromise}{3}{subsection.3.2}\protected@file@percent }
+\@writefile{toc}{\contentsline {section}{\numberline {4}Discussion}{3}{section.4}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {4.1}Implications}{3}{subsection.4.1}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {4.2}Limitations}{3}{subsection.4.2}\protected@file@percent }
+\@writefile{toc}{\contentsline {section}{\numberline {5}Conclusion}{3}{section.5}\protected@file@percent }
+\@writefile{toc}{\contentsline {section}{References}{3}{section*.10}\protected@file@percent }
+\newlabel{TotPages}{{3}{3}{}{page.3}{}}
+\gdef \@abspage@last{3}

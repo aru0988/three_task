@@ -144,8 +144,8 @@ def main(args):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument("--uni_coe", type=float, default=0)
-    parser.add_argument("--env_coe", type=float, default=0)
+    parser.add_argument("--uni_coe", type=float, default=0.9)
+    parser.add_argument("--env_coe", type=float, default=0.1)
     parser.add_argument("--reg_embedding", type=float, default=0.006)
     parser.add_argument("--reg_dnn", type=float, default=3e-5)
     parser.add_argument("--gpu", type=int, default=0)

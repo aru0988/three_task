@@ -313,8 +313,8 @@ def main():
                         choices=["prompt", "fw", "tes"])
     parser.add_argument("--skip_finetune", action="store_true",
                         help="Only do 2-task pretraining (Figure 4)")
-    parser.add_argument("--uni_coe", type=float, default=0)
-    parser.add_argument("--env_coe", type=float, default=0)
+    parser.add_argument("--uni_coe", type=float, default=0.9)
+    parser.add_argument("--env_coe", type=float, default=0.1)
     parser.add_argument("--reg_embedding", type=float, default=0.006)
     parser.add_argument("--reg_dnn", type=float, default=3e-5)
     parser.add_argument("--gpu", type=int, default=0)

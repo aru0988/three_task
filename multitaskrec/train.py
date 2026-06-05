@@ -372,6 +372,7 @@ class MPTRecTrainManager(TrainManager):
         self.batch_size = batch_size
         self.uni_coe = uni_coe
         self.env_coe = env_coe
+        print(f"[VERIFY] MPTRecTrainManager: uni_coe={self.uni_coe}, env_coe={self.env_coe}, variant={self.model.variant}")
 
         self.uni_loss_0_list = []
         self.uni_loss_1_list = []

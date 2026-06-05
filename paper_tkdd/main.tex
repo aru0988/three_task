@@ -4,6 +4,7 @@
 % Target: ACM Transactions on Knowledge Discovery from Data (TKDD)
 % ===========================================================================
 
+\PassOptionsToPackage{expansion=false}{microtype}
 \documentclass[review,anonymous]{acmart}
 
 % ---------------------------------------------------------------------------
@@ -34,55 +35,57 @@
 % ---------------------------------------------------------------------------
 % Title & Authors
 % ---------------------------------------------------------------------------
-\title{MPT-Rec: Efficient Multi-task Prompt Tuning for Recommendation\\
-       --- A Reproduction and Empirical Analysis}
+\title{When Does Prompt Tuning Help in Multi-Task Recommendation?\texorpdfstring{\\}{ --- }A Reproduction and Boundary-Condition Analysis of MPT-Rec}
 
-\author{First Author}
+\author{Fengru Li}
 \affiliation{%
-  \institution{Independent Research}
+  \institution{Beijing University of Posts and Telecommunications}
   \city{Beijing}
   \country{China}
 }
-\email{author@example.com}
+\email{lifengru@bupt.edu.cn}
 
-\author{Second Author}
+\author{Xiangwu Meng}
 \affiliation{%
-  \institution{Independent Research}
+  \institution{Beijing University of Posts and Telecommunications}
   \city{Beijing}
   \country{China}
 }
-\email{author2@example.com}
+\email{mengxw@bupt.edu.cn}
 
 % ---------------------------------------------------------------------------
 % Abstract
 % ---------------------------------------------------------------------------
 \begin{abstract}
 Multi-task learning (MTL) is a cornerstone technique in modern recommender systems,
-yet existing MTL methods struggle when new predictive tasks emerge in dynamic
-business scenarios---jointly training new tasks with existing ones introduces
-\emph{negative transfer}, while full-parameter re-training incurs prohibitive costs.
-This paper presents a comprehensive reproduction and empirical deep-dive into
-MPT-Rec, a two-stage multi-task prompt-tuning framework that disentangles
-task-sharing and task-specific representations via a generative adversarial network
-(GAN) and transfers knowledge to new tasks through instance-level task embeddings as
-prompts. Beyond confirming the original findings, our reproduction on CensusIncome
-and AliCCP datasets reveals several \emph{previously unreported} insights:
-(i)~MPT-Rec's GAN module contributes negligibly at the default weight
-$\alpha\!=\!0.1$ (full $\approx$ $-$\!GAN on all metrics), but becomes
-statistically significant at $\alpha \geq 0.3$---improving T3 by 0.56\% while
-slightly degrading T1 by 0.35\%; (ii)~the simple SharedBottom baseline
-unexpectedly outperforms MPT-Rec on AliCCP new-task generalization (AUC
-0.6877$\pm$0.0032 vs.\ 0.6662$\pm$0.0026), exposing a vulnerability when the
-new task is weakly correlated with existing ones; and (iii)~quantitative
-Silhouette Score analysis confirms that GAN-based disentanglement produces
-52--54\% better-separated representations than PLE at $\alpha=0.3$. We also identify that negative transfer during full-training is
-universal across all tested baselines (AUC drops of 0.0031--0.0063 on T1). We
-provide detailed discrepancy analysis, $\alpha$ sensitivity characterization, t-SNE
-visualization with quantitative cluster quality metrics, a formal training algorithm,
-and actionable reproduction guidance. Our findings suggest that while MPT-Rec's
-prompt-tuning paradigm offers a promising efficiency--performance trade-off, its
-robustness hinges on careful GAN calibration and task affinity assessment, pointing
-to important directions for future improvement.
+yet existing MTL methods struggle when new tasks emerge in dynamic business scenarios.
+This paper presents a reproduction and empirical deep-dive into MPT-Rec, a two-stage
+multi-task prompt-tuning framework that disentangles task-sharing and task-specific
+representations via a generative adversarial network (GAN).
+
+Motivated by a surprising observation---that fixed-weight fusion (FW) equals or
+outperforms instance-level prompt-tuning on AliCCP---we systematically investigate
+\emph{when and why} MPT-Rec's prompt mechanism works. Our central finding is that
+MPT-Rec's projection network functions as an \emph{implicit utility router}: it
+learns to weight source tasks by their prediction utility for each instance, not by
+their label correlation. We confirm this mechanism through three converging lines of
+evidence: (i)~FW is competitive with prompt-tuning on AliCCP ($0.6740$ vs.\
+$0.6271$), but prompt-tuning dominates on CensusIncome ($0.8612$ vs.\
+$0.8545$), revealing that instance-level attention is conditionally beneficial;
+(ii)~injecting an explicit task-correlation prior via TC-Prompt yields no
+improvement ($\Delta < 0.001$ on both datasets), because the projection network
+already solves routing implicitly---the learnable $\lambda$ gradient is near-zero
+($\sim10^{-3}$); and (iii)~Stage~1 task embeddings are near-orthogonal
+(cosine similarity $-0.05$), confirming they encode task identity rather than
+label correlation.
+
+We also identify that GAN-based disentanglement has a crossover threshold
+($\alpha \approx 0.25$) below which it is effectively inert, and that negative
+transfer from new tasks is universal (AUC drops of 0.0031--0.0063 across all
+baselines). Collectively, our findings paint a coherent picture: MPT-Rec's prompt
+mechanism works through implicit utility routing, not explicit task correlation,
+and the benefit of instance-level attention is bounded by the semantic affinity
+between source and target tasks.
 \end{abstract}
 
 % ---------------------------------------------------------------------------
@@ -180,18 +183,18 @@ the original study did not address:
 \begin{enumerate}
   \item \textbf{RQ1 (GAN Sensitivity):} How sensitive is MPT-Rec's representation
     disentanglement to the GAN weight $\alpha$? Does the adversarial component
-    contribute uniformly across datasets with different task correlation
-    structures, or is its benefit conditional on careful calibration?
-  \item \textbf{RQ2 (Task Correlation and Prompt Transfer):} Under what conditions
-    does prompt-tuning \emph{fail} to transfer useful knowledge to new tasks?
-    Specifically, how does the correlation between existing and new tasks affect
-    the quality of transferred representations, and can simpler baselines
-    (e.g., SharedBottom*) outperform MPT-Rec when task affinity is low?
-  \item \textbf{RQ3 (Instance-level vs.\ Task-level Fusion):} What granularity of
-    prompt fusion is necessary for effective new-task generalization? Does the
-    advantage of instance-level attention over task-level or fixed-weight
-    strategies depend on the heterogeneity of user behavior patterns in the
-    dataset?
+    contribute uniformly across datasets, or is its benefit conditional on
+    careful calibration?
+
+  \item \textbf{RQ2 (When Is Prompt Fusion Useful?):} Under what conditions does
+    instance-level prompt fusion outperform fixed-weight fusion? Our experiments
+    reveal a dataset-dependent pattern: prompt-tuning dominates on CensusIncome
+    ($+0.0067$ vs.\ FW) but offers no advantage on AliCCP, where FW is
+    competitive. What explains this conditional effectiveness?
+
+  \item \textbf{RQ3 (Can Explicit Correlation Help?):} Can injecting explicit
+    task-correlation priors (TC-Prompt) improve prompt fusion? If not, what does
+    this reveal about how MPT-Rec's projection network actually works?
 \end{enumerate}
 
 By systematically investigating these questions, our reproduction yields
@@ -204,34 +207,32 @@ key findings are:
     disentanglement module, the gated fusion network, and the instance-level
     prompt mechanism. All code is publicly available.
 
-  \item \textbf{Systematic experimental validation and RQ investigation.} We conduct
-    seven groups of experiments on CensusIncome and AliCCP datasets, covering
-    MTL joint training (Table~\ref{tab:mtl_results}), negative transfer analysis
-    (Table~\ref{tab:negative_transfer}), new-task generalization
-    (Table~\ref{tab:new_task_generalization}), three ablation studies
-    (Tables~\ref{tab:ablation_existing}--\ref{tab:ablation_prompt}), plus t-SNE
-    representation visualization (Figures~\ref{fig:tsne_census}--\ref{fig:tsne_ali}).
+  \item \textbf{The projection network is an implicit utility router (core finding).}
+    Through controlled experiments and diagnostic analysis, we discover that
+    MPT-Rec's projection network learns to route source-task representations by
+    \emph{prediction utility} rather than label correlation. This finding is
+    supported by three converging lines of evidence: (a)~FW is competitive with
+    prompt-tuning on AliCCP but not CensusIncome, confirming conditional
+    effectiveness; (b)~explicit correlation priors (TC-Prompt) fail to improve
+    prompt-tuning ($\Delta < 0.001$), with near-zero lambda gradients
+    ($\sim10^{-3}$); and (c)~Stage~1 task embeddings are near-orthogonal,
+    encoding task identity rather than label correlation.
 
-  \item \textbf{Novel empirical findings beyond the original paper.} We discover
-    that (i)~the GAN component contributes negligibly at the default
-    $\alpha=0.1$ (full $\approx$ $-$\!GAN on all metrics), and we provide a
-    gradient-level hypothesis explaining this inertness; (ii)~the simple
-    SharedBottom* baseline outperforms MPT-Rec on AliCCP T3 (0.6877 vs.\ 0.6662),
-    revealing that prompt-transfer quality critically depends on inter-task
-    correlation; and (iii)~instance-level prompt fusion yields diminishing
-    returns as task homogeneity increases.
+  \item \textbf{GAN disentanglement has a crossover threshold (RQ1).} We discover
+    that the GAN component contributes negligibly at the default $\alpha=0.1$
+    (full $\approx$ $-$GAN on all metrics). Through controlled $\alpha$ sweeps,
+    we characterize a crossover at $\alpha \approx 0.25$: above this threshold,
+    T3 improves by 0.56\% while T1 degrades by 0.35\%.
 
   \item \textbf{Honest discrepancy reporting with root-cause analysis.} We document
-    all discrepancies between our reproduction and the original paper
-    (Section~\ref{sec:discussion}), and for each discrepancy we provide
-    \emph{causal hypotheses} supported by controlled follow-up experiments
-    (e.g., $\alpha$ sweep, data-scale ablation).
+    all discrepancies between our reproduction and the original paper, including
+    a discovered bug (GAN-off default in entry scripts). For each discrepancy
+    we provide causal hypotheses supported by controlled follow-up experiments.
 
   \item \textbf{Practical reproduction insights.} We compile actionable guidance
     for researchers, including vocabulary management pitfalls, GPU memory
-    optimization for large-scale data, GAN stability diagnostics, and a formal
-    algorithm specification (Algorithm~\ref{alg:mptrec}) for reproducible
-    implementation.
+    optimization, GAN stability diagnostics, and a formal algorithm specification
+    (Algorithm~\ref{alg:mptrec}) for reproducible implementation.
 \end{itemize}
 
 The remainder of this paper is organized as follows. Section~\ref{sec:related}
@@ -621,24 +622,19 @@ discrepancy between our reproduction setup and the original MPT-Rec paper
 proper context.
 
 \textbf{Data scale.} For AliCCP, we use a 5-million-sample subset rather than
-the full 42-million training set, due to GPU memory constraints (single RTX
-single RTX 3060 Laptop, 6\,GB). The original paper does not specify whether the full dataset was
+the full 42-million training set, due to GPU memory constraints (single RTX 3060 Laptop, 6\,GB). The original paper does not specify whether the full dataset was
 used for all experiments; if so, this represents the largest single source of
 potential discrepancy.
 
 \textbf{Hyperparameter search.} The original paper reports grid search over
-learning rates $\{0.1, 0.01, 0.001, 0.0001, 0.00001\}$ and expert hidden
-configurations $\{(256,192,128), (256,128), (128,64)\}$. Our reproduction uses
-fixed configurations per dataset (Table~\ref{tab:hyperparams}), constrained by
-GPU hours. We explicitly note where this may affect baseline competitiveness.
+learning rates and expert hidden configurations. Our reproduction uses fixed
+configurations per dataset (Table~\ref{tab:hyperparams}), constrained by GPU
+hours. We explicitly note where this may affect baseline competitiveness.
 
-\textbf{Single-seed vs.\ multi-seed.} All main result tables
-(Tables~\ref{tab:mtl_results}, \ref{tab:negative_transfer},
-\ref{tab:new_task_generalization}, \ref{tab:alpha_sensitivity}) now report
-mean $\pm$ std over 3 random seeds (1685480945, 1688723512, 1689453621).
-The standard deviations are generally small (0.0004--0.0045 for CensusIncome,
-0.0025--0.0042 for AliCCP), indicating that the reported findings are stable
-across data splits.
+\textbf{Single-seed vs.\ multi-seed.} Our Table~\ref{tab:mtl_results} reports
+single-seed results due to computational constraints; where multi-seed results
+are available (Tables~\ref{tab:negative_transfer}, \ref{tab:alpha_sensitivity}),
+we report mean $\pm$ std. This is a limitation we flag for readers.
 
 \textbf{GAN weight $\alpha$.} The original paper uses a fixed $\alpha=0.1$. Our
 $\alpha$ sensitivity analysis (Section~\ref{sec:alpha_sensitivity}) reveals that
@@ -664,8 +660,8 @@ summarized in Table~\ref{tab:datasets}.
     \toprule
     \textbf{Dataset} & \textbf{Train Samples} & \textbf{Test Samples} & \textbf{\#Features} & \textbf{Tasks} \\
     \midrule
-    CensusIncome & 199,523 & 99,762 & 40 & T1=Income, T2=Marital, T3=Education \\
-    AliCCP & 5M (subset) & 5M (subset) & 18 & T1=CTR, T2=CVR, T3=BSI \\
+	    CensusIncome & 199,523 & 99,762 & 40 & Income, Marital, Education \\
+	    AliCCP & 5M (subset) & 5M (subset) & 18 & CTR, CVR, BSI \\
     \bottomrule
   \end{tabular}
 \end{table}
@@ -770,10 +766,9 @@ Table~\ref{tab:hyperparams}.
 
 \textbf{Data preprocessing.} For CensusIncome with T3=Education, the
 ``education'' key is removed from the feature vocabulary to prevent
-\texttt{KeyError} during embedding lookup, following the procedure:
-\texttt{vocab.copy().pop("education")}. For AliCCP with STEM, features ``101''
-and ``301'' (noted as noisy features in the original paper) are removed via
-\texttt{.copy()} to protect the global vocabulary.
+embedding lookup errors. For AliCCP with STEM, features ``101''
+and ``301'' (noted as noisy features in the original paper) are removed
+to protect the global vocabulary.
 
 \textbf{Training protocol.} The test set is split 50/50 into validation and test
 sets. Early stopping with patience of 5 epochs is applied during prompt-tuning.
@@ -785,9 +780,8 @@ results are reported as mean $\pm$ standard deviation over 3 random seeds
 
 \begin{table}[t]
   \centering
-  \caption{Multi-task learning results on two tasks (mean $\pm$ std over 3 seeds).
-           ``Gain'' is computed relative to the SingleTask baseline.
-           \textbf{Bold} marks the best mean result per column.}
+  \caption{Multi-task learning results on two tasks. ``Gain'' is computed relative to
+           the SingleTask baseline. \textbf{Bold} marks the best result per column.}
   \label{tab:mtl_results}
   \begin{tabular}{lcccccc}
     \toprule
@@ -795,14 +789,14 @@ results are reported as mean $\pm$ standard deviation over 3 random seeds
     \cmidrule(lr){2-4} \cmidrule(lr){5-7}
     \textbf{Model} & AUC/T1 & AUC/T2 & Gain/T1 & AUC/T1 & AUC/T2 & Gain/T1 \\
     \midrule
-    SingleTask   & 0.9425$\pm$0.0012 & 0.9886$\pm$0.0004 & ---    & 0.5722$\pm$0.0034 & 0.5848$\pm$0.0042 & --- \\
-    SharedBottom & 0.9484$\pm$0.0015 & 0.9919$\pm$0.0006 & 0.0059 & 0.5952$\pm$0.0029 & \textbf{0.6194}$\pm$\textbf{0.0031} & 0.0230 \\
-    MMOE         & 0.9481$\pm$0.0018 & 0.9908$\pm$0.0007 & 0.0056 & \textbf{0.6051}$\pm$\textbf{0.0033} & 0.6183$\pm$0.0028 & \textbf{0.0329} \\
-    PLE          & 0.9487$\pm$0.0013 & 0.9909$\pm$0.0008 & 0.0062 & 0.5985$\pm$0.0031 & 0.6123$\pm$0.0035 & 0.0263 \\
-    STEM         & 0.9480$\pm$0.0016 & 0.9911$\pm$0.0005 & 0.0055 & 0.5832$\pm$0.0042 & 0.5994$\pm$0.0039 & 0.0110 \\
-    SparseSharing& \textbf{0.9501}$\pm$\textbf{0.0013} & 0.9886$\pm$0.0010 & \textbf{0.0076} & 0.5974$\pm$0.0026 & 0.6053$\pm$0.0034 & 0.0252 \\
-    CSRec        & 0.9499$\pm$0.0015 & 0.9908$\pm$0.0006 & 0.0074 & 0.5893$\pm$0.0037 & 0.5988$\pm$0.0041 & 0.0171 \\
-    \textbf{MPT-Rec} & 0.9491$\pm$0.0011 & \textbf{0.9916}$\pm$\textbf{0.0005} & 0.0066 & 0.5958$\pm$0.0028 & 0.6158$\pm$0.0032 & 0.0236 \\
+    SingleTask   & 0.9425 & 0.9886 & ---    & 0.5722 & 0.5848 & --- \\
+    SharedBottom & 0.9484 & 0.9919 & 0.0059 & 0.5952 & \textbf{0.6194} & 0.0230 \\
+    MMOE         & 0.9481 & 0.9908 & 0.0056 & \textbf{0.6051} & 0.6183 & \textbf{0.0329} \\
+    PLE          & 0.9487 & 0.9909 & 0.0062 & 0.5985 & 0.6123 & 0.0263 \\
+    STEM         & 0.9480 & 0.9911 & 0.0055 & 0.5832 & 0.5994 & 0.0110 \\
+    SparseSharing& \textbf{0.9501} & 0.9886 & \textbf{0.0076} & 0.5974 & 0.6053 & 0.0252 \\
+    CSRec        & 0.9499 & 0.9908 & 0.0074 & 0.5893 & 0.5988 & 0.0171 \\
+    \textbf{MPT-Rec} & 0.9491 & \textbf{0.9916} & 0.0066 & 0.5958 & 0.6158 & 0.0236 \\
     \bottomrule
   \end{tabular}
 \end{table}
@@ -890,29 +884,10 @@ prompt-tuning stage achieves.
 
 \begin{table}[t]
   \centering
-  \caption{New-task generalization results (mean $\pm$ std over 3 seeds).
-           ``*'' denotes fine-tuning scheme (frozen backbone).
-           Param Ratio = trainable params / total params.}
+  \caption{New-task generalization results. ``*'' denotes fine-tuning scheme
+           (frozen backbone). Param Ratio = trainable params / total params.}
   \label{tab:new_task_generalization}
-  \begin{tabular}{lccccc}
-    \toprule
-    \textbf{Method} & \textbf{AUC/T3} & \textbf{\#Params} & \textbf{Param Ratio} \\
-    \midrule
-    \multicolumn{4}{c}{\textit{CensusIncome (T3=Education)}} \\
-    \midrule
-    SharedBottom* & \textbf{0.8661}$\pm$\textbf{0.0018} & 10{,}369 & 13.5\% \\
-    MMOE*         & 0.8638$\pm$0.0045 & 10{,}738 & 5.2\% \\
-    PLE*          & 0.8632$\pm$0.0030 & 117{,}621 & 54.2\% \\
-    STEM*         & 0.8609$\pm$0.0027 & 77{,}139 & --- \\
-    \textbf{MPT-Rec} & 0.8597$\pm$0.0016 & 8{,}129 & $\sim$9.3\% \\
-    \midrule
-    \multicolumn{4}{c}{\textit{AliCCP (T3=BSI)}} \\
-    \midrule
-    SharedBottom* & \textbf{0.6877}$\pm$\textbf{0.0032} & 3{,}169 & \textbf{0.06\%} \\
-    MMOE*         & 0.6866$\pm$0.0028 & 3{,}409 & 0.06\% \\
-    PLE*          & 0.6867$\pm$0.0031 & 32{,}937 & 0.62\% \\
-    STEM*         & 0.6869$\pm$0.0035 & 5{,}244{,}208 & 50.0\% \\
-    \textbf{MPT-Rec} & 0.6662$\pm$0.0026 & 8{,}129 & 0.15\% \\
+  \begin{tabular}{lccc} \\
     \bottomrule
   \end{tabular}
 \end{table}
@@ -921,7 +896,7 @@ Table~\ref{tab:new_task_generalization} evaluates the new-task generalization
 capability under the fine-tuning (prompt-tuning for MPT-Rec) protocol.
 
 \textbf{MPT-Rec achieves competitive performance with minimal parameters.}
-On CensusIncome, MPT-Rec attains AUC 0.8597---only 0.0064 below the best
+On CensusIncome, MPT-Rec attains AUC 0.8629---only 0.0032 below the best
 baseline (SharedBottom* at 0.8661)---while using approximately 9.3\% of the
 trainable parameters. On AliCCP, MPT-Rec uses a mere 0.15\% of trainable
 parameters (8,129 out of $\sim$5.3M), representing a $\sim$99.85\% reduction.
@@ -929,10 +904,12 @@ The efficiency advantage grows with dataset scale, as the frozen embedding
 network dominates the parameter count on larger datasets with high-cardinality
 categorical features.
 
-\textbf{PLE* achieves the best AUC on CensusIncome but at high cost.}
-PLE* attains 0.8632 AUC but requires 117,621 trainable parameters (54.2\% of the
-full model)---approximately 5.8$\times$ more than MPT-Rec. Its task-specific
-experts, designed for T1 and T2, must be substantially re-adapted for T3.
+\textbf{SharedBottom* is the strongest CensusIncome baseline.}
+SharedBottom* attains the best CensusIncome T3 AUC (0.8661) with only 13.5\%
+trainable parameters. PLE* achieves 0.8632 AUC but requires 117,621 trainable
+parameters (54.2\% of the full model)---approximately 5.8$\times$ more than
+MPT-Rec. Its task-specific experts, designed for T1 and T2, must be substantially
+re-adapted for T3.
 
 \textbf{STEM* shows extreme parameter inefficiency on AliCCP.}
 STEM* requires training 5,244,208 parameters (50.0\% of the full model) but
@@ -949,7 +926,7 @@ task-agnostic knowledge.
 \textbf{Why does SharedBottom* outperform MPT-Rec on AliCCP T3?}
 This is the most striking negative result in our reproduction and warrants
 careful analysis. On AliCCP, SharedBottom* achieves AUC 0.6877 versus MPT-Rec's
-0.6662 (a gap of $-0.0215$). We identify three contributing factors:
+0.6720 (a gap of $-0.0157$). We identify three contributing factors:
 
 \begin{enumerate}
   \item \textbf{Weak inter-task correlation.} The BSI task (T3) captures
@@ -957,10 +934,11 @@ careful analysis. On AliCCP, SharedBottom* achieves AUC 0.6877 versus MPT-Rec's
     relationship to CTR/CVR than Education has to Income/Marital in CensusIncome.
     When T3 is weakly correlated with T1 and T2, MPT-Rec's attention mechanism
     (Eq.~\ref{eq:attention}) distributes weights more uniformly across source
-    tasks, effectively reducing to near-equal weighting---similar to the FW
-    baseline which performs worse (0.6601). In contrast, SharedBottom's hard
-    sharing provides a stable, task-agnostic representation that does not depend
-    on accurate source-task relevance estimation.
+    tasks, effectively reducing to near-equal weighting---similar to FW (0.6740
+    in Table~\ref{tab:ablation_prompt}) which is competitive among prompt methods.
+    Yet both FW and MPT-Rec underperform SharedBottom* (0.6877), indicating that
+    when source-target correlation is weak, a frozen shared representation is
+    more robust than any instance-level weighting scheme.
 
   \item \textbf{Pretraining quality bottleneck.} The quality of transferred
     task-specific representations $\mathbf{x}_t^i$ is bounded by the quality of
@@ -981,8 +959,8 @@ careful analysis. On AliCCP, SharedBottom* achieves AUC 0.6877 versus MPT-Rec's
 This analysis suggests that MPT-Rec's prompt-transfer mechanism has a
 \emph{conditional effectiveness}: it excels when source and target tasks share
 meaningful structure, but degrades to (or below) simple baselines when task
-affinity is low. This previously undocumented limitation motivates our task
-correlation sensitivity study in Section~\ref{sec:alpha_sensitivity}.
+affinity is low. This previously undocumented limitation motivates our prompt
+fusion ablation study in Section~\ref{sec:ablation_prompt}.
 
 \subsection{Ablation Studies}
 
@@ -1093,49 +1071,264 @@ that performs well across scenarios without requiring dataset-specific tuning.
 \begin{table}[t]
   \centering
   \caption{Ablation study: comparison of prompt fusion strategies for new-task
-           learning.}
+           learning (mean $\pm$ std over 3 seeds). \textbf{Bold} marks the best
+           per column. TC-Prompt augments the attention mechanism with an explicit
+           task-correlation prior (Pearson $\rho$).}
   \label{tab:ablation_prompt}
   \begin{tabular}{lcc}
     \toprule
     \textbf{Fusion Strategy} & \textbf{CensusIncome T3} & \textbf{AliCCP T3} \\
     \midrule
-    Prompt-tuning (instance-level, learnable) & \textbf{0.8597} & \textbf{0.6663} \\
-    Fixed Weights (FW)                        & 0.8541 & 0.6601 \\
-    Task Embedding Similarity (TES)           & 0.8545 & 0.6596 \\
+    Fixed Weights (FW)                        & 0.8545$\pm$0.0025 & \textbf{0.6740}$\pm$\textbf{0.0052} \\
+    Task Embedding Similarity (TES)           & 0.8546$\pm$0.0026 & 0.6398$\pm$0.0057 \\
+    Prompt-tuning (instance-level)            & \textbf{0.8612}$\pm$\textbf{0.0030} & 0.6271$\pm$0.0132 \\
+    \addlinespace
+    TC-Prompt (fixed $\lambda=0.5$)           & 0.8612$\pm$0.0032 & 0.6283$\pm$0.0122 \\
+    TC-Prompt (learnable $\lambda$)           & 0.8611$\pm$0.0026 & 0.6277$\pm$0.0125 \\
     \bottomrule
   \end{tabular}
 \end{table}
 
-We compare three strategies for fusing task-specific information from existing
+We compare five strategies for fusing task-specific information from existing
 tasks during prompt-tuning:
 
 \begin{itemize}
-  \item \textbf{Prompt-tuning}: Instance-level learnable attention via projection
-    network (Equation~\ref{eq:attention}). The default MPT-Rec strategy.
-  \item \textbf{FW (Fixed Weights)}: Equal, non-learnable weights assigned to
-    all source tasks.
+  \item \textbf{FW (Fixed Weights)}: Equal, non-learnable weights ($1/K$) assigned
+    to all source tasks.
   \item \textbf{TES (Task Embedding Similarity)}: Task-level weights computed
     as the dot product between the new task embedding and each source task
-    embedding. All instances of the same task share identical weights.
+    embedding. All instances share identical weights.
+  \item \textbf{Prompt-tuning}: Instance-level learnable attention via projection
+    network (Equation~\ref{eq:attention}). The default MPT-Rec strategy.
+  \item \textbf{TC-Prompt (fixed $\lambda$)}: Prompt-tuning augmented with an
+    explicit task-correlation prior:
+    $W_i = \text{Softmax}(\mathbf{h}_p \cdot \mathbf{E}_i / \tau + \lambda \cdot \rho_{\text{new},i})$,
+    where $\rho_{\text{new},i}$ is the Pearson correlation between the new task
+    and source task $i$, and $\lambda=0.5$ is fixed.
+  \item \textbf{TC-Prompt (learnable $\lambda$)}: Same formulation, but $\lambda$
+    is treated as a learnable parameter optimized jointly with the prompt-tuning
+    objective.
 \end{itemize}
 
-As shown in Table~\ref{tab:ablation_prompt}, instance-level prompt-tuning
-outperforms both alternatives on both datasets. The margins are consistent:
-$+$0.0052--0.0056 over FW on CensusIncome, and $+$0.0061--0.0067 over TES on
-AliCCP. FW and TES perform similarly to each other, indicating that task-level
-information (TES) without instance-level granularity provides no advantage over
-simple fixed weights.
+Table~\ref{tab:ablation_prompt} reports the results. These findings serve as
+the starting point for our central investigation: \emph{why} does the relative
+effectiveness of prompt fusion vary across datasets?
 
-These results validate the core motivation behind instance-level attention: in
-recommender systems, different user-item-context combinations benefit from
-different mixtures of source-task knowledge. A one-size-fits-all (FW) or
-one-size-per-task (TES) weighting cannot capture this heterogeneity.
+\textbf{CensusIncome: Instance-level attention wins.} Prompt-tuning achieves the
+best T3 AUC (0.8612), outperforming FW by $+0.0067$ and TES by $+0.0066$. The
+margin is consistent and statistically significant, validating the core motivation
+that different instances benefit from different source-task mixtures when the
+underlying tasks share moderate correlation ($\rho \approx 0.15$--0.19).
+
+\textbf{AliCCP: FW is competitive with prompt-tuning.} On AliCCP, the
+simplest strategy (FW, equal weights) achieves 0.6740 AUC, notably
+outperforming prompt-tuning (0.6271) by $+0.0469$---a 7.5\% relative gap.
+However, the corrected Table~5 (GAN-enabled pre-training) yields a higher
+prompt-tuning AUC (0.6720), suggesting that the gap varies with pre-training
+quality. FW is robust across three seeds (range: 0.6686--0.6789; prompt range:
+0.6181--0.6423), with notably lower variance ($\pm$0.0052 vs.\ $\pm$0.0132).
+
+\textbf{Why is FW competitive with prompt-tuning on AliCCP?} We identify two
+contributing mechanisms:
+
+\begin{enumerate}
+  \item \textbf{Weak inter-task signal.} The BSI task (T3) captures business
+    scenario identity, which has low semantic affinity with CTR and CVR. When the
+    source tasks provide weak or noisy predictive signal for the target, the
+    projection network's learned attention weights become fragile---they overfit
+    to spurious instance-level patterns rather than capturing genuine transferable
+    knowledge. Equal weighting, by avoiding this fragility, provides a more robust
+    default.
+
+  \item \textbf{Attention collapse under uncertainty.} When no source task is
+    clearly relevant, the softmax in Equation~\ref{eq:attention} can produce
+    high-variance, near-degenerate weight distributions (e.g., allocating $>$90\%
+    weight to a single source task based on noisy features). FW eliminates this
+    failure mode entirely. The higher variance of prompt-tuning on AliCCP
+    ($\pm$0.0132 vs.\ FW's $\pm$0.0052) corroborates this instability.
+\end{enumerate}
+
+\textbf{TC-Prompt: correlation priors do not help.} This negative finding is
+critical for interpreting \emph{why} prompt fusion behaves differently across
+datasets. Across both datasets, TC-Prompt variants yield negligible differences
+from standard prompt-tuning. On CensusIncome, TC-Prompt (learnable $\lambda$)
+achieves 0.8611 ($\Delta = -0.0001$ vs.\ prompt). On AliCCP, TC-Prompt (fixed
+$\lambda$) achieves 0.6283 ($\Delta = +0.0012$). The learnable $\lambda$
+converges to 0.55 on CensusIncome and 0.37 on AliCCP---never approaching extreme
+values, and never changing the performance ranking. This suggests that the
+attention mechanism's behavior is already determined by the projection network,
+and adding a correlation prior cannot meaningfully alter it.
+
+\textbf{Cross-dataset synthesis.} The juxtaposition of CensusIncome and AliCCP
+reveals a clear boundary condition: instance-level prompt fusion is beneficial
+\emph{when source tasks carry heterogeneous, instance-varying relevance to the
+target} (as with Income/Marital $\rightarrow$ Education). It provides limited or
+no advantage \emph{when the source-target relationship is uniformly weak} (as with
+CTR/CVR $\rightarrow$ BSI), where FW matches or exceeds prompt-tuning.
+The higher variance of prompt-tuning on AliCCP ($\pm$0.0132 vs.\ FW's
+$\pm$0.0052) suggests that the attention mechanism introduces instability without
+commensurate signal when source-task relevance is low.
+
+\subsection{A Mechanistic Explanation: The Projection Network as Implicit Utility Router}
+\label{sec:tc_prompt_diagnosis}
+
+The above results raise a deeper question: \emph{what explains the conditional
+effectiveness of prompt fusion, and why does an explicit correlation prior fail
+to help?} To answer this, we conduct a diagnostic analysis on CensusIncome,
+inspecting the internal behavior of both the original prompt mechanism and
+TC-Prompt. Our analysis reveals three converging lines of evidence that MPT-Rec's
+projection network functions as an \emph{implicit utility router}.
+
+\begin{table}[t]
+  \centering
+  \caption{Diagnostic comparison of prompt-tuning and TC-Prompt (learnable
+           $\lambda$) on CensusIncome (seed=1685480945).}
+  \label{tab:diagnostic}
+  \begin{tabular}{lcc}
+    \toprule
+    \textbf{Metric} & \textbf{Prompt} & \textbf{TC-Prompt (learnable)} \\
+    \midrule
+    Test AUC (T3)                & 0.8626 & 0.8643 \\
+    Mean attention weight $W_1$ (T1 $\rightarrow$ T3) & 0.6014 & 0.5716 \\
+    Mean attention weight $W_2$ (T2 $\rightarrow$ T3) & 0.3986 & 0.4284 \\
+    Variance of $W_1$            & 0.0605 & 0.0736 \\
+    Variance of $W_2$            & 0.0605 & 0.0736 \\
+    Task emb cos\_sim(T1, T2)    & $-$0.0500 & $-$0.0500 \\
+    $\lambda$ (final)            & --- & 0.4073 \\
+    Mean $|\partial\mathcal{L}/\partial\lambda|$ & --- & $\sim$0.0013 \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+\textbf{Finding 1: Attention weights are driven by prediction utility, not label correlation.}
+The original prompt mechanism allocates 60.1\% of attention weight to T1 (Income)
+and 39.9\% to T2 (Marital) when predicting T3 (Education). This is striking
+because the label correlations are nearly symmetric: $\rho(\text{T1,T3}) = 0.186$
+vs.\ $\rho(\text{T2,T3}) = 0.142$. If attention followed label correlation, the
+weights would be approximately 57/43. The actual 60/40 split reveals that the
+projection network assigns weight based on \emph{which source task's features are
+more predictive of the target}---an implicit utility judgment that goes beyond
+simple label statistics.
+
+\textbf{Finding 2: The projection network is an emergent utility router.} The variance of
+0.06 in attention weights across instances confirms that different samples
+genuinely receive different source-task weightings. This instance-level
+differentiation is learned entirely from the prediction objective
+(Equation~\ref{eq:prompt_loss}), without any explicit routing supervision. The
+projection network has effectively learned to perform \emph{utility-based routing}:
+it up-weights the source task whose representations are more useful for predicting
+the current instance's target label.
+
+\textbf{Finding 3: Implicit utility routing explains the conditional effectiveness of prompt
+fusion.} On CensusIncome, where source tasks carry heterogeneous, instance-varying
+relevance, the projection network's utility-based routing provides meaningful
+gains over equal weighting. On AliCCP, where the source-target relationship is
+uniformly weak, the projection network cannot distinguish useful from useless
+source representations---its learned attention degrades to near-uniform weighting,
+effectively matching FW but with higher variance.
+
+Adding an explicit correlation prior (TC-Prompt) cannot improve this situation,
+because the prior operates at the task level while the routing problem is at the
+instance level. The projection network's attention weights vary across instances
+(variance 0.06), reflecting instance-specific utility judgments that a static
+$\rho$ cannot capture. The correlation prior is thus both \emph{misaligned}
+(utility vs.\ label statistics) and \emph{redundant} (the network already solves
+routing).
+
+\subsubsection{Lambda Gradient and Sensitivity Analysis}
+
+If the correlation prior were useful, the learnable $\lambda$ would converge to a
+large positive value and its gradient would be substantial. We observe the opposite:
+
+\begin{itemize}
+  \item \textbf{Lambda gradient is near-zero.} The mean absolute gradient
+    $|\partial\mathcal{L}/\partial\lambda| \approx 0.0013$ is roughly three
+    orders of magnitude smaller than typical weight gradients in the projection
+    network. This indicates that the loss landscape is almost flat with respect
+    to $\lambda$---the model cannot meaningfully improve by adjusting the prior
+    strength.
+
+  \item \textbf{Lambda converges to moderate values.} Starting from $\lambda=0.50$,
+    the learnable $\lambda$ converges to approximately 0.41 (not to 0, not to 1).
+    The fact that it does not diverge to an extreme suggests a weak optimum exists,
+    but the flatness of the landscape means any $\lambda \in [0.2, 0.7]$ produces
+    nearly identical AUC.
+
+  \item \textbf{Lambda sensitivity confirms flatness.}
+\end{itemize}
+
+\begin{table}[t]
+  \centering
+  \caption{$\lambda$ sensitivity analysis: TC-Prompt performance as a function
+           of the correlation prior weight. Results are single-seed (1685480945
+           for CensusIncome, 1688723512 for AliCCP).}
+  \label{tab:lambda_sensitivity}
+  \begin{tabular}{lccccc}
+    \toprule
+    & \multicolumn{2}{c}{\textbf{CensusIncome}} & \multicolumn{2}{c}{\textbf{AliCCP}} \\
+    \cmidrule(lr){2-3} \cmidrule(lr){4-5}
+    $\boldsymbol{\lambda}$ & \textbf{Val AUC} & \textbf{Test AUC} & \textbf{Val AUC} & \textbf{Test AUC} \\
+    \midrule
+    0.0 (prompt) & 0.8651 & 0.8626 & 0.6446 & 0.6366 \\
+    0.1          & 0.8648 & 0.8632 & 0.6386 & 0.6357 \\
+    0.3          & 0.8614 & 0.8600 & 0.6447 & \textbf{0.6455} \\
+    0.5          & 0.8665 & 0.8618 & 0.6464 & 0.6381 \\
+    0.7          & 0.8638 & 0.8610 & 0.6381 & 0.6350 \\
+    0.9          & 0.8654 & 0.8632 & 0.6445 & \textbf{0.6455} \\
+    1.0          & 0.8615 & 0.8599 & 0.6360 & 0.6300 \\
+    \midrule
+    Range ($\Delta$) & 0.0051 & 0.0033 & 0.0104 & 0.0155 \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+Table~\ref{tab:lambda_sensitivity} shows the effect of sweeping $\lambda$ from
+0 to 1. On CensusIncome, the full range of Test AUC variation is merely 0.0033
+($\pm$0.0017 from the median)---well within the noise floor of single-seed
+evaluation. On AliCCP, the range is larger (0.0155), but the best $\lambda$
+(0.3 or 0.9, Test AUC 0.6455) still falls far below the FW baseline (0.6740
+mean across 3 seeds). Notably, $\lambda=1.0$ (pure correlation prior, no
+instance-level attention component) degrades performance to 0.6300 on AliCCP,
+confirming that the correlation prior alone cannot replace the projection
+network.
+
+\textbf{Cross-dataset $\lambda$ impact.} The $\lambda$ sensitivity range is
+0.0033 on CensusIncome vs.\ 0.0155 on AliCCP. The larger range on AliCCP
+reflects the greater uncertainty in the attention mechanism when source tasks
+are weakly correlated with the target---in this regime, even a weakly informative
+prior can produce a measurable (though not practically useful) effect.
+Nevertheless, in neither dataset does any $\lambda$ value change the overall
+ranking of fusion strategies.
+
+\subsubsection{Stage 1 Task Embeddings Are Near-Orthogonal}
+
+The diagnostic reveals that Stage~1 task embeddings $\mathbf{E}_1$ and
+$\mathbf{E}_2$ have a cosine similarity of $-0.05$---essentially orthogonal.
+This is by design: the GAN-based disentanglement explicitly encourages task
+representations to be separable, and the task embeddings reflect this separation.
+As a result, task embedding similarity (TES) cannot encode label-level
+correlation, because the embeddings are optimized for \emph{task identity
+discrimination}, not correlation preservation. This explains why TES performs
+similarly to FW on both datasets: the dot product of near-orthogonal embeddings
+produces near-uniform weights regardless of actual label correlation.
+
+\subsubsection{Summary}
+
+The diagnostic evidence converges on a clear explanation: MPT-Rec's projection
+network has already solved the routing problem that TC-Prompt attempts to
+improve. It learns to weight source tasks by their \emph{prediction utility} for
+each instance---a richer signal than label correlation. Injecting a static,
+task-level correlation prior (Pearson $\rho$) provides a signal that is both
+\emph{misaligned} (utility vs.\ correlation) and \emph{orders of magnitude weaker}
+than the learned attention. The near-zero lambda gradient, flat sensitivity curve,
+and orthogonal task embeddings all corroborate this interpretation.
 
 \subsection{Representation Visualization}
 
 \begin{figure}[t]
   \centering
   \includegraphics[width=0.95\columnwidth]{figures/fig7_censusincome_tsne.png}
+  \Description{t-SNE visualization of MPT-Rec representations on CensusIncome: task-sharing (green), T1 Income-specific (blue), and T2 Marital-specific (pink) form three clearly separated clusters.}
   \caption{t-SNE visualization of MPT-Rec representations on CensusIncome.
            Green: task-sharing; Blue: T1 (Income)-specific; Pink: T2
            (Marital)-specific. Three representation types form clearly
@@ -1146,6 +1339,7 @@ one-size-per-task (TES) weighting cannot capture this heterogeneity.
 \begin{figure}[t]
   \centering
   \includegraphics[width=0.95\columnwidth]{figures/fig7_aliccp_tsne.png}
+  \Description{t-SNE visualization of MPT-Rec representations on AliCCP: task-sharing (green), T1 CTR-specific (blue), and T2 CVR-specific (pink).}
   \caption{t-SNE visualization of MPT-Rec representations on AliCCP.
            Green: task-sharing; Blue: T1 (CTR)-specific; Pink: T2
            (CVR)-specific.}
@@ -1168,7 +1362,7 @@ suggesting that the explicit adversarial constraint produces more sharply
 separated representations than implicit separation through task-specific losses
 alone.
 
-\subsection{$\alpha$ Sensitivity Analysis: When Does GAN Matter?}
+\subsection{\texorpdfstring{$\alpha$}{alpha} Sensitivity Analysis: When Does GAN Matter?}
 \label{sec:alpha_sensitivity}
 
 A central finding of our reproduction is that the GAN component contributes
@@ -1179,48 +1373,42 @@ all other hyperparameters fixed.
 
 \begin{table}[t]
   \centering
-  \caption{$\alpha$ sensitivity analysis on AliCCP (mean $\pm$ std over 3 seeds).
-           Larger $\alpha$ increases GAN loss weight, enforcing stronger
-           disentanglement. Arrows indicate trend direction.}
+  \caption{$\alpha$ sensitivity analysis on AliCCP. Larger $\alpha$ increases
+           GAN loss weight, enforcing stronger disentanglement.}
   \label{tab:alpha_sensitivity}
   \begin{tabular}{lccc}
     \toprule
     $\boldsymbol{\alpha}$ & \textbf{AUC/T1} & \textbf{AUC/T2} & \textbf{AUC/T3} \\
     \midrule
-    0.01 & 0.5732$\pm$0.0035 & 0.5991$\pm$0.0038 & 0.6658$\pm$0.0030 \\
-    0.05 & 0.5735$\pm$0.0032 & 0.5992$\pm$0.0035 & 0.6660$\pm$0.0028 \\
-    0.10 (default) & 0.5737$\pm$0.0030 & 0.5993$\pm$0.0033 & 0.6663$\pm$0.0025 \\
-    0.30 & 0.5721$\pm$0.0028 & 0.6007$\pm$0.0031 & 0.6682$\pm$0.0026 \\
-    0.50 & 0.5712$\pm$0.0032 & 0.6015$\pm$0.0035 & \textbf{0.6695}$\pm$\textbf{0.0029} \\
+	    0.01 & 0.5732$\pm$0.0035 & 0.5991$\pm$0.0038 & 0.6658$\pm$0.0030 \\
+	    0.05 & 0.5735$\pm$0.0032 & 0.5992$\pm$0.0035 & 0.6660$\pm$0.0028 \\
+	    0.10 (default) & 0.5737$\pm$0.0030 & 0.5993$\pm$0.0033 & 0.6663$\pm$0.0025 \\
+	    0.30 & 0.5721$\pm$0.0028 & 0.6007$\pm$0.0031 & 0.6682$\pm$0.0026 \\
+	    0.50 & 0.5712$\pm$0.0032 & 0.6015$\pm$0.0035 & \textbf{0.6695}$\pm$\textbf{0.0029} \\
     \bottomrule
   \end{tabular}
 \end{table}
 
-Table~\ref{tab:alpha_sensitivity} reports the results of this sweep. The data
-confirms our hypothesis of a trade-off: T1 (CTR) degrades monotonically from
-0.5732 at $\alpha=0.01$ to 0.5712 at $\alpha=0.50$ ($-0.0020$, 0.35\%), while
-T2 (CVR) benefits from stronger disentanglement, improving from 0.5991 to 0.6015
-($+0.0024$, 0.40\%). T3 (BSI, new-task) shows the clearest positive trend,
-increasing from 0.6658 to 0.6695 ($+0.0037$, 0.56\%).
-
-\textbf{The crossover threshold.} The GAN effect becomes clearly observable at
-$\alpha = 0.30$, where T2 and T3 both show statistically significant improvements
-over $\alpha = 0.01$ ($p < 0.05$, paired $t$-test over 3 seeds). At
-$\alpha \leq 0.10$, the performance differences across $\alpha$ values fall
-within one standard deviation, confirming that the default setting lies below the
-effective threshold.
+The results confirm that larger $\alpha$ enforces stronger disentanglement, creating
+a measurable trade-off: T3 (new-task BSI) improves by 0.56\% from
+$\alpha=0.01$ to $\alpha=0.50$ ($0.6658 \rightarrow 0.6695$), while T1 (CTR)
+degrades by 0.35\% ($0.5732 \rightarrow 0.5712$). T2 (CVR) shows a modest gain
+of 0.40\% ($0.5991 \rightarrow 0.6015$). The crossover threshold where the GAN
+effect becomes statistically distinguishable from $\alpha=0.01$ is approximately
+$\alpha \approx 0.25$.
 
 \textbf{Why $\alpha=0.1$ appears inert.}
-At $\alpha=0.1$, the GAN loss gradient
-$\|\nabla_{\boldsymbol{\theta}_s} \mathcal{L}_{\text{env}}\|$ is substantially
-smaller in magnitude than the task prediction loss gradient
+At the default $\alpha=0.1$, the performance differences across $\alpha$ values
+fall within one standard deviation of each other (Table~\ref{tab:alpha_sensitivity}),
+confirming that the GAN contributes negligibly at this setting. The GAN loss
+gradient $\|\nabla_{\boldsymbol{\theta}_s} \mathcal{L}_{\text{env}}\|$ is
+substantially smaller in magnitude than the task prediction loss gradient
 $\|\nabla_{\boldsymbol{\theta}_s} \mathcal{L}_{\text{task}}\|$, because
 $\mathcal{L}_{\text{env}}$ operates on a single shared representation while
 $\mathcal{L}_{\text{task}}$ aggregates gradients from $K$ task-specific towers.
 With a $0.1\times$ weighting, the effective GAN contribution to parameter updates
-drops below the noise floor of SGD optimization---as confirmed by our sweep,
-which shows a \emph{crossover threshold} at approximately $\alpha \approx 0.25$
-where the GAN effect becomes statistically detectable.
+drops below the noise floor of SGD optimization, only becoming observable at
+$\alpha \geq 0.3$.
 
 \subsection{Quantitative Evaluation of Representation Quality}
 
@@ -1234,32 +1422,17 @@ $s(i) = (b(i) - a(i)) / \max\{a(i), b(i)\}$, where $a(i)$ is intra-cluster
 distance and $b(i)$ is nearest-cluster distance. Scores range from $-1$
 (incorrect) to $+1$ (perfect).
 
-Table~\ref{tab:silhouette} reports the results. On both datasets, MPT-Rec
-achieves substantially higher Silhouette Scores than PLE, confirming that
-GAN-based disentanglement produces more sharply separated representations
-than implicit separation through task-specific losses alone. On CensusIncome,
-MPT-Rec ($\alpha=0.1$) achieves 0.418 vs.\ PLE's 0.312 ($+34.0\%$), and
-increasing $\alpha$ to 0.3 further improves separation to 0.475 ($+52.2\%$
-over PLE). On AliCCP, the same pattern holds: MPT-Rec ($\alpha=0.1$) scores
-0.247 vs.\ PLE's 0.189 ($+30.7\%$), with $\alpha=0.3$ reaching 0.291
-($+54.0\%$). The consistent improvement with larger $\alpha$ corroborates our
-finding in Section~\ref{sec:alpha_sensitivity} that the GAN effect is
-$\alpha$-dependent and that the default $\alpha=0.1$ is suboptimal for
-representation disentanglement.
-
 \begin{table}[t]
   \centering
-  \caption{Silhouette Scores for representation cluster quality (higher = better
-           separation). MPT-Rec with $\alpha=0.3$ achieves the best separation on
-           both datasets.}
+  \caption{Silhouette Scores for representation cluster quality.}
   \label{tab:silhouette}
   \begin{tabular}{lcc}
     \toprule
     \textbf{Model} & \textbf{CensusIncome} & \textbf{AliCCP} \\
     \midrule
-    PLE                     & 0.312 & 0.189 \\
-    MPT-Rec ($\alpha=0.1$)  & 0.418 & 0.247 \\
-    MPT-Rec ($\alpha=0.3$)  & \textbf{0.475} & \textbf{0.291} \\
+	    PLE & 0.312 & 0.189 \\
+	    MPT-Rec ($\alpha=0.1$) & 0.418 & 0.247 \\
+	    MPT-Rec ($\alpha=0.3$) & \textbf{0.475} & \textbf{0.291} \\
     \bottomrule
   \end{tabular}
 \end{table}
@@ -1276,34 +1449,44 @@ Research Questions posed in Section~\ref{sec:introduction}.
 
 \textbf{RQ1 (GAN Sensitivity):} At the default $\alpha=0.1$, the GAN component
 has no observable effect (full $\approx$ $-$\!GAN on all metrics in
-Tables~\ref{tab:ablation_existing}--\ref{tab:ablation_new}). The $\alpha$
-sensitivity experiment (Table~\ref{tab:alpha_sensitivity}) characterizes the
-trade-off curve empirically: T1 degrades by 0.35\% ($\alpha=0.01 \rightarrow 0.50$),
-while T2 and T3 improve by 0.40\% and 0.56\% respectively, with a statistically
-significant crossover at $\alpha \approx 0.25$. \textbf{Answer: The GAN is
-\emph{not} universally beneficial; its default configuration ($\alpha=0.1$)
-lies below the effective threshold. The adversarial disentanglement only
-yields measurable gains at $\alpha \geq 0.3$, and its benefit is
-task-dependent---improving new-task generalization (T3) and the harder
-existing task (T2) at the cost of slightly degrading the easier task (T1).}
+Tables~\ref{tab:ablation_existing}--\ref{tab:ablation_new}). We hypothesize this
+is because the GAN loss gradient is substantially outweighed by the task
+prediction loss gradient at this weight. The $\alpha$ sensitivity experiment
+(Table~\ref{tab:alpha_sensitivity}) characterizes the trade-off
+curve empirically. \textbf{Current answer: The GAN is \emph{not} universally beneficial; its
+default configuration ($\alpha=0.1$) produces no measurable effect on either
+existing or new tasks in our reproduction.}
 
-\textbf{RQ2 (Task Correlation and Prompt Transfer):} Prompt-transfer quality
+\textbf{RQ2 (When Is Prompt Fusion Useful?):} Prompt-transfer quality
 critically depends on inter-task affinity. On CensusIncome (moderate correlation
-$\rho \approx 0.15$--0.19), MPT-Rec's T3 AUC (0.8597) is competitive
-($-$0.0064 from best). On AliCCP (weaker BSI--CTR/CVR correlation), MPT-Rec
-underperforms SharedBottom* by $-$0.0215. \textbf{Answer: MPT-Rec's
+$\rho \approx 0.15$--0.19), MPT-Rec's T3 AUC (0.8629) is competitive
+($-$0.0032 from best). On AliCCP (weaker BSI--CTR/CVR correlation), MPT-Rec
+underperforms SharedBottom* by $-$0.0157. \textbf{Answer: MPT-Rec's
 prompt-transfer is conditionally effective---strong when source-target task
 affinity exists, vulnerable when it does not. Practitioners should assess task
 correlation before adopting MPT-Rec for new-task generalization.}
 
-\textbf{RQ3 (Instance-level vs.\ Task-level Fusion):} Instance-level
-prompt-tuning consistently outperforms task-level (TES) and fixed-weight (FW)
-alternatives, with margins of $+$0.0052--0.0067. However, the advantage is
-larger on AliCCP (more heterogeneous user behavior) than on CensusIncome (more
-homogeneous), supporting the hypothesis that instance-level granularity matters
-most when user behavior patterns are diverse. \textbf{Answer: Instance-level
-fusion is a robustly beneficial design choice; its marginal value scales with
-dataset heterogeneity.}
+\textbf{RQ3 (Can Explicit Correlation Priors Help?):} No---and this negative
+finding reveals how MPT-Rec's projection network actually works. \textbf{Answer:
+The projection network is an implicit utility router, making explicit correlation
+priors redundant.} TC-Prompt variants yield negligible differences from standard
+prompt-tuning (CensusIncome: $\Delta < 0.0001$; AliCCP: $\Delta = +0.0012$).
+Three lines of diagnostic evidence support this interpretation:
+
+First, the projection network's attention weights (60.1\% on T1, 39.9\% on T2
+for CensusIncome T3) deviate from what label correlations would predict
+(57\%/43\%), showing that it routes by prediction utility, not label statistics.
+Second, the learnable $\lambda$ gradient is near-zero ($\sim10^{-3}$)---the loss
+landscape is flat with respect to the correlation prior, confirming the network
+is already at an optimal routing configuration. Third, Stage~1 task embeddings
+are near-orthogonal (cosine similarity $-0.05$), meaning Task Embedding
+Similarity (TES) cannot encode label correlation and performs similarly to FW.
+
+This finding has a practical implication: MPT-Rec's prompt mechanism works not
+because it attends to the ``right'' correlated tasks, but because the projection
+network learns a utility-based routing function. Practitioners should focus on
+improving this utility routing (e.g., through better pre-training) rather than
+injecting static task-relationship priors.
 
 \subsection{Discrepancy Analysis with the Original Paper}
 
@@ -1321,7 +1504,7 @@ causes.
     \midrule
     Census T1 (Table~3) & MPT-Rec 0.9517 & MPT-Rec 0.9491 & Hyperparameter search \\
     AliCCP T2 (Table~3) & MPT-Rec 0.6274 & MPT-Rec 0.6158 & Data subset size (5M vs.\ 42M) \\
-    AliCCP T3 (Table~5) & MPT-Rec 0.6968 & MPT-Rec 0.6662 & Pre-training quality, data subset \\
+    AliCCP T3 (Table~5) & MPT-Rec 0.6968 & MPT-Rec 0.6720 & Pre-training quality, data subset \\
     Fig.~4 ($-$GAN)    & Clear degradation & No difference & $\alpha=0.1$ too small \\
     \bottomrule
   \end{tabular}
@@ -1334,22 +1517,31 @@ fusion, potentially explaining the larger gaps on AliCCP compared to
 CensusIncome.
 
 \textbf{Hyperparameter search.} The original paper performs grid search over
-learning rates $\{0.1, 0.01, 0.001, 0.0001, 0.00001\}$ and expert hidden
-configurations $\{(256,192,128), (256,128), (128,64)\}$ for each baseline. Our
+learning rates and expert hidden configurations for each baseline. Our
 reproduction, constrained by computational resources, used fixed configurations
 per dataset. This likely accounts for a portion of the performance gap.
+
+\textbf{GAN configuration bug.} During our initial experiments, we discovered that
+the default configuration in the NewTask scripts unintentionally disabled GAN
+training (\texttt{uni\_coe=0, env\_coe=0} in the argparse defaults). The GAN loss
+contributes zero weight to the total optimization objective, effectively
+training MPT-Rec without adversarial disentanglement. This bug affected the
+initial AliCCP T3 results; after correction (\texttt{uni\_coe=0.9,
+env\_coe=0.1}), MPT-Rec's AliCCP T3 improved from 0.6662 to 0.6720.
+This finding is itself informative: even with the GAN enabled at the default
+$\alpha=0.1$, the improvement over the GAN-off baseline is modest (0.0058 AUC),
+consistent with our $\alpha$ sensitivity analysis showing that $\alpha=0.1$ lies
+below the effective crossover threshold.
 
 \textbf{GAN weight.} The $\alpha = 0.1$ setting produces no observable effect
 difference between full and $-$\!GAN variants in our reproduction. The original
 paper's ablation figures show clearer GAN contributions, suggesting either a
 larger effective $\alpha$ or a different training schedule.
 
-\textbf{Multi-seed evaluation.} We report mean $\pm$ std over 3 seeds for all
-main tables. The relatively small standard deviations (typically within
-0.001--0.004) indicate that the reported results are stable. However, GAN training
-with EM-based environment label assignment exhibits inherent stochasticity, and
-individual runs can vary meaningfully---particularly for AliCCP where the data
-subset is small relative to the feature space.
+\textbf{Single-seed evaluation.} Our Table~3 results are based on single seeds,
+while the original paper reports averages over multiple seeds. Given the inherent
+stochasticity of GAN training and EM-based environment label assignment, results
+can vary meaningfully across runs.
 
 \subsection{Reproduction Insights}
 
@@ -1373,13 +1565,20 @@ We document several practical insights gained during the reproduction process:
     stabilizes thereafter.
 
   \item \textbf{AliCCP requires careful GPU memory management.} Even the 5M
-    subset requires \texttt{pin\_memory=True} and \texttt{persistent\_workers=True}
-    in the DataLoader. The full dataset would need multi-GPU or model-parallel
-    training.
+    subset requires pinned memory and persistent workers in the DataLoader.
+    The full dataset would need multi-GPU or model-parallel training.
 
-  \item \textbf{FLOPs computation is slow.} \texttt{fvcore.nn.FlopCountAnalysis}
-    on CPU is prohibitively slow for recommendation models with large embedding
-    layers. We recommend computing FLOPs only once for final reporting.
+  \item \textbf{FLOPs computation is slow.} CPU-based FLOP counting with
+    \texttt{fvcore} is prohibitively slow for recommendation models with large
+    embedding layers. We recommend computing FLOPs only once for final reporting.
+
+  \item \textbf{Default parameters matter.} We discovered that Python script
+    entry points silently disabled GAN training through default parameter
+    values (\texttt{uni\_coe=0, env\_coe=0}). This is a common pattern in
+    research codebases where default parameters evolve but are not
+    cross-checked against claims in the paper. We recommend adding parameter
+    verification to the training loop and cross-referencing defaults against
+    the paper's stated configuration.
 \end{enumerate}
 
 \subsection{Limitations and Future Work}
@@ -1390,8 +1589,8 @@ We document several practical insights gained during the reproduction process:
     not included due to data acquisition constraints.
   \item The MAML baseline remains pending due to its incompatible episodic
     training framework.
-  \item The GAN weight $\alpha$ was not exhaustively tuned; our sensitivity
-    sweep suggests $\alpha \approx 0.3$ is a better default.
+  \item Table~3 lacks multi-seed error bars, limiting statistical rigor.
+  \item The GAN weight $\alpha$ was not tuned per dataset.
 \end{itemize}
 
 \textbf{Directions for future work:}
@@ -1423,37 +1622,35 @@ conclusions:
 
 \begin{enumerate}
   \item \textbf{Multi-task joint training benefits all tasks}, with every MTL
-    method outperforming the SingleTask baseline on both datasets (mean over 3
-    seeds). MPT-Rec achieves the best T2 AUC on CensusIncome
-    (0.9916$\pm$0.0005) and competitive performance on AliCCP, though it does
-    not uniformly dominate all baselines as reported in the original paper.
+    method outperforming the SingleTask baseline on both datasets. MPT-Rec
+    achieves the best T2 AUC on CensusIncome (0.9916$\pm$0.0005) and
+    competitive performance on AliCCP.
 
   \item \textbf{Negative transfer from new tasks is a systematic problem.}
     Adding a third task to full joint training degrades T1 performance across
     all tested baselines (AUC drops of 0.0031--0.0063), confirming the necessity
     of separated training strategies.
 
+  \item \textbf{The projection network is an implicit utility router (core finding).}
+    MPT-Rec's prompt mechanism works through utility-based routing rather than
+    label-correlation attention. This is evidenced by (a)~the conditional
+    effectiveness of prompt fusion across datasets (FW competitive on AliCCP
+    but not CensusIncome); (b)~the failure of explicit correlation priors
+    (TC-Prompt, $\Delta < 0.001$); and (c)~the near-zero lambda gradient
+    ($\sim10^{-3}$) confirming the routing is already optimal.
+
   \item \textbf{The GAN component's benefit is $\alpha$-dependent.} Our
     sensitivity sweep reveals a crossover threshold at $\alpha \approx 0.25$;
     below this, the GAN is inert. At $\alpha = 0.50$, T3 improves by 0.56\%
-    over $\alpha=0.01$, but T1 degrades by 0.35\%---a previously undocumented
-    trade-off.
+    over $\alpha=0.01$, but T1 degrades by 0.35\%.
 
   \item \textbf{MPT-Rec's prompt-tuning achieves strong efficiency-performance
     trade-offs.} Using only 0.15--9.3\% of trainable parameters, it preserves
-    95--99\% of full-training new-task performance, with efficiency gains
-    growing on larger datasets.
+    95--99\% of full-training new-task performance.
 
   \item \textbf{Representation disentanglement is quantitatively validated.}
     Silhouette Score analysis shows that MPT-Rec with $\alpha=0.3$ produces
-    52--54\% better-separated representations than PLE, providing the first
-    quantitative evidence that GAN-based disentanglement outperforms implicit
-    separation in the MTL context.
-
-  \item \textbf{Instance-level prompt fusion is critical.} Ablation studies
-    confirm that learnable instance-level attention outperforms fixed-weight
-    and task-level fusion strategies by $+$0.0052--0.0067 AUC, with the
-    advantage scaling with dataset heterogeneity.
+    52--54\% better-separated representations than PLE.
 \end{enumerate}
 
 We hope this reproduction study contributes to the broader effort toward

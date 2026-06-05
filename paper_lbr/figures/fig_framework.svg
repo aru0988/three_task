@@ -1,0 +1,193 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1100 720" width="500" height="327" font-family="Arial, Helvetica, sans-serif">
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#444"/>
+    </marker>
+    <marker id="arrow-causal" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#D32F2F"/>
+    </marker>
+    <marker id="arrow-proj" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#7B1FA2"/>
+    </marker>
+  </defs>
+
+  <!-- ====== STAGE 1 ====== -->
+  <rect x="15" y="10" width="1070" height="230" fill="#EBF0F5" stroke="#B0BEC5" stroke-width="1.5" rx="10"/>
+  <text x="550" y="38" font-size="17" font-weight="bold" fill="#1565C0" text-anchor="middle">Stage 1: Multi-task Pre-training (all parameters frozen afterwards)</text>
+  <text x="550" y="58" font-size="11" fill="#78909C" text-anchor="middle">3-task backbone: T₁ = Income, T₂ = Marital, T₃ = Education — 10 epochs, GAN env_coe = 0.1</text>
+
+  <!-- Feature Embedding -->
+  <rect x="30" y="80" width="150" height="100" fill="#78909C" rx="8"/>
+  <text x="105" y="122" font-size="14" font-weight="bold" fill="white" text-anchor="middle">Feature</text>
+  <text x="105" y="142" font-size="14" font-weight="bold" fill="white" text-anchor="middle">Embedding</text>
+  <text x="105" y="165" font-size="11" fill="#CFD8DC" text-anchor="middle">(Frozen after Stage 1)</text>
+
+  <!-- Shared Expert -->
+  <rect x="240" y="80" width="140" height="100" fill="#37474F" rx="8"/>
+  <text x="310" y="122" font-size="14" font-weight="bold" fill="white" text-anchor="middle">Shared</text>
+  <text x="310" y="142" font-size="14" font-weight="bold" fill="white" text-anchor="middle">Expert</text>
+  <text x="310" y="165" font-size="11" fill="#B0BEC5" text-anchor="middle">gen_rep</text>
+
+  <!-- Arrow: Embedding → Shared -->
+  <path d="M 180 130 L 235 130" stroke="#444" stroke-width="1.8" fill="none" marker-end="url(#arrow)"/>
+
+  <!-- Task-Specific Experts -->
+  <rect x="450" y="72" width="160" height="34" fill="#455A64" rx="6"/>
+  <text x="530" y="93" font-size="13" font-weight="bold" fill="white" text-anchor="middle">Spec. Expert T₁ (Income)</text>
+
+  <rect x="450" y="113" width="160" height="34" fill="#455A64" rx="6"/>
+  <text x="530" y="134" font-size="13" font-weight="bold" fill="white" text-anchor="middle">Spec. Expert T₂ (Marital)</text>
+
+  <rect x="450" y="154" width="160" height="34" fill="#455A64" rx="6"/>
+  <text x="530" y="175" font-size="13" font-weight="bold" fill="white" text-anchor="middle">Spec. Expert T₃ (Education)</text>
+
+  <!-- Arrows: Embedding → Spec Experts (routed cleanly) -->
+  <path d="M 180 150 L 210 150 L 210 89 L 445 89" stroke="#444" stroke-width="1.8" fill="none" marker-end="url(#arrow)"/>
+  <path d="M 180 140 L 215 140 L 215 130 L 445 130" stroke="#444" stroke-width="1.8" fill="none" marker-end="url(#arrow)"/>
+  <path d="M 180 160 L 215 160 L 215 171 L 445 171" stroke="#444" stroke-width="1.8" fill="none" marker-end="url(#arrow)"/>
+
+  <!-- Task Embeddings -->
+  <rect x="680" y="72" width="160" height="34" fill="#1E88E5" rx="6"/>
+  <text x="760" y="93" font-size="13" font-weight="bold" fill="white" text-anchor="middle">Task Emb E₁ (Income)</text>
+
+  <rect x="680" y="113" width="160" height="34" fill="#43A047" rx="6"/>
+  <text x="760" y="134" font-size="13" font-weight="bold" fill="white" text-anchor="middle">Task Emb E₂ (Marital)</text>
+
+  <rect x="680" y="154" width="160" height="34" fill="#FB8C00" rx="6"/>
+  <text x="760" y="175" font-size="13" font-weight="bold" fill="white" text-anchor="middle">Task Emb E₃ (Education)</text>
+
+  <!-- Arrows: Spec Expert → Task Emb -->
+  <path d="M 610 89 L 675 89" stroke="#444" stroke-width="1.8" fill="none" marker-end="url(#arrow)"/>
+  <path d="M 610 130 L 675 130" stroke="#444" stroke-width="1.8" fill="none" marker-end="url(#arrow)"/>
+  <path d="M 610 171 L 675 171" stroke="#444" stroke-width="1.8" fill="none" marker-end="url(#arrow)"/>
+
+  <!-- GAN annotation -->
+  <rect x="870" y="80" width="195" height="100" fill="white" stroke="#B0BEC5" stroke-width="1" rx="6"/>
+  <text x="967" y="100" font-size="11" font-weight="bold" fill="#546E7A" text-anchor="middle">GAN Disentanglement</text>
+  <text x="967" y="118" font-size="10" fill="#78909C" text-anchor="middle">Gradient Reversal Layer</text>
+  <text x="967" y="135" font-size="10" fill="#78909C" text-anchor="middle">Env Classifier → task discrimination</text>
+  <text x="967" y="155" font-size="10" fill="#78909C" text-anchor="middle">Uninformative predictions</text>
+  <text x="967" y="172" font-size="10" fill="#78909C" text-anchor="middle">→ clean disentanglement of</text>
+  <text x="967" y="172" font-size="10" fill="#78909C" text-anchor="middle">shared vs. task-specific reps</text>
+
+  <!-- Arrow: Shared Expert → gen_rep to GAN -->
+  <path d="M 380 150 L 410 150 L 410 130 L 865 130" stroke="#78909C" stroke-width="1.2" stroke-dasharray="4,4" fill="none"/>
+  <text x="625" y="123" font-size="9" fill="#78909C" text-anchor="middle">gen_rep flows to Stage 2</text>
+
+  <!-- ====== STAGE 1→2 BRIDGE ====== -->
+  <path d="M 550 240 L 550 265" stroke="#888" stroke-width="2" stroke-dasharray="5,3" fill="none"/>
+  <rect x="470" y="248" width="160" height="22" fill="white" stroke="#B0BEC5" stroke-width="1" rx="4"/>
+  <text x="550" y="263" font-size="11" font-weight="bold" fill="#888" text-anchor="middle">Freeze &amp; Transfer → Stage 2</text>
+
+  <!-- ====== STAGE 2 ====== -->
+  <rect x="15" y="275" width="1070" height="435" fill="#FFFDF0" stroke="#B0BEC5" stroke-width="1.5" rx="10"/>
+  <text x="550" y="300" font-size="17" font-weight="bold" fill="#BF360C" text-anchor="middle">Stage 2: New-task Prompt Tuning — Causal Manipulation (only projection network + tower trained, &lt;10% params)</text>
+
+  <!-- New Task T4 -->
+  <rect x="30" y="320" width="130" height="70" fill="#E65100" rx="8"/>
+  <text x="95" y="348" font-size="14" font-weight="bold" fill="white" text-anchor="middle">New Task</text>
+  <text x="95" y="368" font-size="14" font-weight="bold" fill="white" text-anchor="middle">T₄ Label</text>
+
+  <!-- Projection Network (shared) -->
+  <rect x="210" y="325" width="140" height="60" fill="#7B1FA2" rx="8"/>
+  <text x="280" y="350" font-size="13" font-weight="bold" fill="white" text-anchor="middle">Projection</text>
+  <text x="280" y="368" font-size="13" font-weight="bold" fill="white" text-anchor="middle">Network h_p</text>
+
+  <!-- Arrow: T4 → Projection -->
+  <path d="M 160 355 L 205 355" stroke="#444" stroke-width="1.8" fill="none" marker-end="url(#arrow)"/>
+
+  <!-- Branch arrow: Projection → two conditions -->
+  <path d="M 350 340 L 380 340 L 380 340 L 410 340" stroke="#7B1FA2" stroke-width="1.5" fill="none" marker-end="url(#arrow-proj)"/>
+  <path d="M 350 370 L 380 370 L 380 450 L 410 450" stroke="#7B1FA2" stroke-width="1.5" fill="none" marker-end="url(#arrow-proj)"/>
+
+  <!-- ====== CONDITION A ====== -->
+  <rect x="415" y="312" width="280" height="56" fill="#E8F5E9" stroke="#66BB6A" stroke-width="1.5" rx="8"/>
+  <text x="555" y="333" font-size="13" font-weight="bold" fill="#2E7D32" text-anchor="middle">Condition A: 2-source pool [E₁, E₂]</text>
+  <text x="555" y="353" font-size="11" fill="#43A047" text-anchor="middle">K = 2,  τ = 150</text>
+
+  <!-- Softmax A -->
+  <rect x="420" y="380" width="270" height="32" fill="#37474F" rx="6"/>
+  <text x="555" y="400" font-size="12" font-weight="bold" fill="white" text-anchor="middle">Softmax( h_p · [E₁, E₂] / τ )</text>
+
+  <!-- Weight bars A -->
+  <rect x="420" y="425" width="155" height="22" fill="#1E88E5" rx="4"/>
+  <text x="497" y="441" font-size="11" font-weight="bold" fill="white" text-anchor="middle">W₁ = 0.62</text>
+  <rect x="420" y="452" width="95" height="22" fill="#43A047" rx="4"/>
+  <text x="467" y="468" font-size="11" font-weight="bold" fill="white" text-anchor="middle">W₂ = 0.38</text>
+
+  <!-- FW reference line A -->
+  <line x1="550" y1="425" x2="550" y2="474" stroke="#9E9E9E" stroke-width="1.5" stroke-dasharray="4,3"/>
+  <text x="555" y="454" font-size="10" fill="#9E9E9E" font-weight="bold">FW = 1/2</text>
+
+  <!-- New Tower A -->
+  <rect x="590" y="425" width="100" height="50" fill="#00838F" rx="6"/>
+  <text x="640" y="446" font-size="12" font-weight="bold" fill="white" text-anchor="middle">New Tower</text>
+  <text x="640" y="462" font-size="10" fill="#B2DFDB" text-anchor="middle">G^new</text>
+
+  <!-- Arrow: softmax → tower A -->
+  <path d="M 690 396 L 710 396 L 710 450 L 685 450" stroke="#444" stroke-width="1.5" fill="none" marker-end="url(#arrow)"/>
+
+  <!-- Output A -->
+  <text x="745" y="454" font-size="14" font-weight="bold" fill="#2E7D32" text-anchor="middle">ŷ_T₄^(A)</text>
+
+  <!-- ====== CONDITION B ====== -->
+  <rect x="415" y="495" width="280" height="56" fill="#FFEBEE" stroke="#EF5350" stroke-width="1.5" rx="8"/>
+  <text x="555" y="516" font-size="13" font-weight="bold" fill="#C62828" text-anchor="middle">Condition B: 3-source pool [E₁, E₂, E₃]</text>
+  <text x="555" y="536" font-size="11" fill="#E57373" text-anchor="middle">K = 3,  τ = 150</text>
+
+  <!-- Softmax B -->
+  <rect x="420" y="558" width="270" height="32" fill="#37474F" rx="6"/>
+  <text x="555" y="578" font-size="12" font-weight="bold" fill="white" text-anchor="middle">Softmax( h_p · [E₁, E₂, E₃] / τ )</text>
+
+  <!-- Weight bars B (absolute positioning) -->
+  <rect x="420" y="603" width="118" height="22" fill="#1E88E5" rx="4"/>
+  <text x="479" y="619" font-size="11" font-weight="bold" fill="white" text-anchor="middle">W₁ = 0.47</text>
+  <rect x="420" y="630" width="72" height="22" fill="#43A047" rx="4"/>
+  <text x="456" y="646" font-size="11" font-weight="bold" fill="white" text-anchor="middle">W₂ = 0.30</text>
+  <rect x="420" y="657" width="58" height="22" fill="#FB8C00" rx="4"/>
+  <text x="449" y="673" font-size="11" font-weight="bold" fill="white" text-anchor="middle">W₃ = 0.23</text>
+
+  <!-- FW reference line B -->
+  <line x1="550" y1="600" x2="550" y2="680" stroke="#9E9E9E" stroke-width="1.5" stroke-dasharray="4,3"/>
+  <text x="555" y="644" font-size="10" fill="#9E9E9E" font-weight="bold">FW = 1/3</text>
+
+  <!-- Dilution annotation -->
+  <rect x="490" y="595" width="200" height="22" fill="#FFF5F5" stroke="#D32F2F" stroke-width="1.5" rx="4"/>
+  <text x="590" y="611" font-size="10" font-weight="bold" fill="#D32F2F" text-anchor="middle">E₃ dilutes W₁ (↓0.15) and W₂ (↓0.08)</text>
+
+  <!-- New Tower B -->
+  <rect x="620" y="615" width="100" height="50" fill="#00838F" rx="6"/>
+  <text x="670" y="636" font-size="12" font-weight="bold" fill="white" text-anchor="middle">New Tower</text>
+  <text x="670" y="652" font-size="10" fill="#B2DFDB" text-anchor="middle">G^new</text>
+
+  <!-- Arrow: softmax → tower B -->
+  <path d="M 690 574 L 715 574 L 715 640 L 715 640" stroke="#444" stroke-width="1.5" fill="none" marker-end="url(#arrow)"/>
+
+  <!-- Output B -->
+  <text x="745" y="644" font-size="14" font-weight="bold" fill="#C62828" text-anchor="middle">ŷ_T₄^(B)</text>
+
+  <!-- ====== CAUSAL COMPARISON ====== -->
+  <rect x="790" y="370" width="270" height="200" fill="white" stroke="#D32F2F" stroke-width="2" rx="8"/>
+  <text x="925" y="395" font-size="14" font-weight="bold" fill="#D32F2F" text-anchor="middle">Causal Test</text>
+  <line x1="820" y1="405" x2="1030" y2="405" stroke="#FFCDD2" stroke-width="1"/>
+
+  <text x="925" y="430" font-size="12" font-weight="bold" fill="#555" text-anchor="middle">Δ(B − A) = AUC_B − AUC_A</text>
+
+  <!-- Sex result -->
+  <rect x="810" y="450" width="230" height="45" fill="#E8F5E9" rx="4"/>
+  <text x="925" y="468" font-size="12" font-weight="bold" fill="#2E7D32" text-anchor="middle">T₄ = Sex (ρ ≈ 0.015):  Δ = +0.0058</text>
+  <text x="925" y="484" font-size="11" fill="#43A047" text-anchor="middle">correlated source → helps</text>
+
+  <!-- Race result -->
+  <rect x="810" y="505" width="230" height="45" fill="#FFEBEE" rx="4"/>
+  <text x="925" y="523" font-size="12" font-weight="bold" fill="#C62828" text-anchor="middle">T₄ = Race (max ρ ≈ 0.02):  Δ = −0.0041</text>
+  <text x="925" y="539" font-size="11" fill="#E57373" text-anchor="middle">uncorrelated source → hurts</text>
+
+  <!-- FW check -->
+  <text x="925" y="565" font-size="11" fill="#888" text-anchor="middle">FW: |Δ| &lt; 0.001 in both settings ✓</text>
+
+  <!-- Same backbone annotation -->
+  <rect x="830" y="340" width="190" height="22" fill="white" stroke="#B0BEC5" stroke-width="1" rx="4"/>
+  <text x="925" y="355" font-size="10" fill="#78909C" text-anchor="middle">Identical frozen backbone for A and B</text>
+
+</svg>
