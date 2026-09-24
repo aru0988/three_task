@@ -1,6 +1,5 @@
 import argparse
 import copy
-import os
 
 import numpy as np
 import torch
@@ -97,13 +96,6 @@ def main(args):
     train_manager.train_two_task()
     mptrec.load_state_dict(train_manager.best_weight)
 
-    if args.save_stage1:
-        save_path = f"checkpoints/tcprompt_exp_aliccp/stage1_seed{args.seed}.pt"
-        os.makedirs(os.path.dirname(save_path), exist_ok=True)
-        torch.save(mptrec.state_dict(), save_path)
-        print(f"[SAVE] Stage 1 checkpoint saved to {save_path}")
-        return
-
     print("-" * 32, "New task generalization phase", "-" * 32)
     optimizer = torch.optim.Adam(params=newtask.parameters(), lr=1e-4)
     loss_func = nn.BCELoss()
@@ -160,8 +152,6 @@ if __name__ == "__main__":
     parser.add_argument("--gpu", type=int, default=0)
     # 1688723512, 1688723740, 1688738016
     parser.add_argument("--seed", type=int, default=1688738016)
-    parser.add_argument("--save_stage1", action="store_true",
-                        help="Save Stage 1 checkpoint and exit (skip Stage 2)")
 
     args = parser.parse_args()
     main(args)

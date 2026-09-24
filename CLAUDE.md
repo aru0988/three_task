@@ -6,6 +6,13 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 MPT-Rec 多任务推荐系统研究项目，复现论文实验。包含 MPTRec（主模型）和多个 baseline（SharedBottom、MMOE、PLE、STEM、SparseSharing、SingleTask），支持两个数据集（CensusIncome、AliCCP）和两个实验协议（联合训练、新任务泛化）。
 
+## 分支约定（重要）
+
+- `master`：**干净基线**，目录结构与官方 BAI-LAB/MPT-Rec `three_task` 分支一致，只含论文所需代码 + 运行修复。新想法必须从 `master` 拉分支开发
+- `archive/exploration`：历史探索归档（TC-Prompt / CGR / affinity gate / KL-Prompt / T4 实验 / 论文草稿 / logs），**不要在 master 上重建这些模块**
+- 工作流：想法分支 → 验证有效则合并回 `master`，无效则删除
+- 任何超参改动都要**全项目检查一致性**（入口脚本 + baseline 是否同步），避免"只改一半"导致对比失真
+
 ## 运行环境
 
 ```bash

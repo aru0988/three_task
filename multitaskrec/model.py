@@ -791,14 +791,12 @@ class MPTRec(nn.Module):
         reg_dnn=0,
         dropout=None,
         device=None,
-        variant="full",
     ):
         super(MPTRec, self).__init__()
         self.num_tasks = num_tasks
         self.reg_embedding = reg_embedding
         self.reg_dnn = reg_dnn
         self.device = device
-        self.variant = variant
         self.embedding_network = EmbeddingNetwork(feature_vocabulary, embedding_size)
         self.shared_expert_network = MLP(expert_dnn_hidden_units, input_size, "relu", dropout)
         self.specific_expert_networks = nn.ModuleList()
@@ -808,9 +806,7 @@ class MPTRec(nn.Module):
             expert_dnn_hidden_units[-1], num_tasks
         )
         self.tower_networks = nn.ModuleList()
-
-        env_indices = torch.arange(num_tasks)
-        self.register_buffer("env_indices", env_indices, persistent=True)
+        self.register_buffer("env_indices", torch.arange(num_tasks), persistent=True)
 
         for _ in range(num_tasks):
             self.specific_expert_networks.append(
@@ -836,36 +832,22 @@ class MPTRec(nn.Module):
             output = self.tower_networks[i](gen_rep)
             gen_preds.append(output.squeeze())
 
-        if self.variant == "share_only":
-            fused_preds = gen_preds
-        elif self.variant == "specific_only":
-            fused_preds = []
-            for i in range(self.num_tasks):
-                spec_rep = self.specific_expert_networks[i](dnn_input)
-                env_embedding = self.env_embedding_network(self.env_indices[i])
-                env_aware_rep = spec_rep * env_embedding
-                output = self.tower_networks[i](env_aware_rep)
-                fused_preds.append(output.squeeze())
-        else:
-            gate_outs = []
-            for gate in self.gate_networks:
-                gate_outs.append(gate(dnn_input))
+        gate_outs = []
+        for gate in self.gate_networks:
+            gate_outs.append(gate(dnn_input))
 
-            fused_preds = []
-            for i in range(self.num_tasks):
-                spec_rep = self.specific_expert_networks[i](dnn_input)
-                env_embedding = self.env_embedding_network(self.env_indices[i])
-                env_aware_rep = spec_rep * env_embedding
-                all_reps = torch.stack([env_aware_rep, gen_rep], dim=2)
-                fused_rep = torch.matmul(all_reps, gate_outs[i].unsqueeze(dim=2)).squeeze()
-                output = self.tower_networks[i](fused_rep)
-                fused_preds.append(output.squeeze())
+        fused_preds = []
+        for i in range(self.num_tasks):
+            spec_rep = self.specific_expert_networks[i](dnn_input)
+            env_embedding = self.env_embedding_network(torch.tensor(i).to(self.device))
+            env_aware_rep = spec_rep * env_embedding
+            all_reps = torch.stack([env_aware_rep, gen_rep], dim=2)
+            fused_rep = torch.matmul(all_reps, gate_outs[i].unsqueeze(dim=2)).squeeze()
+            output = self.tower_networks[i](fused_rep)
+            fused_preds.append(output.squeeze())
 
-        if self.variant == "no_gan":
-            env_pred = torch.zeros(gen_rep.shape[0], self.num_tasks, device=gen_rep.device)
-        else:
-            rev_gen_rep = ReverseLayerF.apply(gen_rep, alpha)
-            env_pred = self.env_classifier(rev_gen_rep)
+        rev_gen_rep = ReverseLayerF.apply(gen_rep, alpha)
+        env_pred = self.env_classifier(rev_gen_rep)
 
         return {
             "gen_preds": gen_preds,
@@ -878,6 +860,7 @@ class MPTRec(nn.Module):
         return output["fused_preds"]
 
     def cluster_predict(self, x):
+        # TODO: 尝试仅使用通用表征的预测结果做聚类预测
         return self.predict(x)
 
     def get_infos(self, x):
@@ -886,14 +869,8 @@ class MPTRec(nn.Module):
 
         spec_reps, env_embs = [], []
         for i in range(self.num_tasks):
-            if self.variant == "share_only":
-                spec_reps.append(torch.zeros_like(gen_rep))
-            else:
-                spec_reps.append(self.specific_expert_networks[i](dnn_input))
-            env_embs.append(self.env_embedding_network(self.env_indices[i]))
-
-        if self.variant == "specific_only":
-            gen_rep = torch.zeros_like(gen_rep)
+            spec_reps.append(self.specific_expert_networks[i](dnn_input))
+            env_embs.append(self.env_embedding_network(torch.tensor(i).to(self.device)))
 
         return dnn_input, gen_rep, spec_reps, env_embs
 
@@ -909,72 +886,26 @@ class MPTRec(nn.Module):
 
 class NewTask(nn.Module):
     def __init__(
-        self, input_size, rep_dim, tower_dnn_hidden_units, reg_dnn, device=None,
-        fusion_mode="prompt", rho_vector=None, lambda_init=0.5,
-        lambda_learnable=True, num_source_tasks=None,
+        self, input_size, rep_dim, tower_dnn_hidden_units, reg_dnn, device=None
     ):
         super(NewTask, self).__init__()
         self.reg_dnn = reg_dnn
         self.device = device
-        self.fusion_mode = fusion_mode
-        self.num_source_tasks = num_source_tasks  # None = use all, K = use first K only
         self.temperature = 150
         self.env_embedding_network = nn.Embedding(1, rep_dim)
         self.register_buffer("new_env_idx", torch.tensor([0]), persistent=True)
-
-        if fusion_mode == "tcprompt":
-            from multitaskrec.tc_prompt import TCPromptFusion
-            if rho_vector is None:
-                raise ValueError("rho_vector is required for fusion_mode='tcprompt'")
-            self.tc_fusion = TCPromptFusion(
-                input_size=input_size,
-                rep_dim=rep_dim,
-                num_source_tasks=len(rho_vector),
-                rho_vector=rho_vector,
-                temperature=self.temperature,
-                lambda_init=lambda_init,
-                lambda_learnable=lambda_learnable,
-            )
-            # Keep projection_network for backward-compatible attribute access
-            self.projection_network = self.tc_fusion.projection_network
-        else:
-            self.projection_network = nn.Sequential(
-                nn.Linear(input_size, rep_dim // 2, bias=False),
-                nn.ReLU(),
-                nn.Linear(rep_dim // 2, rep_dim, bias=False),
-                nn.LayerNorm(rep_dim),
-            )
-            self.tc_fusion = None
-
-        # Confidence-Gated Routing: learnable confidence g ∈ [0,1]
-        # Gate uses task-embedding + shared-rep statistics (decoupled from projection input)
-        if fusion_mode == "cgr":
-            self.confidence_mlp = nn.Sequential(
-                nn.Linear(5 * rep_dim, 32),
-                nn.ReLU(),
-                nn.Linear(32, 1),
-                nn.Sigmoid(),
-            )
-            # Bias init so g starts close to 1 (behave like prompt initially)
-            nn.init.constant_(self.confidence_mlp[0].weight, 0.01)
-            nn.init.constant_(self.confidence_mlp[0].bias, 0.01)
-            nn.init.constant_(self.confidence_mlp[2].weight, 0.1)
-            nn.init.constant_(self.confidence_mlp[2].bias, 2.0)
-            # Routing warm-up: alpha=0 → g=0.5 (neutral), alpha=1 → full gate
-            self.gate_warmup_alpha = 1.0
-
-        # Affinity Gate: OOD-aware hard switching between Attention and FW
-        if fusion_mode == "affinity_gate":
-            self.affinity_mlp = nn.Sequential(
-                nn.Linear(4, 16),
-                nn.ReLU(),
-                nn.Linear(16, 1),
-                nn.Sigmoid(),
-            )
-
+        self.projection_network = nn.Sequential(
+            nn.Linear(input_size, rep_dim // 2, bias=False),
+            nn.ReLU(),
+            nn.Linear(rep_dim // 2, rep_dim, bias=False),
+            nn.LayerNorm(rep_dim),
+        )
         self.gate_network = nn.Sequential(
             nn.Linear(input_size, 2, bias=False), nn.Softmax(dim=-1)
         )
+        # self.gate_network_2 = nn.Sequential(
+        #     nn.Linear(input_size, 2, bias=False), nn.Softmax()
+        # )
         self.tower_network = MLP(
             list(tower_dnn_hidden_units) + [1],
             input_size=rep_dim,
@@ -985,90 +916,9 @@ class NewTask(nn.Module):
         exist_env_embs = torch.stack(env_embs, dim=1)
         new_env_emb = self.env_embedding_network(self.new_env_idx).squeeze(0)
 
-        if self.num_source_tasks is not None:
-            exist_env_embs = exist_env_embs[:, :self.num_source_tasks]
-            spec_reps = spec_reps[:self.num_source_tasks]
-            num_tasks = self.num_source_tasks
-        else:
-            num_tasks = len(spec_reps)
-
-        if self.fusion_mode == "fw":
-            W = torch.ones(dnn_input.shape[0], num_tasks, device=dnn_input.device) / num_tasks
-            W = W.unsqueeze(2)
-        elif self.fusion_mode == "tes":
-            W = torch.mm(new_env_emb.unsqueeze(0), exist_env_embs) / self.temperature
-            W = F.softmax(W, dim=-1).T.unsqueeze(0).expand(dnn_input.shape[0], -1, -1)
-        elif self.fusion_mode == "tcprompt":
-            W = self.tc_fusion(dnn_input, exist_env_embs)
-        elif self.fusion_mode == "cgr":
-            H_out = self.projection_network(dnn_input)
-            W_attn = torch.mm(H_out, exist_env_embs) / self.temperature
-            W_attn = F.softmax(W_attn, dim=-1).unsqueeze(2)
-            W_fw = torch.ones(dnn_input.shape[0], num_tasks, device=dnn_input.device) / num_tasks
-            W_fw = W_fw.unsqueeze(2)
-            # Decoupled gate: task-embedding + shared-rep statistics
-            source_mean = exist_env_embs.mean(dim=1)
-            source_var = exist_env_embs.var(dim=1)
-            gen_mean = gen_rep.mean(dim=0)
-            gen_var = gen_rep.var(dim=0)
-            gate_input = torch.cat([new_env_emb, source_mean, source_var,
-                                    gen_mean, gen_var], dim=-1)
-            gate_input = gate_input.unsqueeze(0).expand(dnn_input.shape[0], -1)
-            g_raw = self.confidence_mlp(gate_input)
-            # Routing warm-up: alpha annealed from 0→1, g starts neutral at 0.5
-            g = self.gate_warmup_alpha * g_raw + (1 - self.gate_warmup_alpha) * 0.5
-            W = g.unsqueeze(-1) * W_attn + (1 - g.unsqueeze(-1)) * W_fw
-        elif self.fusion_mode == "affinity_gate":
-            H_out = self.projection_network(dnn_input)
-
-            # Step 1: Normalize for cosine similarity
-            h_p_norm = F.normalize(H_out, dim=-1)
-            E_norm = F.normalize(exist_env_embs, dim=0)
-            cos_sim = torch.mm(h_p_norm, E_norm)
-            # cos_sim: [batch, num_tasks], values in [-1, 1]
-
-            # Step 2: Compute 4 compatibility features
-            max_cos = cos_sim.max(dim=-1, keepdim=True)[0]
-            min_cos = cos_sim.min(dim=-1, keepdim=True)[0]
-            affinity_input = torch.cat([
-                max_cos,
-                min_cos,
-                max_cos - min_cos,
-                cos_sim.abs().mean(dim=-1, keepdim=True),
-            ], dim=-1)  # [batch, 4]
-
-            # Step 3: Learn affinity score with Gumbel-Sigmoid
-            g_logit = self.affinity_mlp(affinity_input).squeeze(-1)  # [batch]
-
-            # Gumbel noise for stochastic hard selection
-            if self.training:
-                gumbel_noise = -(-torch.rand_like(g_logit).clamp(1e-10).log()).clamp(1e-10).log()
-                g_soft = torch.sigmoid((g_logit + gumbel_noise) / 0.5)
-            else:
-                g_soft = torch.sigmoid(g_logit / 0.5)
-
-            g_hard = (g_soft > 0.5).float()
-            g = g_hard.detach() + g_soft - g_soft.detach()  # straight-through
-
-            # Step 4: Compute both weight sets
-            W_attn = torch.mm(H_out, exist_env_embs) / self.temperature
-            W_attn = F.softmax(W_attn, dim=-1).unsqueeze(2)
-            W_fw = torch.ones_like(W_attn) / num_tasks
-
-            # Step 5: Hard switch
-            W = g.view(-1, 1, 1) * W_attn + (1 - g.view(-1, 1, 1)) * W_fw
-        else:
-            H_out = self.projection_network(dnn_input)
-            W_logits = torch.mm(H_out, exist_env_embs) / self.temperature
-            W = F.softmax(W_logits, dim=-1).unsqueeze(2)
-
-        # KL regularization: penalize deviation from uniform attention
-        if self.fusion_mode == "kl_prompt":
-            W_flat = W.squeeze(-1).clamp(min=1e-8)  # [B, K]
-            log_uniform = torch.log(torch.tensor(1.0 / num_tasks, device=W.device))
-            self.kl_loss = (W_flat * (W_flat.log() - log_uniform)).sum(dim=1).mean()
-        else:
-            self.kl_loss = torch.tensor(0.0, device=W.device)
+        H_out = self.projection_network(dnn_input)
+        W = torch.mm(H_out, exist_env_embs) / self.temperature
+        W = F.softmax(W, dim=-1).unsqueeze(2)
 
         gate_out = self.gate_network(dnn_input).unsqueeze(dim=2)
         new_spec_rep = torch.matmul(torch.stack(spec_reps, dim=2), W).squeeze()
