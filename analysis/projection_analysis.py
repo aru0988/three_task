@@ -206,9 +206,12 @@ def main():
             rhos = np.array([0.178, 0.186, 0.142])
             corr = np.corrcoef(cos_sims, rhos)[0, 1]
             print(f"\n  Correlation between query cos_sim and label ρ: {corr:.4f}")
-            print(f"  => {'Projection NETWORK DOES encode task correlation'
-                  if abs(corr) > 0.5 else
-                  'Projection network does NOT clearly encode task correlation'}")
+            verdict = (
+                "Projection NETWORK DOES encode task correlation"
+                if abs(corr) > 0.5
+                else "Projection network does NOT clearly encode task correlation"
+            )
+            print(f"  => {verdict}")
 
         # 3. Per-task attention preference
         print("\nAttention preference by source task:")
