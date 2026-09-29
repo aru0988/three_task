@@ -1,6 +1,6 @@
 # Stage-2 Null Expert：源任务路由追加"零候选"
 
-- **状态**：已预注册，尚未运行（代码与本说明同批交付；**未跑过任何本臂训练**）
+- **状态**：单 seed 短跑**已完成** → **主 AUC 未达标，方向停止**（结果见第 8 节；不扩多 seed、不跑全量）
 - **日期**：2026-09-29
 - **适用分支**：`exp/stage2-null-expert`（自 `infra/fair-stage2-benchmark` 独立拉出，HEAD `87afe03`）
 - **协议依赖**：`docs/superpowers/specs/2026-09-29-census-stage2-benchmark-design.md`（本分支**只引用**该协议，不修改其文件；`census_benchmark/protocol.py` 与 `run_census_benchmark.py` 的协议语义不变）
@@ -102,6 +102,8 @@ K = 2 且权重和为 1 ⇒ **新任务表征恒为两个旧任务表征的凸�
 | 判定 | 两条**同时**满足才允许进入多 seed 扩展；否则**停止** |
 | 机械判定 | `metrics.null_arm_verdict(test_auc, null_top1_rate)`，结果落盘 `metrics.json["null_arm"]` |
 
+> 事后核对：本表数值在 run `20260929-1802-…-nullx` 前后**逐字未改**；落盘 `metrics.json.null_arm.auc_min = 0.8521`、`top1_range = [0.05, 0.95]` 与本表一致。
+
 **止损规则（与协议 6.3 一致）**：
 
 1. 未达阈值 → 如实记录该次结果（`SUMMARY.md` 追加行 + `artifacts/` 留档），**不得**重跑挑好的、不得换阈值、不得跳到多 seed 或全量。
@@ -134,8 +136,42 @@ K = 2 且权重和为 1 ⇒ **新任务表征恒为两个旧任务表征的凸�
 
 ---
 
-## 8. 结果（空：运行后追加，不得回填预期值）
+## 8. 结果（实测；运行后追加，不得回填预期值）
 
-| run_id | AUC-Test-Education | null_mean | null_top1_rate | 判定 |
-|---|---|---|---|---|
-| （待运行） | | | | |
+**判定：失败 → 方向停止。** 处理臂主判据（`AUC-Test-Education ≥ 0.8521`）未达标；机制判据成立。按第 5 节预注册规则：**不扩展多 seed、不跑全量**。
+
+### 8.1 两臂对照（同 `stage1_id`、同 split、同 model seed）
+
+| 项 | 基线臂 | 处理臂（本实验） |
+|---|---|---|
+| run_id | `20260929-1735-s20260929-m1685480945-short-904f8d0` | `20260929-1802-s20260929-m1685480945-short-1eadd05-nullx` |
+| commit | `904f8d0` | `1eadd05` |
+| stage1_id | `s1-096f8f16-m1685480945-e2-cb2094b3` | 同左（同一 checkpoint） |
+| best val AUC | 0.8527881906 | 0.8530204310 |
+| **AUC-Test-Education** | **0.8500685307** | **0.8513648272** |
+| Δ（处理 − 基线） | — | **+0.0012962965** |
+| 预注册阈值 | — | 0.8521（**未达标**） |
+| null_mean | 无此指标 | 0.3417778416 |
+| null_top1_rate | 无此指标 | 0.3725667088 |
+
+两臂 `split_sha256.fingerprint`（`096f8f16…`）与 `env_ids_sha256` 完全一致；基线臂 `mechanism` 键集保持 `{gate_mean, cos_gen_spec, gen_std, env_acc_stage1}`，未混入 null 指标（I9 成立）。
+
+### 8.2 门禁与机制
+
+| 检查 | 结果 |
+|---|---|
+| 门禁 A1 / A2 / A4 / A5 / B1 / B2 / B4 | **PASS** |
+| 门禁 B3 | **FAIL**（基线臂同为 FAIL，非本臂引入） |
+| backbone 哈希 before / after | `a12a5f53…` 前后一致（冻结 backbone 未被改动） |
+| `null_top1_rate ∈ [0.05, 0.95]` | **通过**（0.3725667088：null 候选确被选中，机制非惰性） |
+| `AUC ≥ 0.8521` | **失败**（0.8513648272） |
+| `null_arm.pass` | **false**，`checks = {auc: false, top1: true}`，落盘 `metrics.json["null_arm"]` |
+
+### 8.3 结论与处置
+
+- **按预注册规则停止**：两条判据须**同时**满足才允许扩展；AUC 条件失败 ⇒ **不扩多 seed、不跑全量**，也不做温度 / 初始化等补救性调参。
+- **弱正向信号（仅备查，不构成有效性）**：test AUC 较基线 +0.0012962965（val 亦高 +0.0002322405），且零候选机制确实被激活（37.26% 的验证样本把 null 选为 top1）。该增益**未越过预注册阈值**，故**不能称本方法有效**，只可作为未来新实验的参考线索。
+- **阈值未事后修改**：第 5 节判据与 run 前写死的一致，本文件未回填、未调整任何阈值。
+- **失败结果保留**：`SUMMARY.md` 处理臂行（`1eadd05 | 0.851365 | … | B3 FAIL`）由 runner 追加、未重写；`artifacts/census_stage2/runs/20260929-1802-s20260929-m1685480945-short-1eadd05-nullx/` 留档。
+- **分支处置（用户硬规则）**：无论成功失败，**只保留 `exp/stage2-null-expert`**，不合并回 `master`。
+- **测试**：`census_benchmark/tests` 全绿，**46 pass**。
