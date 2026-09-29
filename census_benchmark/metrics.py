@@ -69,13 +69,57 @@ class RepStats:
         return {"cos_gen_spec": (self.cos_sum / n).tolist(), "gen_std": float(std.mean())}
 
 
+class NullRouteStats:
+    """M7：null 候选（router 权重最后一列）的样本均值与 top1 占比。
+
+    逐样本左结合累加（而非按批 tensor 归约）：单批调用与任意分批流式调用结果**逐位相同**，
+    且与十进制字面量的左结合求和在双精度下一致——M7 需可逐位复现，不依赖归约内核的求和顺序。
+    累加器因此恒为 Python float（CPU），任意设备（含 CUDA）的输入都只先归约到 CPU 再累加。
+    """
+
+    def __init__(self):
+        self.weight_sum = 0.0
+        self.top1_count = 0
+        self.count = 0
+
+    def update(self, weights: torch.Tensor) -> None:
+        null_weights = weights.detach()[:, -1].cpu().tolist()          # float32 → Python float 无损
+        null_is_top1 = (weights.detach().argmax(dim=1) == weights.shape[1] - 1).cpu().tolist()
+        for weight, is_top1 in zip(null_weights, null_is_top1):
+            self.weight_sum += weight
+            self.top1_count += int(is_top1)
+        self.count += len(null_weights)
+
+    def result(self) -> dict:
+        n = max(self.count, 1)
+        return {"null_mean": self.weight_sum / n, "null_top1_rate": self.top1_count / n}
+
+
+# ---- Null Expert 臂的预注册接受标准（spec 2026-09-29-stage2-null-expert-design.md 5；看到结果前写死）----
+# 对照基线 = 同 checkpoint、同 split、同 model seed 的既有 run 20260929-1735-s20260929-m1685480945-short-904f8d0
+NULL_ARM_BASELINE_TEST_AUC = 0.8500685307
+NULL_ARM_AUC_MIN = 0.8521                        # 主判据：AUC-Test-Education ≥ 0.8521
+NULL_ARM_TOP1_MIN, NULL_ARM_TOP1_MAX = 0.05, 0.95  # 机制判据：null_top1_rate ∈ [0.05, 0.95]（两端含等号）
+
+
+def null_arm_verdict(test_auc: float, null_top1_rate: float) -> dict:
+    """Null Expert 臂的机械判定（spec 5）：主判据与机制判据**同时**满足才算通过。"""
+    checks = {"auc": bool(test_auc >= NULL_ARM_AUC_MIN),
+              "top1": bool(NULL_ARM_TOP1_MIN <= null_top1_rate <= NULL_ARM_TOP1_MAX)}
+    return {"test_auc": test_auc, "null_top1_rate": null_top1_rate,
+            "baseline_test_auc": NULL_ARM_BASELINE_TEST_AUC, "auc_min": NULL_ARM_AUC_MIN,
+            "top1_range": [NULL_ARM_TOP1_MIN, NULL_ARM_TOP1_MAX],
+            "checks": checks, "pass": bool(checks["auc"] and checks["top1"])}
+
+
 @torch.no_grad()
 def evaluate_newtask(newtask, backbone, loader, device, *, mechanism: bool = False) -> dict:
-    """评估新任务头。mechanism=True 时额外算 M3/M4（只在 val 上开一次）。"""
+    """评估新任务头。mechanism=True 时额外算 M3/M4（只在 val 上开一次）；启用 Null Expert 时追加 M7。"""
     newtask.eval(); backbone.eval()                 # 三件套之 2：backbone 恒为 eval
     ys, preds = [], []
     gate = GateStats() if mechanism else None
     rep = RepStats() if mechanism else None
+    null = NullRouteStats() if mechanism and getattr(newtask, "use_null_expert", False) else None
     for _, _, y, features in loader:
         features = {key: value.to(device) for key, value in features.items()}
         dnn_input, gen_rep, spec_reps, env_embs = backbone.get_infos(features)   # 三件套之 3：no_grad 抽取
@@ -84,9 +128,13 @@ def evaluate_newtask(newtask, backbone, loader, device, *, mechanism: bool = Fal
         if mechanism:
             gate.update([backbone.gate_networks[i](dnn_input) for i in range(P.NUM_TASKS)])
             rep.update(gen_rep, spec_reps)
+            if null is not None:
+                null.update(newtask.routing_weights(dnn_input, env_embs))
     out = {"auc": auc(torch.cat(ys), torch.cat(preds))}
     if mechanism:
         out["gate_mean"] = gate.result(); out.update(rep.result())
+        if null is not None:
+            out.update(null.result())
     return out
 
 

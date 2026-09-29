@@ -885,13 +885,21 @@ class MPTRec(nn.Module):
 
 
 class NewTask(nn.Module):
+    """新任务头：把 K 个源任务 specific 表征按 router 权重混合后与 general 表征 gate 融合。
+
+    `use_null_expert=True` 时在候选集合末尾追加一个**值恒为零**的候选（Null Expert），
+    并给它一个可学习 router key `null_key`：router 可对"不需要旧任务迁移"的样本把权重集中到零候选上。
+    默认 False 时参数集合、算子与顺序与未启用时完全相同（浮点结果逐位一致）。
+    """
+
     def __init__(
-        self, input_size, rep_dim, tower_dnn_hidden_units, reg_dnn, device=None
+        self, input_size, rep_dim, tower_dnn_hidden_units, reg_dnn, device=None, use_null_expert=False
     ):
         super(NewTask, self).__init__()
         self.reg_dnn = reg_dnn
         self.device = device
         self.temperature = 150
+        self.use_null_expert = use_null_expert
         self.env_embedding_network = nn.Embedding(1, rep_dim)
         self.register_buffer("new_env_idx", torch.tensor([0]), persistent=True)
         self.projection_network = nn.Sequential(
@@ -911,17 +919,32 @@ class NewTask(nn.Module):
             input_size=rep_dim,
             output_activation="sigmoid",
         )
+        if self.use_null_expert:
+            # 末尾创建 + 零初始化：不消耗 RNG（两臂 shared 参数初始化逐位一致），
+            # 且不在 get_l2_reg() 里（loss 形式不变）。
+            self.null_key = nn.Parameter(torch.zeros(rep_dim))
+
+    def routing_weights(self, dnn_input, env_embs):
+        """router 权重 softmax(H_out @ keys / temperature)：启用时为 (B, K+1)，keys 末尾是 null_key。"""
+        keys = torch.stack(env_embs, dim=1)
+        if self.use_null_expert:
+            keys = torch.cat([keys, self.null_key.unsqueeze(1)], dim=1)
+        return F.softmax(torch.mm(self.projection_network(dnn_input), keys) / self.temperature, dim=-1)
+
+    def routing_values(self, spec_reps):
+        """router 候选值 (B, rep_dim, K)：启用时在最后一列追加**逐位精确为零**的候选 → (B, rep_dim, K+1)。"""
+        values = torch.stack(spec_reps, dim=2)
+        if self.use_null_expert:
+            values = torch.cat([values, torch.zeros_like(values[:, :, :1])], dim=2)
+        return values
 
     def forward(self, dnn_input, gen_rep, spec_reps, env_embs):
-        exist_env_embs = torch.stack(env_embs, dim=1)
         new_env_emb = self.env_embedding_network(self.new_env_idx).squeeze(0)
 
-        H_out = self.projection_network(dnn_input)
-        W = torch.mm(H_out, exist_env_embs) / self.temperature
-        W = F.softmax(W, dim=-1).unsqueeze(2)
+        W = self.routing_weights(dnn_input, env_embs).unsqueeze(2)
 
         gate_out = self.gate_network(dnn_input).unsqueeze(dim=2)
-        new_spec_rep = torch.matmul(torch.stack(spec_reps, dim=2), W).squeeze()
+        new_spec_rep = torch.matmul(self.routing_values(spec_reps), W).squeeze()
         env_aware_rep = new_spec_rep * new_env_emb
         all_reps = torch.stack([env_aware_rep, gen_rep], dim=2)
         fused_rep = torch.matmul(all_reps, gate_out).squeeze()
