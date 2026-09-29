@@ -1,6 +1,8 @@
 # exp/stage2-attn-env-prior：Stage-2 新环境向量改用 attention 加权（实验说明）
 
-- **状态**：已实现（代码 + 测试），**未运行训练**；接受阈值已在开跑前写死（见第 3 节）
+- **状态**：**单 seed 短跑已完成 → 未达标 → 方向停止**。主判据 `AUC-Test-Education = 0.8489392168`
+  **< 0.8521**（开跑前写死的阈值，见第 3 节），且低于对照臂 `learned` 的 0.8500685307（Δ = −0.0011293139）。
+  不扩多 seed、不全量跑；结果见第 4 节，处置见第 5 节
 - **日期**：2026-09-29
 - **分支**：`exp/stage2-attn-env-prior`（基线：`infra/fair-stage2-benchmark` @ `87afe03`）
 - **协议**：只**引用** `docs/superpowers/specs/2026-09-29-census-stage2-benchmark-design.md`；
@@ -23,7 +25,7 @@ env_aware_rep = new_spec_rep * new_env_emb(x)              # 与 master 同一�
 - `H(x)` = `projection_network(dnn_input)`，`E_k` = Stage-1 `get_infos()` 给出的 `env_embs`，
   `temperature = 150` 沿用 master 既有值（**不新增、不调温度**）。
 - W 与 `new_spec_rep` 的 spec 加权用的是**同一份** softmax 权重（不额外算一套注意力）。
-- 由外部参数 `env_prior` 控制，**默认 `"learned"`**（= master 行为，逐位一致；见第 5 节测试）。
+- 由外部参数 `env_prior` 控制，**默认 `"learned"`**（= master 行为，逐位一致；见第 6 节测试）。
 
 ### 1.1 明确不含（强约束）
 
@@ -85,17 +87,74 @@ Stage-1（`EmbeddingNetwork` / `MPTRec` / `train.py`）改动、AliCCP / ByteRec
 
 阈值纪律（spec 6.3 / 第 8 节）：阈值由用户在开跑前指定，**不得事后修改**；未达标即止损。
 
----
-
-## 4. 判定与处置
-
-1. **达标（≥ 0.8521）**：允许扩展到多 seed（seed 列表由用户显式指定），之后才谈是否合并回 `master`。
-2. **未达标**：如实把该 run 留在 `SUMMARY.md`（协议 7.3：不得只报告成功的 run），**不**跳到多 seed / 全量跑。
-3. **附带的免费校验**：`learned` 复跑值 + 单测里的"逐位一致"契约共同验证默认路径零回归。
+**事后核对（未修改事前阈值）**：本文件写入结果（第 4 节）时，本节阈值 `0.8521`、主判据定义与"只认主判据"的
+口径**一字未改**——阈值在开跑前由用户给定，看到 `attn` 结果后没有放宽、没有换判据、没有改判；对照臂的既有
+参照值 `0.850069` 也照原样保留。
 
 ---
 
-## 5. 测试（TDD 契约，先写测试后改代码）
+## 4. 结果（单 seed 短跑，已完成）
+
+两条臂共用同一 Stage-1（`s1-096f8f16-m1685480945-e2-cb2094b3`）与同一 split / model / env seed，
+唯一差异是 `--env-prior`。落盘位置 `artifacts/census_stage2/runs/<run_id>/`，
+摘要行由 runner 追加到 `artifacts/census_stage2/SUMMARY.md`。
+
+### 4.1 主判据
+
+| 臂 | run_id | commit | best val AUC（Education） | **test AUC（Education）** | Δ vs 对照 | 阈值 | 判定 |
+|---|---|---|---|---|---|---|---|
+| `learned`（对照） | `20260929-1735-s20260929-m1685480945-short-904f8d0` | `904f8d0` | 0.8527881906 | **0.8500685307** | — | 0.8521 | 参照 |
+| `attn`（处理） | `20260929-1745-s20260929-m1685480945-short-f27882e-pattn` | `f27882e` | 0.8503707056 | **0.8489392168** | **−0.0011293139** | 0.8521 | **未达标** |
+
+- 主判据（第 3 节）：`attn` 的 test AUC **0.8489392168 < 0.8521** → **未达标**；
+  相对对照臂也是负向（−0.0011293139），即该改动没有带来增益，反而略低。
+- 对照臂复跑值 0.8500685307 与第 3 节写死的参照 `0.850069`（6 位小数）一致 → 默认路径（`learned`）零回归，
+  两条臂的差异可归因到 `env_prior` 这一个变量（第 1.2 节的取舍生效）。
+
+### 4.2 门禁（协议 A/B 类，落盘于 `gate_report.json`）
+
+| 门禁 | 结果 | 关键读数 |
+|---|---|---|
+| A1 | **PASS** | `backbone_sha_equal = true`、`grads_all_none = true`（阶段 2 未改动 backbone） |
+| A2 | **PASS** | `split_fingerprint_consistent = true` |
+| A4 | **PASS** | `disjoint_and_complete = true` |
+| A5 | **PASS** | `env_ids_sha256_matches_stage1 = true` |
+| B1 | **PASS** | val income 0.9373972 / val marital 0.9912246 / test education 0.8489392，均 ≥ 0.60 |
+| B2 | **PASS** | val−test gap 0.00143149 ≤ 0.03 |
+| B3 | **FAIL** | `gate_mean = [0.95240145198, 0.85439014564]`，第 1 维 0.9524 > 0.95 上界 |
+| B4 | **PASS** | `env_shares = [0.49411847, 0.50588153]`，均 ≥ 5% |
+| A3 | 未触发（`on_demand`） | 单次短跑，未按需复跑同一配置 |
+
+- **backbone 哈希前后一致**：`backbone_sha256_before == backbone_sha256_after`
+  = `a12a5f5369a7002fb12f0ead7576e4dad3375a060ba2f90d45bfb1d566153f85`（A1 的另一半）。
+- **B3 的失败不是本次改动引入的**：对照臂（`learned`）的 `gate_mean` 与之逐位相同
+  （同为 `[0.95240145198, 0.85439014564]`），该 gate 由冻结的 Stage-1 决定，两条臂共享同一状态。
+  按第 3 节，B 类是流程性门禁，**性能判定只认主判据**，B3 不改变"未达标"的结论。
+
+### 4.3 其他机制读数（`metrics.json` 的 `mechanism`）
+
+`cos_gen_spec = [0.3259840, 0.3965452]`、`gen_std = 3.4769906`、`env_acc_stage1 = [0.5005488, 0.4618415]`。
+
+---
+
+## 5. 判定与处置
+
+1. **判定：未达标。** 主判据 `0.8489392168 < 0.8521`（第 3 节阈值），且低于对照臂 `learned`（0.8500685307）。
+2. **处置：方向停止。** 不扩多 seed、**不**全量跑；`env_prior="attn"` 这条线到此为止，不再投入算力。
+   后续若要重启该想法，须作为新实验重新走"阈值前置 + 单 seed 短跑"的流程，不得沿用本轮阈值做追溯判定。
+3. **记录义务（无论成功失败）**：两条臂的 run 目录、`SUMMARY.md` 行与本文件**全部提交入库**；
+   按协议 7.3 不得只报告成功的 run，未达标的 run 与"方向停止"的结论一并保留。
+4. **分支归属**：本实验结果**只保留在自己的 `exp/stage2-attn-env-prior` 分支**，
+   **无论成功或失败都不合并回 `master`**；`master` 保持干净基线（本实验全程 `census_benchmark/protocol.py` 零改动）。
+5. **附带的免费校验**：`learned` 复跑值（0.8500685307）与第 3 节参照一致，加上第 6 节单测里的"逐位一致"契约，
+   共同验证默认路径零回归。
+
+---
+
+## 6. 测试（TDD 契约，先写测试后改代码）
+
+状态：**37 tests pass**（全绿）。用例分布：`test_smoke.py` 10 + `test_metrics.py` 10 +
+`test_newtask_env_prior.py` 9 + `test_protocol.py` 8 = 37。
 
 ```powershell
 .venv\Scripts\python.exe -m unittest discover -s census_benchmark/tests -t census_benchmark/tests -v
