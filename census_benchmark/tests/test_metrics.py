@@ -70,3 +70,42 @@ class TestMetrics(unittest.TestCase):
         self.assertFalse(metrics.judge(**_ok_kwargs(gate_mean=[0.02, 0.98]))["B3"]["pass"])    # 坍缩到单一分支
         self.assertTrue(metrics.judge(**_ok_kwargs(env_shares=[0.05, 0.95]))["B4"]["pass"])
         self.assertFalse(metrics.judge(**_ok_kwargs(env_shares=[0.049, 0.951]))["B4"]["pass"])  # 聚类退化
+
+
+@unittest.skipUnless(torch.cuda.is_available(), "需要 CUDA 才能复现累加器 device mismatch")
+class TestCudaAccumulatorRegression(unittest.TestCase):
+    """回归：CUDA 张量喂进 CPU 累加器 → "Expected all tensors to be on the same device"。
+
+    实际崩溃路径：stage2 五个 epoch 后 evaluate_newtask(mechanism=True) 在 CUDA 上抽表征，
+    GateStats.update 的 self.total[i] += <cuda reduction> 直接抛错；RepStats 的 cos_sum 同理。
+    用例数值与 CPU 版测试逐一对应：同一输入在不同设备下必须给出同一结果。
+    """
+
+    def test_gate_stats_cuda_gate_outs(self):
+        stats = metrics.GateStats(num_tasks=2)
+        stats.update([torch.tensor([[0.8, 0.2], [0.6, 0.4]], device="cuda"),
+                      torch.tensor([[0.1, 0.9], [0.3, 0.7]], device="cuda")])
+        out = stats.result()
+        self.assertAlmostEqual(out[0], 0.70, places=6)
+        self.assertAlmostEqual(out[1], 0.20, places=6)
+
+    def test_rep_stats_cuda_tensors(self):
+        stats = metrics.RepStats(num_tasks=2)
+        stats.update(torch.tensor([[1.0, 0.0], [0.0, 2.0]], device="cuda"),
+                     [torch.tensor([[1.0, 0.0], [1.0, 0.0]], device="cuda"),
+                      torch.tensor([[1.0, 0.0], [0.0, 1.0]], device="cuda")])
+        out = stats.result()
+        self.assertAlmostEqual(out["cos_gen_spec"][0], 0.5, places=6)
+        self.assertAlmostEqual(out["cos_gen_spec"][1], 1.0, places=6)
+        self.assertAlmostEqual(out["gen_std"], 0.75, places=6)
+
+    def test_rep_stats_mixed_device_batches(self):
+        """累加器必须与输入设备无关：CPU batch 之后再喂 CUDA batch 不得 device mismatch。"""
+        stats = metrics.RepStats(num_tasks=1)
+        gen = torch.tensor([[1.0, 0.0], [0.0, 2.0]])
+        spec = torch.tensor([[1.0, 0.0], [1.0, 0.0]])
+        stats.update(gen, [spec])
+        stats.update(gen.cuda(), [spec.cuda()])
+        out = stats.result()
+        self.assertAlmostEqual(out["cos_gen_spec"][0], 0.5, places=6)
+        self.assertAlmostEqual(out["gen_std"], 0.75, places=6)

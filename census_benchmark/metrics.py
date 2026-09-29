@@ -31,7 +31,8 @@ class GateStats:
 
     def update(self, gate_outs: list[torch.Tensor]) -> None:
         for i, gate_out in enumerate(gate_outs):
-            self.total[i] += gate_out.detach().double().sum(dim=0)
+            # 累加器恒在 CPU：先在原设备归约，再显式 .cpu()，否则 CPU 累加器接 CUDA 张量会 device mismatch
+            self.total[i] += gate_out.detach().double().sum(dim=0).cpu()
         self.count += gate_outs[0].shape[0]
 
     def result(self) -> list[float]:
@@ -52,10 +53,13 @@ class RepStats:
 
     def update(self, gen_rep: torch.Tensor, spec_reps: list[torch.Tensor]) -> None:
         gen = gen_rep.detach().double()
-        self.gen_sum = gen.sum(dim=0) if self.gen_sum is None else self.gen_sum + gen.sum(dim=0)
-        self.gen_sq_sum = (gen * gen).sum(dim=0) if self.gen_sq_sum is None else self.gen_sq_sum + (gen * gen).sum(dim=0)
+        # 同 GateStats：归约留在原设备，结果显式 .cpu()，三个累加器恒为 CPU（result() 的返回类型不变）
+        gen_sum = gen.sum(dim=0).cpu()
+        gen_sq_sum = (gen * gen).sum(dim=0).cpu()
+        self.gen_sum = gen_sum if self.gen_sum is None else self.gen_sum + gen_sum
+        self.gen_sq_sum = gen_sq_sum if self.gen_sq_sum is None else self.gen_sq_sum + gen_sq_sum
         for i, spec in enumerate(spec_reps):
-            self.cos_sum[i] += F.cosine_similarity(gen, spec.detach().double(), dim=1).sum()
+            self.cos_sum[i] += F.cosine_similarity(gen, spec.detach().double(), dim=1).sum().cpu()
         self.count += gen.shape[0]
 
     def result(self) -> dict:
