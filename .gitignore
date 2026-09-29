@@ -48,3 +48,12 @@ ENV/
 *.log
 logs/
 tb_logs/           # TensorBoard 日志
+
+# ==============================
+# 6. CensusIncome 阶段 2 协议产物（spec 9.2）
+# ==============================
+# 权重 / 指标 / 日志 / 划分索引一律不入库；SUMMARY.md 是唯一入库产物
+artifacts/census_stage2/stage1
+artifacts/census_stage2/runs
+artifacts/census_stage2/splits
+!artifacts/census_stage2/SUMMARY.md
