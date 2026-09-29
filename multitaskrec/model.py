@@ -885,12 +885,26 @@ class MPTRec(nn.Module):
 
 
 class NewTask(nn.Module):
+    """新任务泛化头。
+
+    env_prior 决定新环境向量 new_env_emb 的来源（默认 "learned" = master 行为，逐位一致）：
+
+    - "learned"：可学习 `nn.Embedding(1, rep_dim)`，参数参与优化（master 行为）
+    - "attn"   ：无新参数，new_env_emb(x) = Σ_k W_k(x) · E_k —— W 复用既有 attention 权重
+                 （与 spec 加权用的是同一份），E_k 为 Stage-1 的 env_embs。
+                 `env_embedding_network` 仅为让两种模式的初始化随机流逐位对齐而保留，
+                 forward 不引用它（其 `.grad` 恒为 None）。
+    """
+
     def __init__(
-        self, input_size, rep_dim, tower_dnn_hidden_units, reg_dnn, device=None
+        self, input_size, rep_dim, tower_dnn_hidden_units, reg_dnn, device=None, env_prior="learned"
     ):
         super(NewTask, self).__init__()
+        if env_prior not in ("learned", "attn"):
+            raise ValueError(f"env_prior 只支持 'learned' / 'attn'，收到 {env_prior!r}")
         self.reg_dnn = reg_dnn
         self.device = device
+        self.env_prior = env_prior
         self.temperature = 150
         self.env_embedding_network = nn.Embedding(1, rep_dim)
         self.register_buffer("new_env_idx", torch.tensor([0]), persistent=True)
@@ -914,14 +928,19 @@ class NewTask(nn.Module):
 
     def forward(self, dnn_input, gen_rep, spec_reps, env_embs):
         exist_env_embs = torch.stack(env_embs, dim=1)
-        new_env_emb = self.env_embedding_network(self.new_env_idx).squeeze(0)
 
         H_out = self.projection_network(dnn_input)
         W = torch.mm(H_out, exist_env_embs) / self.temperature
-        W = F.softmax(W, dim=-1).unsqueeze(2)
+        W = F.softmax(W, dim=-1)
+
+        if self.env_prior == "attn":
+            # 每样本用既有 attention 权重 W 对 Stage-1 env_embs 加权：new_env_emb(x) = Σ_k W_k(x)·E_k
+            new_env_emb = torch.mm(W, exist_env_embs.transpose(0, 1))
+        else:
+            new_env_emb = self.env_embedding_network(self.new_env_idx).squeeze(0)
 
         gate_out = self.gate_network(dnn_input).unsqueeze(dim=2)
-        new_spec_rep = torch.matmul(torch.stack(spec_reps, dim=2), W).squeeze()
+        new_spec_rep = torch.matmul(torch.stack(spec_reps, dim=2), W.unsqueeze(2)).squeeze()
         env_aware_rep = new_spec_rep * new_env_emb
         all_reps = torch.stack([env_aware_rep, gen_rep], dim=2)
         fused_rep = torch.matmul(all_reps, gate_out).squeeze()

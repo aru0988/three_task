@@ -176,8 +176,13 @@ def _write_json(path: Path, payload: dict) -> None:
 
 def run_stage2(root=P.ARTIFACT_ROOT, *, stage1_dir, epochs=P.STAGE2_EPOCHS, tag="short", device=None,
                model=None, loaders=None, stats=None, indices=None, input_size=P.INPUT_SIZE,
-               rep_dim=P.EXPERT_HIDDEN[-1], now=None) -> dict:
-    """阶段 2：只从 Stage-1 产物加载 backbone，训练新任务头，做门禁与 SUMMARY。"""
+               rep_dim=P.EXPERT_HIDDEN[-1], env_prior="learned", now=None) -> dict:
+    """阶段 2：只从 Stage-1 产物加载 backbone，训练新任务头，做门禁与 SUMMARY。
+
+    env_prior 传给 NewTask（默认 "learned" = master 行为；"attn" = 用既有 attention 权重加权
+    Stage-1 env_embs，见 exp/stage2-attn-env-prior 实验说明），并记入 config.json / metrics.json，
+    且以 `-p<env_prior>` 后缀进入 run_id（协议 run_id 基础段不变，protocol.py 零改动）。
+    """
     root = Path(root)
     device = device or torch.device("cuda:0")
     sid = Path(stage1_dir).name
@@ -203,7 +208,7 @@ def run_stage2(root=P.ARTIFACT_ROOT, *, stage1_dir, epochs=P.STAGE2_EPOCHS, tag=
     env_ids_ok = P.sha256_tensor(env_ids) == meta["env_ids_sha256"]
 
     newtask = NewTask(input_size=input_size, rep_dim=rep_dim, tower_dnn_hidden_units=list(P.TOWER_HIDDEN),
-                      reg_dnn=P.REG_DNN, device=device).to(device)
+                      reg_dnn=P.REG_DNN, device=device, env_prior=env_prior).to(device)
     optimizer = torch.optim.Adam(params=newtask.parameters(), lr=P.LR)      # 只含 NewTask 参数
     loss_func = nn.BCELoss()
     best_auc, best_epoch, best_state, stale, epoch_records = -1.0, 0, None, 0, []
@@ -256,8 +261,9 @@ def run_stage2(root=P.ARTIFACT_ROOT, *, stage1_dir, epochs=P.STAGE2_EPOCHS, tag=
     report["A3"] = {"status": "on_demand",
                     "detail": "按需复跑同一配置，比较 AUC-Test-Education 差 ≤ 1e-9 与 backbone_sha256 一致"}
 
-    run_id = P.make_run_id(now or datetime.now(), split_seed=meta["split_seed"],
-                           model_seed=meta["model_seed"], tag=tag, commit=commit)
+    protocol_run_id = P.make_run_id(now or datetime.now(), split_seed=meta["split_seed"],
+                                    model_seed=meta["model_seed"], tag=tag, commit=commit)
+    run_id = f"{protocol_run_id}-p{env_prior}"             # 协议 run_id + 本分支 env 向量来源标记
     run_path = root / "runs" / run_id
     run_path.mkdir(parents=True, exist_ok=True)
     torch.save(newtask.state_dict(), run_path / "newtask.pt")
@@ -267,9 +273,9 @@ def run_stage2(root=P.ARTIFACT_ROOT, *, stage1_dir, epochs=P.STAGE2_EPOCHS, tag=
         "run_id": run_id, "stage1_id": sid, "commit": commit, "tag": tag, "frozen": True,
         "split_seed": meta["split_seed"], "model_seed": meta["model_seed"], "env_seed": meta["env_seed"],
         "epochs": epochs, "patience": P.PATIENCE, "lr": P.LR, "batch_size": loaders["train"].batch_size,
-        "input_size": input_size, "rep_dim": rep_dim})
+        "input_size": input_size, "rep_dim": rep_dim, "env_prior": env_prior})
     _write_json(run_path / "metrics.json", {
-        "run_id": run_id, "stage1_id": sid, "commit": commit,
+        "run_id": run_id, "stage1_id": sid, "commit": commit, "env_prior": env_prior,
         "split_sha256": {"val": fp["val_sha256"], "test": fp["test_sha256"],
                          "fingerprint": fp["fingerprint_sha256"]},
         "env_ids_sha256": meta["env_ids_sha256"],
@@ -289,7 +295,8 @@ def run_stage2(root=P.ARTIFACT_ROOT, *, stage1_dir, epochs=P.STAGE2_EPOCHS, tag=
         **{key: ("PASS" if report[key]["pass"] else "FAIL")
            for key in ("A1", "A2", "A4", "A5", "B1", "B2", "B3", "B4")}})
     (run_path / "stdout.log").write_text(log_buffer.getvalue(), encoding="utf-8")
-    print(f"[stage2] run_id={run_id} test_auc={test_final['auc']:.4f} overall_pass={report['overall_pass']}")
+    print(f"[stage2] run_id={run_id} env_prior={env_prior} test_auc={test_final['auc']:.4f} "
+          f"overall_pass={report['overall_pass']}")
     print(f"[stage2] failures={report['failures']} run_dir={run_path}")
     return {"run_id": run_id, "run_dir": str(run_path), "report": report, "test_auc": test_final["auc"]}
 
@@ -311,6 +318,9 @@ def build_parser() -> argparse.ArgumentParser:
     second.add_argument("--gpu", type=int, default=0)
     second.add_argument("--tag", choices=["short", "full"], default="short")
     second.add_argument("--epochs", type=int, default=P.STAGE2_EPOCHS)
+    second.add_argument("--env-prior", choices=["learned", "attn"], default="learned",
+                        help="NewTask 新环境向量来源：learned=可学习嵌入（默认，master 行为）；"
+                             "attn=用既有 attention 权重加权 Stage-1 env_embs")
     return parser
 
 
@@ -322,7 +332,8 @@ def main(argv=None) -> int:
         run_stage1(args.root, split_seed=args.split_seed, model_seed=args.model_seed,
                    env_seed=args.env_seed, epochs=args.epochs, tag=args.tag, device=device)
     else:
-        run_stage2(args.root, stage1_dir=args.stage1_dir, epochs=args.epochs, tag=args.tag, device=device)
+        run_stage2(args.root, stage1_dir=args.stage1_dir, epochs=args.epochs, tag=args.tag,
+                   device=device, env_prior=args.env_prior)
     return 0
 
 

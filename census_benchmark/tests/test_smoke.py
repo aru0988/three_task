@@ -1,5 +1,6 @@
-import json, subprocess, tempfile, unittest
+import ast, json, subprocess, tempfile, unittest
 from pathlib import Path
+from unittest import mock
 
 import torch
 from torch.utils.data import DataLoader, Dataset, Subset
@@ -8,15 +9,25 @@ from census_benchmark import protocol as P
 import run_census_benchmark
 
 REPO = Path(__file__).resolve().parents[2]          # 测试依赖 cwd = 仓库根
+MODEL_REL = "multitaskrec/model.py"                 # 本分支唯一允许改动的模型文件
+STAGE1_CLASSES = ("MLP", "EmbeddingNetwork", "LinearLogSoftMaxEnvClassifier", "ReverseLayerF", "MPTRec")
 
 
 def _git(*args):
-    return subprocess.run(["git", *args], cwd=REPO, capture_output=True, text=True)
+    # encoding 显式 utf-8：git show 输出与 read_text(encoding="utf-8") 用同一解码（源码含中文注释）
+    return subprocess.run(["git", *args], cwd=REPO, capture_output=True, text=True, encoding="utf-8")
 
 
 def _ignored(rel_path):
     """git check-ignore 返回 0 表示被忽略。"""
     return subprocess.run(["git", "check-ignore", "-q", rel_path], cwd=REPO).returncode == 0
+
+
+def _class_source(source: str, name: str) -> str:
+    for node in ast.parse(source).body:
+        if isinstance(node, ast.ClassDef) and node.name == name:
+            return ast.get_source_segment(source, node)
+    raise AssertionError(f"未找到类 {name}")
 
 
 class TestStaticGuards(unittest.TestCase):
@@ -28,16 +39,27 @@ class TestStaticGuards(unittest.TestCase):
             self.assertTrue(_ignored(rel), f"应被忽略: {rel}")
         self.assertFalse(_ignored("artifacts/census_stage2/SUMMARY.md"))     # SUMMARY 必须能入库
 
-    def test_static_guards_master_untouched_and_no_flops(self):
-        diff = _git("diff", "--name-only", "master", "--", "multitaskrec", "config.py",
-                    "CensusIncome_MPTRec.py", "CensusIncome_NewTask.py").stdout.strip()
-        self.assertEqual(diff, "", f"协议分支不得改动模型/master 文件: {diff}")
+    def test_static_guards_only_model_py_changed_and_no_flops(self):
+        # exp/stage2-attn-env-prior：只允许改 model.py 里的 NewTask；其余 master 文件必须原样
+        changed = set(_git("diff", "--name-only", "master", "--", "multitaskrec", "config.py",
+                           "CensusIncome_MPTRec.py", "CensusIncome_NewTask.py", "baseline").stdout.split())
+        self.assertLessEqual(changed, {MODEL_REL}, f"本分支只允许改 {MODEL_REL}: {changed}")
         protocol_src = (REPO / "census_benchmark" / "protocol.py").read_text(encoding="utf-8")
         runner_src = (REPO / "run_census_benchmark.py").read_text(encoding="utf-8")
         for src in (protocol_src, runner_src):
             self.assertNotIn("fvcore", src)                    # 不做 FLOPs（spec 2.2.4）
         self.assertIn("random_state=split_seed", protocol_src)  # 划分只由 split seed 决定（spec 5.3.5）
         self.assertNotIn("random_state=model_seed", protocol_src)
+
+
+class TestStage1Untouched(unittest.TestCase):
+    def test_stage1_classes_byte_identical_to_master(self):
+        """不改 Stage1：EmbeddingNetwork / MPTRec 等类的源码必须与 master 逐字节一致。"""
+        master_src = _git("show", f"master:{MODEL_REL}").stdout
+        current_src = (REPO / MODEL_REL).read_text(encoding="utf-8")
+        for name in STAGE1_CLASSES:
+            self.assertEqual(_class_source(current_src, name), _class_source(master_src, name),
+                             f"{name} 与 master 不一致（stage1 语义不得改动）")
 
 
 class TinyCensus(Dataset):
@@ -131,3 +153,60 @@ class TestStage2Smoke(unittest.TestCase):
                 run_census_benchmark.run_stage2(Path(td) / "artifacts",
                                                 stage1_dir=Path(td) / "no_such_stage1",
                                                 device=torch.device("cpu"))
+
+
+class TestStage2EnvPrior(unittest.TestCase):
+    """env_prior 必须在 config / metrics / run_id 三处明确记录，且默认值仍是 learned。"""
+
+    def _run_stage2(self, td, env_prior=None):
+        root, device = Path(td) / "artifacts", torch.device("cpu")
+        loaders, stats, indices = tiny_inputs()
+        stage1 = run_census_benchmark.run_stage1(root, epochs=2, device=device, model=tiny_model(),
+                                                 loaders=loaders, stats=stats, indices=indices)
+        extra = {} if env_prior is None else {"env_prior": env_prior}
+        out = run_census_benchmark.run_stage2(root, stage1_dir=Path(stage1["dir"]), epochs=1, device=device,
+                                              model=tiny_model(), loaders=loaders, stats=stats,
+                                              indices=indices, input_size=8, rep_dim=4, **extra)
+        run_path = Path(out["run_dir"])
+        config = json.loads((run_path / "config.json").read_text(encoding="utf-8"))
+        metrics_json = json.loads((run_path / "metrics.json").read_text(encoding="utf-8"))
+        return out, run_path, config, metrics_json
+
+    def test_default_env_prior_learned_recorded_everywhere(self):
+        with tempfile.TemporaryDirectory() as td:
+            out, run_path, config, metrics_json = self._run_stage2(td)
+            self.assertEqual(config["env_prior"], "learned")               # 不传参数 → learned
+            self.assertEqual(metrics_json["env_prior"], "learned")
+            self.assertTrue(out["run_id"].endswith("-plearned"), out["run_id"])
+            state = torch.load(run_path / "newtask.pt", map_location="cpu")
+            self.assertIn("env_embedding_network.weight", state)
+
+    def test_attn_env_prior_recorded_everywhere(self):
+        with tempfile.TemporaryDirectory() as td:
+            out, run_path, config, metrics_json = self._run_stage2(td, env_prior="attn")
+            self.assertEqual(config["env_prior"], "attn")
+            self.assertEqual(metrics_json["env_prior"], "attn")
+            self.assertTrue(out["run_id"].endswith("-pattn"), out["run_id"])
+            summary = (Path(td) / "artifacts" / "SUMMARY.md").read_text(encoding="utf-8")
+            self.assertIn(out["run_id"], summary)                          # run_id 即可区分两条臂
+
+    def test_cli_env_prior_flag_and_default(self):
+        parser = run_census_benchmark.build_parser()
+        base = ["stage2", "--stage1-dir", "x"]
+        self.assertEqual(parser.parse_args(base).env_prior, "learned")
+        self.assertEqual(parser.parse_args(base + ["--env-prior", "attn"]).env_prior, "attn")
+        with self.assertRaises(SystemExit):                                # 非法值由 argparse 拦截
+            parser.parse_args(base + ["--env-prior", "bogus"])
+
+    def test_cli_stage2_forwards_env_prior_to_runner(self):
+        captured = {}
+
+        def fake_run_stage2(root, **kwargs):
+            captured.update(kwargs)
+            return {"run_id": "rid", "run_dir": "rd", "report": {}, "test_auc": 0.0}
+
+        with mock.patch.object(run_census_benchmark, "run_stage2", fake_run_stage2):
+            run_census_benchmark.main(["stage2", "--stage1-dir", "artifacts/x", "--env-prior", "attn",
+                                       "--epochs", "1"])
+        self.assertEqual(captured["env_prior"], "attn")
+        self.assertEqual(captured["epochs"], 1)
