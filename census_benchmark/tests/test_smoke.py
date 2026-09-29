@@ -28,10 +28,15 @@ class TestStaticGuards(unittest.TestCase):
             self.assertTrue(_ignored(rel), f"应被忽略: {rel}")
         self.assertFalse(_ignored("artifacts/census_stage2/SUMMARY.md"))     # SUMMARY 必须能入库
 
-    def test_static_guards_master_untouched_and_no_flops(self):
+    def test_static_guards_only_model_py_differs_from_master(self):
+        """exp/stage2-null-expert：模型侧唯一允许的改动是 model.py 的 Null Expert 分支（默认关闭）。
+
+        默认路径与 master 的逐位一致由 test_null_expert.py::TestDefaultArmBitIdenticalToMaster 强制
+        （该测试从 git master 动态加载 NewTask 源码作为参考实现，逐位比对前向与反向）。
+        """
         diff = _git("diff", "--name-only", "master", "--", "multitaskrec", "config.py",
-                    "CensusIncome_MPTRec.py", "CensusIncome_NewTask.py").stdout.strip()
-        self.assertEqual(diff, "", f"协议分支不得改动模型/master 文件: {diff}")
+                    "CensusIncome_MPTRec.py", "CensusIncome_NewTask.py").stdout.split()
+        self.assertEqual(diff, ["multitaskrec/model.py"], f"除 model.py 的 Null Expert 外不得改动模型/master 文件: {diff}")
         protocol_src = (REPO / "census_benchmark" / "protocol.py").read_text(encoding="utf-8")
         runner_src = (REPO / "run_census_benchmark.py").read_text(encoding="utf-8")
         for src in (protocol_src, runner_src):
