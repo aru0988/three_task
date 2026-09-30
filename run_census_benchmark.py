@@ -14,6 +14,7 @@ import torch
 import torch.nn as nn
 from torch.utils.data import DataLoader, Subset
 
+from census_benchmark import affinity_gate as AFF
 from census_benchmark import metrics
 from census_benchmark import protocol as P
 from config import CensusIncome_Vocabulary_Size
@@ -176,13 +177,21 @@ def _write_json(path: Path, payload: dict) -> None:
 
 def run_stage2(root=P.ARTIFACT_ROOT, *, stage1_dir, epochs=P.STAGE2_EPOCHS, tag="short", device=None,
                model=None, loaders=None, stats=None, indices=None, input_size=P.INPUT_SIZE,
-               rep_dim=P.EXPERT_HIDDEN[-1], now=None) -> dict:
-    """阶段 2：只从 Stage-1 产物加载 backbone，训练新任务头，做门禁与 SUMMARY。"""
+               rep_dim=P.EXPERT_HIDDEN[-1], variant=AFF.BASELINE_VARIANT, now=None) -> dict:
+    """阶段 2：只从 Stage-1 产物加载 backbone，训练新任务头，做门禁与 SUMMARY。
+
+    `variant="affinity"` 时换成**忠实复现的历史 Affinity Gate 门控头**（见
+    docs/superpowers/experiments/2026-09-30-stage2-affinity-gate-revalidation.md）：逐 epoch 记录门控
+    读数与 affinity_mlp 梯度范数（读取真实前向的 `last_terms`，不重算 ⇒ 不额外消耗 RNG），
+    best_state 载入后做退化诊断与噪声/梯度探针；默认 `baseline` 与未启用时行为完全一致
+    （新任务头、config / metrics 的基线键集都不变）。
+    """
     root = Path(root)
     device = device or torch.device("cuda:0")
     sid = Path(stage1_dir).name
     checkpoint = P.load_stage1(root, sid)                  # spec 4.3：唯一 backbone 来源（缺失即抛错）
     meta, commit, log_buffer = checkpoint["meta"], P.code_commit(), io.StringIO()
+    treatment = variant != AFF.BASELINE_VARIANT
 
     # 1) 同一划分：用 stage1 的 split seed 重建并双向校验（A2）
     if loaders is None:
@@ -202,15 +211,19 @@ def run_stage2(root=P.ARTIFACT_ROOT, *, stage1_dir, epochs=P.STAGE2_EPOCHS, tag=
     env_ids = checkpoint["env_ids"]
     env_ids_ok = P.sha256_tensor(env_ids) == meta["env_ids_sha256"]
 
-    newtask = NewTask(input_size=input_size, rep_dim=rep_dim, tower_dnn_hidden_units=list(P.TOWER_HIDDEN),
-                      reg_dnn=P.REG_DNN, device=device).to(device)
+    newtask = AFF.build_newtask(variant, input_size=input_size, rep_dim=rep_dim,
+                                tower_dnn_hidden_units=list(P.TOWER_HIDDEN),
+                                reg_dnn=P.REG_DNN, device=device).to(device)
     optimizer = torch.optim.Adam(params=newtask.parameters(), lr=P.LR)      # 只含 NewTask 参数
     loss_func = nn.BCELoss()
     best_auc, best_epoch, best_state, stale, epoch_records = -1.0, 0, None, 0, []
+    trace = AFF.TrainGateTrace() if treatment else None                     # 处理臂：门控轨迹
 
     # 3) 训练：val 只用于 early stop 选点；test 全程不参与选择（spec 4.6、7.3）
     with tee_stdout(log_buffer):
         for epoch in range(1, epochs + 1):
+            if treatment:
+                trace.start_epoch(epoch)
             newtask.train()
             loss_sum, steps = 0.0, 0
             for _, _, y, features in loaders["train"]:
@@ -221,9 +234,13 @@ def run_stage2(root=P.ARTIFACT_ROOT, *, stage1_dir, epochs=P.STAGE2_EPOCHS, tag=
                 loss = loss_func(pred, y.float().to(device)) + newtask.get_l2_reg()
                 optimizer.zero_grad()
                 loss.backward()
+                if treatment:                     # 读梯度 + 真实前向的门控读数（step 之前；不重算、不抽 RNG）
+                    trace.record_step(newtask)
                 optimizer.step()
                 loss_sum += float(loss)
                 steps += 1
+            if treatment:
+                trace.end_epoch()
             val = metrics.evaluate_newtask(newtask, backbone, loaders["val"], device)
             epoch_records.append({"epoch": epoch, "loss": loss_sum / max(steps, 1),
                                   "auc_val_education": val["auc"]})
@@ -258,6 +275,35 @@ def run_stage2(root=P.ARTIFACT_ROOT, *, stage1_dir, epochs=P.STAGE2_EPOCHS, tag=
 
     run_id = P.make_run_id(now or datetime.now(), split_seed=meta["split_seed"],
                            model_seed=meta["model_seed"], tag=tag, commit=commit)
+    mechanism = {"gate_mean": val_final["gate_mean"], "cos_gen_spec": val_final["cos_gen_spec"],
+                 "gen_std": val_final["gen_std"],
+                 "env_acc_stage1": [record["env_acc"] for record in meta["epoch_records"]]}
+    arm = None
+    if treatment:
+        run_id += AFF.RUN_ID_SUFFIX                        # 臂后缀：与基线 run 在 SUMMARY.md 中天然可区分
+        # 退化/保真诊断（主导预注册判据）：best_state 已载入，只用 val 前向一遍；探针走私有 Generator
+        diagnostics = AFF.evaluate_gate(newtask, backbone, loaders["val"], device)
+        probe_features = {key: value.to(device) for key, value in next(iter(loaders["val"]))[-1].items()}
+        with torch.no_grad():                              # 三件套之 3：探针也只读表征
+            probe_reps = backbone.get_infos(probe_features)
+        trace_result = trace.result()
+        degeneracy = AFF.degeneracy_verdict(eval_share=diagnostics["eval_routing_share_attn"],
+                                            routing_l1=diagnostics["routing_l1"],
+                                            grad_norm=trace_result["grad_norm_max"],
+                                            noise_window=diagnostics["noise_share_window"])
+        fidelity = AFF.fidelity_verdict(noise_window=diagnostics["noise_share_window"])
+        arm = AFF.arm_verdict(test_final["auc"], degeneracy=degeneracy, fidelity=fidelity)
+        arm["diagnostics"] = diagnostics
+        arm["noise_signal_probe"] = AFF.noise_signal_probe(newtask, *probe_reps)
+        arm["gradient_probe"] = AFF.gradient_probe(newtask, *probe_reps)
+        arm["train_gate_trace"] = trace_result["per_epoch"]
+        arm["affinity_grad_norm"] = {key: value for key, value in trace_result.items()
+                                     if key != "per_epoch"}
+        arm["prereg"] = AFF.preregistered_criteria()
+        arm["provenance"] = AFF.provenance()
+        # 诊断/探针在 A1 取哈希之后运行 ⇒ 这里补一次冻结复验（A1 语义不变，只是把缺口留痕）
+        arm["backbone_sha256_after_probes"] = P.backbone_sha256(backbone)
+        arm["grads_all_none_after_probes"] = all(param.grad is None for param in backbone.parameters())
     run_path = root / "runs" / run_id
     run_path.mkdir(parents=True, exist_ok=True)
     torch.save(newtask.state_dict(), run_path / "newtask.pt")
@@ -265,11 +311,12 @@ def run_stage2(root=P.ARTIFACT_ROOT, *, stage1_dir, epochs=P.STAGE2_EPOCHS, tag=
     _write_json(run_path / "split_fingerprint.json", fp)
     _write_json(run_path / "config.json", {
         "run_id": run_id, "stage1_id": sid, "commit": commit, "tag": tag, "frozen": True,
+        "variant": variant,
         "split_seed": meta["split_seed"], "model_seed": meta["model_seed"], "env_seed": meta["env_seed"],
         "epochs": epochs, "patience": P.PATIENCE, "lr": P.LR, "batch_size": loaders["train"].batch_size,
-        "input_size": input_size, "rep_dim": rep_dim})
-    _write_json(run_path / "metrics.json", {
-        "run_id": run_id, "stage1_id": sid, "commit": commit,
+        "input_size": input_size, "rep_dim": rep_dim, **AFF.stage2_config(variant)})
+    payload = {
+        "run_id": run_id, "stage1_id": sid, "commit": commit, "variant": variant,
         "split_sha256": {"val": fp["val_sha256"], "test": fp["test_sha256"],
                          "fingerprint": fp["fingerprint_sha256"]},
         "env_ids_sha256": meta["env_ids_sha256"],
@@ -280,9 +327,10 @@ def run_stage2(root=P.ARTIFACT_ROOT, *, stage1_dir, epochs=P.STAGE2_EPOCHS, tag=
                    "env_loss": meta["env_loss_list"], "cluster_records": meta["cluster_records"]},
         "stage2": {"epoch_records": epoch_records, "best_epoch": best_epoch,
                    "best_val_auc": best_auc, "test_auc": test_final["auc"]},
-        "mechanism": {"gate_mean": val_final["gate_mean"], "cos_gen_spec": val_final["cos_gen_spec"],
-                      "gen_std": val_final["gen_std"],
-                      "env_acc_stage1": [record["env_acc"] for record in meta["epoch_records"]]}})
+        "mechanism": mechanism}
+    if arm is not None:
+        payload["affinity_arm"] = arm   # 臂级判定：不并入 judge() 的 overall_pass（A/B 门禁语义不变）
+    _write_json(run_path / "metrics.json", payload)
     _write_json(run_path / "gate_report.json", report)
     P.append_summary_row(root / "SUMMARY.md", {
         "run_id": run_id, "commit": commit, "auc_test_education": f"{test_final['auc']:.6f}", "stage1_id": sid,
@@ -291,7 +339,12 @@ def run_stage2(root=P.ARTIFACT_ROOT, *, stage1_dir, epochs=P.STAGE2_EPOCHS, tag=
     (run_path / "stdout.log").write_text(log_buffer.getvalue(), encoding="utf-8")
     print(f"[stage2] run_id={run_id} test_auc={test_final['auc']:.4f} overall_pass={report['overall_pass']}")
     print(f"[stage2] failures={report['failures']} run_dir={run_path}")
-    return {"run_id": run_id, "run_dir": str(run_path), "report": report, "test_auc": test_final["auc"]}
+    if arm is not None:
+        print(f"[stage2] variant={variant} degeneracy={arm['degeneracy']['status']} "
+              f"triggered={arm['degeneracy']['triggered_rules']} fidelity_break={arm['fidelity']['triggered']} "
+              f"status={arm['status']} (auc_test_education {test_final['auc']:.6f} vs {AFF.AUC_TEST_MIN})")
+    return {"run_id": run_id, "run_dir": str(run_path), "report": report, "test_auc": test_final["auc"],
+            "variant": variant, "arm": arm}
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -311,6 +364,12 @@ def build_parser() -> argparse.ArgumentParser:
     second.add_argument("--gpu", type=int, default=0)
     second.add_argument("--tag", choices=["short", "full"], default="short")
     second.add_argument("--epochs", type=int, default=P.STAGE2_EPOCHS)
+    second.add_argument("--variant", choices=list(AFF.VARIANTS), default=AFF.BASELINE_VARIANT,
+                        help="新任务头变体：baseline=基线 NewTask（默认，逐位同 master）；"
+                             "affinity=忠实复现的历史 Affinity Gate 门控（spec 2026-09-30，"
+                             "run_id 带 -affinity 后缀）")
+    second.add_argument("--affinity", action="store_const", const=AFF.VARIANT, dest="variant",
+                        help="等价于 --variant affinity（后出现者生效）")
     return parser
 
 
@@ -322,7 +381,8 @@ def main(argv=None) -> int:
         run_stage1(args.root, split_seed=args.split_seed, model_seed=args.model_seed,
                    env_seed=args.env_seed, epochs=args.epochs, tag=args.tag, device=device)
     else:
-        run_stage2(args.root, stage1_dir=args.stage1_dir, epochs=args.epochs, tag=args.tag, device=device)
+        run_stage2(args.root, stage1_dir=args.stage1_dir, epochs=args.epochs, tag=args.tag, device=device,
+                   variant=args.variant)
     return 0
 
 
