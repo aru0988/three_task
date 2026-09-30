@@ -1,0 +1,25 @@
+{
+  "split_seed": 20260929,
+  "n_train": 199523,
+  "n_val": 49881,
+  "n_test": 49881,
+  "disjoint": true,
+  "union_complete": true,
+  "val_sha256": "6f2c5868b5bf261a7a04fe82ad1e039598b38b71b49cd52f5665014a27f62722",
+  "test_sha256": "68e027924fb1127ef97720e02e32b5a3363e71aacd9538b11673f53fc3a8e5da",
+  "val_indices_head": [
+    0,
+    1,
+    4,
+    5,
+    6
+  ],
+  "test_indices_head": [
+    2,
+    3,
+    7,
+    8,
+    9
+  ],
+  "fingerprint_sha256": "096f8f16db081d7ad024b7aa450a40510a50e0acdbb439d973cc8fc9557d460c"
+}

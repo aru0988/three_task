@@ -1,0 +1,7 @@
+uni_loss_0:0.1939, uni_loss_1:0.1731, fuse_loss_0:0.1613, fuse_loss_1:0.1381, env_loss:3.3372
+Epoch:1, AUC-Val-Income:0.9239, AUC-Val-Marital:0.9912, 
+uni_loss_0:0.1587, uni_loss_1:0.1120, fuse_loss_0:0.1343, fuse_loss_1:0.0973, env_loss:0.7229
+diff_num:99557, env_0:98588, env_1:100935
+Epoch:2, AUC-Val-Income:0.9374, AUC-Val-Marital:0.9910, 
+[audit] 采样步数 = 68（计划 34 步/epoch）
+[audit] 损失分解恒等偏差（相对）= 0.0

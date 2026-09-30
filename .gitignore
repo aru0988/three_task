@@ -57,3 +57,16 @@ artifacts/census_stage2/stage1
 artifacts/census_stage2/runs
 artifacts/census_stage2/splits
 !artifacts/census_stage2/SUMMARY.md
+
+# ==============================
+# 7. CensusIncome 阶段 1 梯度冲突审计产物（预注册 §4）
+# ==============================
+# 审计 run 的**文本**证据入库（audit.json / report.md / prereg.md 快照 / stdout.log）：
+# 它们是 NO_ACTION 判定的原始依据，确定性、无时间戳、无绝对路径、体积可控。
+# 划分指纹 JSON 入库（可校验）；划分索引 .npz（可由 SPLIT_SEED 确定性重建）与权重一律不入库。
+!artifacts/census_stage1_grad/runs/**
+!artifacts/census_stage1_grad/splits/**/split_fingerprint.json
+!artifacts/census_stage1_grad/SUMMARY.md
+artifacts/census_stage1_grad/**/*.npz
+artifacts/census_stage1_grad/**/*.pt
+artifacts/census_stage1_grad/**/*.pth
