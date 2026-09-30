@@ -14,6 +14,7 @@ import torch
 import torch.nn as nn
 from torch.utils.data import DataLoader, Subset
 
+from census_benchmark import cond_scale_bias as CSB
 from census_benchmark import metrics
 from census_benchmark import protocol as P
 from config import CensusIncome_Vocabulary_Size
@@ -176,8 +177,13 @@ def _write_json(path: Path, payload: dict) -> None:
 
 def run_stage2(root=P.ARTIFACT_ROOT, *, stage1_dir, epochs=P.STAGE2_EPOCHS, tag="short", device=None,
                model=None, loaders=None, stats=None, indices=None, input_size=P.INPUT_SIZE,
-               rep_dim=P.EXPERT_HIDDEN[-1], now=None) -> dict:
-    """阶段 2：只从 Stage-1 产物加载 backbone，训练新任务头，做门禁与 SUMMARY。"""
+               rep_dim=P.EXPERT_HIDDEN[-1], variant=CSB.BASELINE_VARIANT, now=None) -> dict:
+    """阶段 2：只从 Stage-1 产物加载 backbone，训练新任务头，做门禁与 SUMMARY。
+
+    `variant="cond-scale-bias"` 时换成 Router 条件化 Scale+Bias 头（见
+    docs/superpowers/specs/2026-09-30-stage2-cond-scale-bias-design.md 第 5 节）；默认 `baseline`
+    与未启用时行为完全一致（新任务头、config / metrics 的基线键集都不变）。
+    """
     root = Path(root)
     device = device or torch.device("cuda:0")
     sid = Path(stage1_dir).name
@@ -202,8 +208,9 @@ def run_stage2(root=P.ARTIFACT_ROOT, *, stage1_dir, epochs=P.STAGE2_EPOCHS, tag=
     env_ids = checkpoint["env_ids"]
     env_ids_ok = P.sha256_tensor(env_ids) == meta["env_ids_sha256"]
 
-    newtask = NewTask(input_size=input_size, rep_dim=rep_dim, tower_dnn_hidden_units=list(P.TOWER_HIDDEN),
-                      reg_dnn=P.REG_DNN, device=device).to(device)
+    newtask = CSB.build_newtask(variant, input_size=input_size, rep_dim=rep_dim,
+                                tower_dnn_hidden_units=list(P.TOWER_HIDDEN),
+                                reg_dnn=P.REG_DNN, device=device).to(device)
     optimizer = torch.optim.Adam(params=newtask.parameters(), lr=P.LR)      # 只含 NewTask 参数
     loss_func = nn.BCELoss()
     best_auc, best_epoch, best_state, stale, epoch_records = -1.0, 0, None, 0, []
@@ -258,6 +265,16 @@ def run_stage2(root=P.ARTIFACT_ROOT, *, stage1_dir, epochs=P.STAGE2_EPOCHS, tag=
 
     run_id = P.make_run_id(now or datetime.now(), split_seed=meta["split_seed"],
                            model_seed=meta["model_seed"], tag=tag, commit=commit)
+    mechanism = {"gate_mean": val_final["gate_mean"], "cos_gen_spec": val_final["cos_gen_spec"],
+                 "gen_std": val_final["gen_std"],
+                 "env_acc_stage1": [record["env_acc"] for record in meta["epoch_records"]]}
+    arm = None
+    if variant != CSB.BASELINE_VARIANT:
+        run_id += CSB.RUN_ID_SUFFIX                        # 臂后缀：与基线 run 在 SUMMARY.md 中天然可区分
+        # 调制诊断：选点完成、best_state 已载入之后，只用 val 前向一遍（spec 5.5 公平性）
+        modulation = CSB.evaluate_modulation(newtask, backbone, loaders["val"], device)
+        mechanism.update(modulation)                       # 处理臂才追加；基线臂键集不变
+        arm = CSB.arm_verdict(test_final["auc"], modulation["modulation_ratio"])
     run_path = root / "runs" / run_id
     run_path.mkdir(parents=True, exist_ok=True)
     torch.save(newtask.state_dict(), run_path / "newtask.pt")
@@ -265,11 +282,13 @@ def run_stage2(root=P.ARTIFACT_ROOT, *, stage1_dir, epochs=P.STAGE2_EPOCHS, tag=
     _write_json(run_path / "split_fingerprint.json", fp)
     _write_json(run_path / "config.json", {
         "run_id": run_id, "stage1_id": sid, "commit": commit, "tag": tag, "frozen": True,
+        "variant": variant,
         "split_seed": meta["split_seed"], "model_seed": meta["model_seed"], "env_seed": meta["env_seed"],
         "epochs": epochs, "patience": P.PATIENCE, "lr": P.LR, "batch_size": loaders["train"].batch_size,
-        "input_size": input_size, "rep_dim": rep_dim})
-    _write_json(run_path / "metrics.json", {
-        "run_id": run_id, "stage1_id": sid, "commit": commit,
+        "input_size": input_size, "rep_dim": rep_dim,
+        **({"num_envs": P.NUM_ENVS} if arm is not None else {})})
+    payload = {
+        "run_id": run_id, "stage1_id": sid, "commit": commit, "variant": variant,
         "split_sha256": {"val": fp["val_sha256"], "test": fp["test_sha256"],
                          "fingerprint": fp["fingerprint_sha256"]},
         "env_ids_sha256": meta["env_ids_sha256"],
@@ -280,9 +299,10 @@ def run_stage2(root=P.ARTIFACT_ROOT, *, stage1_dir, epochs=P.STAGE2_EPOCHS, tag=
                    "env_loss": meta["env_loss_list"], "cluster_records": meta["cluster_records"]},
         "stage2": {"epoch_records": epoch_records, "best_epoch": best_epoch,
                    "best_val_auc": best_auc, "test_auc": test_final["auc"]},
-        "mechanism": {"gate_mean": val_final["gate_mean"], "cos_gen_spec": val_final["cos_gen_spec"],
-                      "gen_std": val_final["gen_std"],
-                      "env_acc_stage1": [record["env_acc"] for record in meta["epoch_records"]]}})
+        "mechanism": mechanism}
+    if arm is not None:
+        payload["csb_arm"] = arm      # 臂级判定：不并入 judge() 的 overall_pass（A/B 门禁语义不变）
+    _write_json(run_path / "metrics.json", payload)
     _write_json(run_path / "gate_report.json", report)
     P.append_summary_row(root / "SUMMARY.md", {
         "run_id": run_id, "commit": commit, "auc_test_education": f"{test_final['auc']:.6f}", "stage1_id": sid,
@@ -291,7 +311,12 @@ def run_stage2(root=P.ARTIFACT_ROOT, *, stage1_dir, epochs=P.STAGE2_EPOCHS, tag=
     (run_path / "stdout.log").write_text(log_buffer.getvalue(), encoding="utf-8")
     print(f"[stage2] run_id={run_id} test_auc={test_final['auc']:.4f} overall_pass={report['overall_pass']}")
     print(f"[stage2] failures={report['failures']} run_dir={run_path}")
-    return {"run_id": run_id, "run_dir": str(run_path), "report": report, "test_auc": test_final["auc"]}
+    if arm is not None:
+        print(f"[stage2] variant={variant} modulation_ratio={modulation['modulation_ratio']:.4f} "
+              f"C1(>= {CSB.AUC_TEST_MIN})={arm['C1']['pass']} C2({arm['C2']['rule']})={arm['C2']['pass']} "
+              f"arm_pass={arm['pass']}")
+    return {"run_id": run_id, "run_dir": str(run_path), "report": report, "test_auc": test_final["auc"],
+            "variant": variant, "arm": arm}
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -311,6 +336,9 @@ def build_parser() -> argparse.ArgumentParser:
     second.add_argument("--gpu", type=int, default=0)
     second.add_argument("--tag", choices=["short", "full"], default="short")
     second.add_argument("--epochs", type=int, default=P.STAGE2_EPOCHS)
+    second.add_argument("--variant", choices=list(CSB.VARIANTS), default=CSB.BASELINE_VARIANT,
+                        help="新任务头变体：baseline=基线 NewTask（默认，逐位同 master）；"
+                             "cond-scale-bias=Router 条件化 Scale+Bias 消融（spec 2026-09-30）")
     return parser
 
 
@@ -322,7 +350,8 @@ def main(argv=None) -> int:
         run_stage1(args.root, split_seed=args.split_seed, model_seed=args.model_seed,
                    env_seed=args.env_seed, epochs=args.epochs, tag=args.tag, device=device)
     else:
-        run_stage2(args.root, stage1_dir=args.stage1_dir, epochs=args.epochs, tag=args.tag, device=device)
+        run_stage2(args.root, stage1_dir=args.stage1_dir, epochs=args.epochs, tag=args.tag, device=device,
+                   variant=args.variant)
     return 0
 
 

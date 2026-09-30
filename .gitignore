@@ -56,4 +56,6 @@ tb_logs/           # TensorBoard 日志
 artifacts/census_stage2/stage1
 artifacts/census_stage2/runs
 artifacts/census_stage2/splits
+# 零训练前置诊断产物（router_probe.json），spec: 2026-09-30-stage2-cond-scale-bias-design.md
+artifacts/census_stage2/probes
 !artifacts/census_stage2/SUMMARY.md
