@@ -885,13 +885,24 @@ class MPTRec(nn.Module):
 
 
 class NewTask(nn.Module):
+    """新任务头：把 K 个源任务 specific 表征按 router 权重混合后与 general 表征 gate 融合。
+
+    `spec_attenuation`（默认 1.0）将 specific 混合 `new_spec_rep` 乘以固定常数 c（0 < c ≤ 1）：
+    非可训练、无参数、不进 state_dict、不消耗 RNG；默认 1.0 时整句跳过，参数集合、算子与顺序
+    与未启用时完全相同（浮点结果逐位一致）。用途见
+    docs/superpowers/specs/2026-10-03-aliccp-stage2-specific-attenuation-control-design.md。
+    """
+
     def __init__(
-        self, input_size, rep_dim, tower_dnn_hidden_units, reg_dnn, device=None
+        self, input_size, rep_dim, tower_dnn_hidden_units, reg_dnn, device=None, spec_attenuation=1.0
     ):
         super(NewTask, self).__init__()
+        if not (0.0 < float(spec_attenuation) <= 1.0):
+            raise ValueError(f"spec_attenuation 必须在 (0, 1] 内: {spec_attenuation}")
         self.reg_dnn = reg_dnn
         self.device = device
         self.temperature = 150
+        self.spec_attenuation = float(spec_attenuation)
         self.env_embedding_network = nn.Embedding(1, rep_dim)
         self.register_buffer("new_env_idx", torch.tensor([0]), persistent=True)
         self.projection_network = nn.Sequential(
@@ -922,6 +933,8 @@ class NewTask(nn.Module):
 
         gate_out = self.gate_network(dnn_input).unsqueeze(dim=2)
         new_spec_rep = torch.matmul(torch.stack(spec_reps, dim=2), W).squeeze()
+        if self.spec_attenuation != 1.0:
+            new_spec_rep = new_spec_rep * self.spec_attenuation
         env_aware_rep = new_spec_rep * new_env_emb
         all_reps = torch.stack([env_aware_rep, gen_rep], dim=2)
         fused_rep = torch.matmul(all_reps, gate_out).squeeze()

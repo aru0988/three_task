@@ -309,6 +309,33 @@ def newtask_gate_mean(newtask, model, loader, device) -> list:
     return [float(v) / max(1, count) for v in total]
 
 
+def stage2_run_id(base_run_id: str, spec_attenuation: float = 1.0) -> str:
+    """处理臂 run_id 追加 -sattn 后缀（spec 2026-10-03-...-specific-attenuation-control-design.md §4）。"""
+    return f"{base_run_id}-sattn" if float(spec_attenuation) != 1.0 else base_run_id
+
+
+@torch.no_grad()
+def newtask_attenuation_probe(newtask, model, loader, device) -> dict:
+    """处理臂专属诊断探针（spec §6.1）：val 上一次遍历，no_grad；test 不参与任何诊断。
+
+    返回预测离散度（与 null 臂 pred_std 同公式：float64 终算、unbiased=False）与 backbone
+    源任务 gate 均值（与 null 臂 SourceGateStats 逐字同口径）。
+    """
+    newtask.eval()
+    model.eval()
+    gate_stats = metrics.SourceGateStats(protocol.NUM_TASKS)
+    preds = []
+    for _, _, _, features in loader:
+        for key in features:
+            features[key] = features[key].to(device)
+        dnn_input, gen_rep, spec_reps, env_embs = model.get_infos(features)
+        preds.append(newtask(dnn_input, gen_rep, spec_reps, env_embs).detach())
+        gate_stats.update([model.gate_networks[i](dnn_input) for i in range(protocol.NUM_TASKS)])
+    out = metrics.pred_dispersion(torch.cat(preds))
+    out["source_gate_mean"] = gate_stats.result()
+    return out
+
+
 def run_stage2(
     *,
     root,
@@ -333,8 +360,14 @@ def run_stage2(
     reg_dnn=protocol.REG_DNN,
     newtask_rep_dim=None,
     run_id=None,
+    spec_attenuation=1.0,
 ) -> dict:
-    """阶段 2：只从 --stage1-dir 加载 backbone，真冻结三件套，训练 NewTask 头，判定门禁（spec 7/8/10）。"""
+    """阶段 2：只从 --stage1-dir 加载 backbone，真冻结三件套，训练 NewTask 头，判定门禁（spec 7/8/10）。
+
+    `spec_attenuation != 1.0` 时为特定混合固定衰减对照臂（post-hoc 归因控制，见
+    docs/superpowers/specs/2026-10-03-aliccp-stage2-specific-attenuation-control-design.md）：
+    仅把 specific 混合乘以该常数，零新增参数；默认 1.0 与未启用时行为完全一致。
+    """
     t0 = time.time()
     _reset_peak_vram(device)
     log(f"[stage2] 开始：stage1_id={stage1_id} tag={tag} model_seed={model_seed} enforce_b={enforce_b}")
@@ -401,6 +434,7 @@ def run_stage2(
         tower_dnn_hidden_units=list(tower_hidden),
         reg_dnn=reg_dnn,
         device=device,
+        spec_attenuation=spec_attenuation,
     ).to(device)
     optimizer = torch.optim.Adam(params=newtask.parameters(), lr=lr)
     loss_func = torch.nn.BCELoss()
@@ -437,6 +471,11 @@ def run_stage2(
     newtask.load_state_dict(best_weight)
     test_auc = evaluate_newtask(newtask, model, loaders["test"], device)  # test 只评一次（spec 7.5）
     gate_mean = newtask_gate_mean(newtask, model, loaders["val"], device)
+    probe = (
+        newtask_attenuation_probe(newtask, model, loaders["val"], device)
+        if float(spec_attenuation) != 1.0
+        else None
+    )
 
     # ---- A1：冻结完整性 ----
     backbone_sha_after = protocol.backbone_sha256(model)
@@ -480,6 +519,7 @@ def run_stage2(
         run_id = protocol.make_run_id(
             datetime.now(), prefix_tag=prefix_tag, model_seed=model_seed, tag=tag, commit=protocol.code_commit()
         )
+        run_id = stage2_run_id(run_id, spec_attenuation)
     run_path = protocol.run_dir(root, run_id)
     run_path.mkdir(parents=True, exist_ok=True)
     torch.save({k: v.detach().cpu() for k, v in newtask.state_dict().items()}, run_path / "newtask.pt")
@@ -494,6 +534,7 @@ def run_stage2(
         "epochs": int(epochs),
         "patience": int(patience),
         "enforce_b": bool(enforce_b),
+        "spec_attenuation": float(spec_attenuation),
         "best_epoch": best_epoch,
         "best_val_auc_bsi": float(best_auc),
         "test_auc_bsi": float(test_auc),
@@ -515,6 +556,14 @@ def run_stage2(
             round(torch.cuda.max_memory_allocated(device.index) / 1e6, 1) if device.type == "cuda" else None
         ),
     }
+    if probe is not None:
+        # 处理臂专属：诊断探针、精确可训练参数（应为零新增：与默认臂计数相等）、臂级判定。
+        # attenuation_arm 是臂级判定，不并入 hard_pass（A/B 门禁语义与 protocol.py 不变）。
+        trainable_params = sum(p.numel() for p in newtask.parameters() if p.requires_grad)
+        metrics_doc["probe"] = probe
+        metrics_doc["trainable_params"] = int(trainable_params)
+        metrics_doc["trainable_params_default"] = int(trainable_params)
+        metrics_doc["attenuation_arm"] = metrics.attenuation_arm_verdict(test_auc, best_auc)
     config_doc = {
         "run_id": run_id,
         "tag": tag,
@@ -531,6 +580,7 @@ def run_stage2(
         "input_size": int(input_size),
         "embedding_size": int(embedding_size),
         "enforce_b": bool(enforce_b),
+        "spec_attenuation": float(spec_attenuation),
         "commit": protocol.code_commit(),
         "git": protocol.git_state(),
     }
@@ -550,4 +600,9 @@ def run_stage2(
     protocol.append_summary_row(Path(root) / "SUMMARY.md", summary_row)
     log(f"[stage2] 完成：run_id={run_id} AUC-Val-BSI(best)={best_auc:.4f} AUC-Test-BSI={test_auc:.4f} "
         f"hard_pass={passed} wall={metrics_doc['wall_seconds']}s")
+    if probe is not None:
+        verdict = metrics_doc["attenuation_arm"]
+        log(f"[stage2] attenuation_arm={verdict['classification']} band={verdict['band']} "
+            f"delta_test_auc={verdict['delta_test_auc']:+.7f} delta_val_auc={verdict['delta_val_auc']:+.7f} "
+            f"ratio_test={verdict['reproduction_ratio_test']:.6f} checks={verdict['checks']}")
     return {"run_id": run_id, "run_dir": str(run_path), "gates": gates, "metrics": metrics_doc, "hard_pass": bool(passed)}

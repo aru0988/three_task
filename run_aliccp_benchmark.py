@@ -19,7 +19,7 @@ from pathlib import Path
 
 import torch
 
-from aliccp_benchmark import bench, protocol
+from aliccp_benchmark import bench, compare, metrics, protocol
 
 
 class _Tee:
@@ -72,6 +72,17 @@ def build_parser() -> argparse.ArgumentParser:
     p2.add_argument("--epochs", type=int, default=protocol.STAGE2_EPOCHS)
     p2.add_argument("--patience", type=int, default=protocol.STAGE2_PATIENCE)
     p2.add_argument("--no-enforce-b", action="store_true", help="只记录 B 类门禁（smoke 默认如此）")
+    p2.add_argument("--spec-attenuation", type=float, default=1.0,
+                    help="阶段 2 specific 混合固定衰减系数 c∈(0,1]（默认 1.0 = 基线行为；post-hoc 归因对照臂）")
+
+    pc = sub.add_parser("compare", help="三方对照（基线/null/衰减臂）同一序重评测（纯分析，无训练）")
+    _add_common(pc)
+    pc.add_argument("--stage1-id", type=str, required=True)
+    pc.add_argument("--baseline-run", type=str, default=metrics.BASELINE_RUN_ID)
+    pc.add_argument("--null-run", type=str, default=metrics.NULL_RUN_ID)
+    pc.add_argument("--arm-run", type=str, required=True, help="衰减对照臂 run_id")
+    pc.add_argument("--output", type=str, default=None,
+                    help="输出 JSON 路径（默认 runs/<arm-run>/three_way_compare.json）")
     return parser
 
 
@@ -90,14 +101,17 @@ def main(argv=None) -> int:
 
     run_id = None
     if args.command == "stage2":
-        run_id = protocol.make_run_id(now, prefix_tag=prefix_tag, model_seed=args.model_seed, tag=args.tag, commit=commit)
+        run_id = bench.stage2_run_id(
+            protocol.make_run_id(now, prefix_tag=prefix_tag, model_seed=args.model_seed, tag=args.tag, commit=commit),
+            args.spec_attenuation,
+        )
         run_path = protocol.run_dir(root, run_id)
         if run_path.exists():
             raise SystemExit(f"run 目录已存在，禁止覆盖（换一分钟重跑或清理旧 run）：{run_path}")
 
     with open(log_path, "w", encoding="utf-8") as log_file, contextlib.redirect_stdout(_Tee(sys.stdout, log_file)):
         print(f"command={args.command} tag={args.tag} prefix_tag={prefix_tag} budgets={budgets}")
-        print(f"model_seed={args.model_seed} device={device} commit={commit} root={root}")
+        print(f"model_seed={getattr(args, 'model_seed', 'n/a')} device={device} commit={commit} root={root}")
         if args.command == "stage1":
             meta = bench.run_stage1(
                 root=root, data_files=protocol.DATA_FILES, budgets=budgets, prefix_tag=prefix_tag,
@@ -108,16 +122,35 @@ def main(argv=None) -> int:
             print(f"summary: best_epoch={meta['best_epoch']} test_auc_ctr={meta['test_auc_ctr']:.4f} "
                   f"test_auc_cvr={meta['test_auc_cvr']:.4f} env_acc={meta['env_acc']:.4f} "
                   f"cluster_events={len(meta['cluster_events'])} wall={meta['wall_seconds']}s")
-        else:
+        elif args.command == "stage2":
             result = bench.run_stage2(
                 root=root, stage1_id=args.stage1_id, data_files=protocol.DATA_FILES, budgets=budgets,
                 prefix_tag=prefix_tag, model_seed=args.model_seed,
                 epochs=args.epochs, patience=args.patience, tag=args.tag, device=device,
                 enforce_b=(args.tag != "smoke") and not args.no_enforce_b, run_id=run_id,
+                spec_attenuation=args.spec_attenuation,
             )
             verdicts = {gate: value["verdict"] for gate, value in result["gates"].items()}
             print(f"gates: {json.dumps(verdicts, ensure_ascii=False)}")
             print(f"run_id={result['run_id']} hard_pass={result['hard_pass']}")
+            if args.spec_attenuation != 1.0:
+                verdict = result["metrics"]["attenuation_arm"]
+                print(f"classification={verdict['classification']} band={verdict['band']} "
+                      f"ratio_test={verdict['reproduction_ratio_test']:.6f} "
+                      f"delta_test_auc={verdict['delta_test_auc']:+.7f} "
+                      f"checks={json.dumps(verdict['checks'])}")
+        else:  # compare
+            result = compare.run_comparison(
+                root=root, stage1_id=args.stage1_id,
+                run_ids={"baseline": args.baseline_run, "null": args.null_run, "control": args.arm_run},
+                data_files=protocol.DATA_FILES, budgets=budgets, prefix_tag=prefix_tag, device=device,
+                output_path=(Path(args.output) if args.output else None),
+            )
+            print(f"integrity_pass={result['integrity']['pass']} output={result['output_path']}")
+            for pair in ("control_vs_null", "control_vs_baseline", "null_vs_baseline"):
+                stats = result["comparisons"][pair]
+                print(f"{pair}: pearson_logit={stats['pearson_logit']} spearman_pred={stats['spearman_pred']} "
+                      f"delta_mean={stats['delta_mean']:+.3e}")
     print(f"日志已写入: {log_path}")
     return 0
 
