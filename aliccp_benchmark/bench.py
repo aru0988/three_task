@@ -309,6 +309,33 @@ def newtask_gate_mean(newtask, model, loader, device) -> list:
     return [float(v) / max(1, count) for v in total]
 
 
+def stage2_run_id(base_run_id: str, learnable_attenuation: bool = False) -> str:
+    """处理臂 run_id 追加 -lattn 后缀（spec 2026-10-03-...-learnable-attenuation-design.md §4）。"""
+    return f"{base_run_id}-lattn" if learnable_attenuation else base_run_id
+
+
+@torch.no_grad()
+def newtask_learnable_attenuation_probe(newtask, model, loader, device) -> dict:
+    """处理臂专属诊断探针（spec §1.4）：val 上一次遍历，no_grad；test 不参与任何诊断。
+
+    返回预测离散度（与 null/固定对照臂 pred_std 同公式：float64 终算、unbiased=False）与 backbone
+    源任务 gate 均值（同 SourceGateStats 口径）。
+    """
+    newtask.eval()
+    model.eval()
+    gate_stats = metrics.SourceGateStats(protocol.NUM_TASKS)
+    preds = []
+    for _, _, _, features in loader:
+        for key in features:
+            features[key] = features[key].to(device)
+        dnn_input, gen_rep, spec_reps, env_embs = model.get_infos(features)
+        preds.append(newtask(dnn_input, gen_rep, spec_reps, env_embs).detach())
+        gate_stats.update([model.gate_networks[i](dnn_input) for i in range(protocol.NUM_TASKS)])
+    out = metrics.pred_dispersion(torch.cat(preds))
+    out["source_gate_mean"] = gate_stats.result()
+    return out
+
+
 def run_stage2(
     *,
     root,
@@ -333,8 +360,15 @@ def run_stage2(
     reg_dnn=protocol.REG_DNN,
     newtask_rep_dim=None,
     run_id=None,
+    learnable_attenuation=False,
 ) -> dict:
-    """阶段 2：只从 --stage1-dir 加载 backbone，真冻结三件套，训练 NewTask 头，判定门禁（spec 7/8/10）。"""
+    """阶段 2：只从 --stage1-dir 加载 backbone，真冻结三件套，训练 NewTask 头，判定门禁（spec 7/8/10）。
+
+    `learnable_attenuation=True` 时启用可学习标量衰减臂（见
+    docs/superpowers/specs/2026-10-03-aliccp-stage2-learnable-attenuation-design.md）：NewTask 新增
+    恰一个 0 维标量（θ_init = 1.0 ⇒ 恒等初始化），训练循环记录逐梯度/θ/c 轨迹，val 探针记录离散度
+    与源 gate 均值；默认 False 与未启用时行为完全一致。
+    """
     t0 = time.time()
     _reset_peak_vram(device)
     log(f"[stage2] 开始：stage1_id={stage1_id} tag={tag} model_seed={model_seed} enforce_b={enforce_b}")
@@ -401,12 +435,16 @@ def run_stage2(
         tower_dnn_hidden_units=list(tower_hidden),
         reg_dnn=reg_dnn,
         device=device,
+        learnable_spec_attenuation=learnable_attenuation,
     ).to(device)
     optimizer = torch.optim.Adam(params=newtask.parameters(), lr=lr)
     loss_func = torch.nn.BCELoss()
 
     best_auc, best_epoch, best_weight, earlystop_count = 0.0, None, None, 0
     epoch_records = []
+    attenuation_trace = []          # 启用臂：逐步 (step, epoch, θ_pre, c_pre, ∂L/∂θ)
+    epoch_c_ends = []               # 启用臂：逐 epoch 末 c
+    global_step = 0
     for epoch in range(1, epochs + 1):
         newtask.train()
         loss_sum, steps = 0.0, 0
@@ -419,9 +457,20 @@ def run_stage2(
             loss = loss_func(pred.cpu(), y.float()) + newtask.get_l2_reg()
             optimizer.zero_grad()
             loss.backward()
+            if learnable_attenuation:
+                global_step += 1
+                attenuation_trace.append({
+                    "step": global_step,
+                    "epoch": epoch,
+                    "theta": float(newtask.spec_attenuation_raw.detach()),
+                    "c": float(newtask.spec_attenuation_value().detach()),
+                    "grad": float(newtask.spec_attenuation_raw.grad.detach()),
+                })
             optimizer.step()
             loss_sum += float(loss)
             steps += 1
+        if learnable_attenuation:
+            epoch_c_ends.append({"epoch": epoch, "c_end": float(newtask.spec_attenuation_value().detach())})
         val_auc = evaluate_newtask(newtask, model, loaders["val"], device)
         epoch_records.append({"epoch": epoch, "train_loss": loss_sum / max(1, steps), "val_auc_bsi": val_auc})
         log(f"[stage2] Epoch:{epoch} train_loss={loss_sum / max(1, steps):.4f} AUC-Val-BSI:{val_auc:.4f}")
@@ -434,9 +483,19 @@ def run_stage2(
             if earlystop_count == patience:
                 log(f"[stage2] EarlyStopping at epoch {epoch}")
                 break
+    if learnable_attenuation:
+        theta_end_of_training = float(newtask.spec_attenuation_raw.detach())
+        c_end_of_training = float(newtask.spec_attenuation_value().detach())
     newtask.load_state_dict(best_weight)
+    # 判定用 c_final：best-epoch 重载后的 state_dict（即实际产生 test AUC 的头）
+    c_final_best = float(newtask.spec_attenuation_value().detach()) if learnable_attenuation else None
     test_auc = evaluate_newtask(newtask, model, loaders["test"], device)  # test 只评一次（spec 7.5）
     gate_mean = newtask_gate_mean(newtask, model, loaders["val"], device)
+    probe = (
+        newtask_learnable_attenuation_probe(newtask, model, loaders["val"], device)
+        if learnable_attenuation
+        else None
+    )
 
     # ---- A1：冻结完整性 ----
     backbone_sha_after = protocol.backbone_sha256(model)
@@ -484,6 +543,67 @@ def run_stage2(
     run_path.mkdir(parents=True, exist_ok=True)
     torch.save({k: v.detach().cpu() for k, v in newtask.state_dict().items()}, run_path / "newtask.pt")
 
+    learnable_block = None
+    if learnable_attenuation:
+        # 独立构造默认关断头（同配置）实测对照计数；构建仅消耗训练结束后的 CPU RNG，无副作用
+        default_head = NewTask(
+            input_size=input_size, rep_dim=rep_dim, tower_dnn_hidden_units=list(tower_hidden),
+            reg_dnn=reg_dnn, device=device,
+        )
+        trainable_names = sorted(n for n, p in newtask.named_parameters() if p.requires_grad)
+        trainable_params = sum(p.numel() for p in newtask.parameters() if p.requires_grad)
+        trainable_params_default = sum(p.numel() for p in default_head.parameters() if p.requires_grad)
+        buffer_keys = sorted(set(newtask.state_dict()) - {n for n, _ in newtask.named_parameters()})
+        grads = [abs(rec["grad"]) for rec in attenuation_trace]
+        first10 = grads[: metrics.LEARNABLE_GRAD_WINDOW]
+        learnable_trace = {
+            "steps": len(attenuation_trace),
+            "theta_init": metrics.LEARNABLE_RAW_INIT,
+            "theta_end_of_training": theta_end_of_training,
+            "c_init": 1.0,
+            "c_end_of_training": c_end_of_training,
+            "c_final_best": c_final_best,
+            "best_epoch": best_epoch,
+            "grad_step1": attenuation_trace[0]["grad"] if attenuation_trace else None,
+            "grad_abs_max_first10": max(first10) if first10 else None,
+            "grad_abs_max": max(grads) if grads else None,
+            "grad_abs_mean": (sum(grads) / len(grads)) if grads else None,
+            "grad_last": attenuation_trace[-1]["grad"] if attenuation_trace else None,
+            "grad_nonzero_frac": (
+                sum(1 for g in grads if g > metrics.LEARNABLE_GRAD_MIN) / len(grads) if grads else None
+            ),
+            "clamp_upper_frac": (
+                sum(1 for rec in attenuation_trace if rec["theta"] >= 1.0) / len(attenuation_trace)
+                if attenuation_trace else None
+            ),
+            "floor_frac": (
+                sum(1 for rec in attenuation_trace if rec["c"] <= metrics.LEARNABLE_COEF_MIN) / len(attenuation_trace)
+                if attenuation_trace else None
+            ),
+            "per_epoch_c_end": epoch_c_ends,
+        }
+        learnable_block = {
+            "probe": probe,
+            "trainable_params": int(trainable_params),
+            "trainable_params_default": int(trainable_params_default),
+            "trainable_param_names": trainable_names,
+            "buffer_keys": buffer_keys,
+            "learnable_trace": learnable_trace,
+            "learnable_arm": metrics.learnable_attenuation_verdict(
+                test_auc=test_auc,
+                val_auc_best=best_auc,
+                c_final=c_final_best,
+                grad_abs_max_first10=learnable_trace["grad_abs_max_first10"],
+                trainable_params=int(trainable_params),
+                trainable_params_default=int(trainable_params_default),
+                trainable_param_names=trainable_names,
+                buffer_keys=buffer_keys,
+                a_class_ok=all(
+                    gates[g]["verdict"] in ("PASS", "SKIP") for g in ("A1", "A2", "A3", "A4", "A5", "A6")
+                ),
+            ),
+        }
+
     metrics_doc = {
         "run_id": run_id,
         "tag": tag,
@@ -494,6 +614,7 @@ def run_stage2(
         "epochs": int(epochs),
         "patience": int(patience),
         "enforce_b": bool(enforce_b),
+        "learnable_spec_attenuation": bool(learnable_attenuation),
         "best_epoch": best_epoch,
         "best_val_auc_bsi": float(best_auc),
         "test_auc_bsi": float(test_auc),
@@ -515,6 +636,8 @@ def run_stage2(
             round(torch.cuda.max_memory_allocated(device.index) / 1e6, 1) if device.type == "cuda" else None
         ),
     }
+    if learnable_block is not None:
+        metrics_doc.update(learnable_block)
     config_doc = {
         "run_id": run_id,
         "tag": tag,
@@ -531,6 +654,7 @@ def run_stage2(
         "input_size": int(input_size),
         "embedding_size": int(embedding_size),
         "enforce_b": bool(enforce_b),
+        "learnable_spec_attenuation": bool(learnable_attenuation),
         "commit": protocol.code_commit(),
         "git": protocol.git_state(),
     }
@@ -538,6 +662,10 @@ def run_stage2(
     (run_path / "metrics.json").write_text(json.dumps(metrics_doc, ensure_ascii=False, indent=2), encoding="utf-8")
     (run_path / "config.json").write_text(json.dumps(config_doc, ensure_ascii=False, indent=2), encoding="utf-8")
     (run_path / "gate_report.json").write_text(json.dumps(gate_doc, ensure_ascii=False, indent=2), encoding="utf-8")
+    if learnable_attenuation:
+        (run_path / "attenuation_trace.json").write_text(
+            json.dumps(attenuation_trace, ensure_ascii=False, indent=2), encoding="utf-8"
+        )
     summary_row = {
         "run_id": run_id,
         "commit": protocol.code_commit(),
@@ -550,4 +678,11 @@ def run_stage2(
     protocol.append_summary_row(Path(root) / "SUMMARY.md", summary_row)
     log(f"[stage2] 完成：run_id={run_id} AUC-Val-BSI(best)={best_auc:.4f} AUC-Test-BSI={test_auc:.4f} "
         f"hard_pass={passed} wall={metrics_doc['wall_seconds']}s")
+    if learnable_block is not None:
+        arm = learnable_block["learnable_arm"]
+        lt = learnable_block["learnable_trace"]
+        log(f"[stage2] learnable_arm={arm['classification']} c_final={arm['c_final']:.6f} "
+            f"grad_abs_max_first10={lt['grad_abs_max_first10']:.3e} "
+            f"delta_test={arm['delta_test_auc']:+.7f} delta_val={arm['delta_val_auc']:+.7f} "
+            f"checks={arm['checks']}")
     return {"run_id": run_id, "run_dir": str(run_path), "gates": gates, "metrics": metrics_doc, "hard_pass": bool(passed)}

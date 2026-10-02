@@ -884,14 +884,32 @@ class MPTRec(nn.Module):
         return self.reg_embedding * loss_embedding + self.reg_dnn * loss_dnn
 
 
+# ---- 可学习标量衰减（预注册：docs/superpowers/specs/2026-10-03-aliccp-stage2-learnable-attenuation-design.md）----
+SPEC_ATTENUATION_MIN = 0.05   # 有效系数下限（护栏常量，非调参；比先例阻尼带 ~0.686–0.709 低约 14×）
+SPEC_ATTENUATION_INIT = 1.0   # θ_init：c = 1 ⇒ 恒等初始化（前向与基线逐位一致）
+
+
 class NewTask(nn.Module):
+    """新任务头：把 K 个源任务 specific 表征按 router 权重混合后与 general 表征 gate 融合。
+
+    `learnable_spec_attenuation`（默认 False）启用**单个**可学习标量衰减：参数
+    `spec_attenuation_raw`（0 维，θ_init = 1.0），有效系数 `c = clamp(θ, SPEC_ATTENUATION_MIN, 1.0)`，
+    specific 混合 `new_spec_rep` 乘以 c。恒等初始化：θ = 1.0 ⇒ c = 1.0 ⇒ 前向与未启用时逐位一致
+    （`x * 1.0` 在 IEEE 754 下逐位恒等）；clamp 为 kink 构造（max 边界反向通过梯度），使恒等点同时
+    具有非零学习信号——光滑参数化不可能同时满足二者（Fermat/反函数定理，见预注册文档 §1.2）。
+    默认 False 时不创建参数：参数集合、state_dict、算子序列与基点逐位一致。用途见
+    docs/superpowers/specs/2026-10-03-aliccp-stage2-learnable-attenuation-design.md。
+    """
+
     def __init__(
-        self, input_size, rep_dim, tower_dnn_hidden_units, reg_dnn, device=None
+        self, input_size, rep_dim, tower_dnn_hidden_units, reg_dnn, device=None,
+        learnable_spec_attenuation=False,
     ):
         super(NewTask, self).__init__()
         self.reg_dnn = reg_dnn
         self.device = device
         self.temperature = 150
+        self.learnable_spec_attenuation = bool(learnable_spec_attenuation)
         self.env_embedding_network = nn.Embedding(1, rep_dim)
         self.register_buffer("new_env_idx", torch.tensor([0]), persistent=True)
         self.projection_network = nn.Sequential(
@@ -911,6 +929,15 @@ class NewTask(nn.Module):
             input_size=rep_dim,
             output_activation="sigmoid",
         )
+        if self.learnable_spec_attenuation:
+            # 末尾创建、常量初始化：零 RNG 消耗（同种子下两臂共享参数初始化逐位一致）
+            self.spec_attenuation_raw = nn.Parameter(torch.tensor(SPEC_ATTENUATION_INIT))
+
+    def spec_attenuation_value(self):
+        """有效衰减系数 c 的唯一出处；未启用时返回 None。"""
+        if not self.learnable_spec_attenuation:
+            return None
+        return torch.clamp(self.spec_attenuation_raw, min=SPEC_ATTENUATION_MIN, max=1.0)
 
     def forward(self, dnn_input, gen_rep, spec_reps, env_embs):
         exist_env_embs = torch.stack(env_embs, dim=1)
@@ -922,6 +949,8 @@ class NewTask(nn.Module):
 
         gate_out = self.gate_network(dnn_input).unsqueeze(dim=2)
         new_spec_rep = torch.matmul(torch.stack(spec_reps, dim=2), W).squeeze()
+        if self.learnable_spec_attenuation:
+            new_spec_rep = new_spec_rep * self.spec_attenuation_value()
         env_aware_rep = new_spec_rep * new_env_emb
         all_reps = torch.stack([env_aware_rep, gen_rep], dim=2)
         fused_rep = torch.matmul(all_reps, gate_out).squeeze()

@@ -72,6 +72,10 @@ def build_parser() -> argparse.ArgumentParser:
     p2.add_argument("--epochs", type=int, default=protocol.STAGE2_EPOCHS)
     p2.add_argument("--patience", type=int, default=protocol.STAGE2_PATIENCE)
     p2.add_argument("--no-enforce-b", action="store_true", help="只记录 B 类门禁（smoke 默认如此）")
+    p2.add_argument(
+        "--learnable-attenuation", action="store_true",
+        help="可学习标量衰减臂（恒等初始化；spec: docs/superpowers/specs/2026-10-03-aliccp-stage2-learnable-attenuation-design.md）",
+    )
     return parser
 
 
@@ -91,6 +95,7 @@ def main(argv=None) -> int:
     run_id = None
     if args.command == "stage2":
         run_id = protocol.make_run_id(now, prefix_tag=prefix_tag, model_seed=args.model_seed, tag=args.tag, commit=commit)
+        run_id = bench.stage2_run_id(run_id, args.learnable_attenuation)
         run_path = protocol.run_dir(root, run_id)
         if run_path.exists():
             raise SystemExit(f"run 目录已存在，禁止覆盖（换一分钟重跑或清理旧 run）：{run_path}")
@@ -114,6 +119,7 @@ def main(argv=None) -> int:
                 prefix_tag=prefix_tag, model_seed=args.model_seed,
                 epochs=args.epochs, patience=args.patience, tag=args.tag, device=device,
                 enforce_b=(args.tag != "smoke") and not args.no_enforce_b, run_id=run_id,
+                learnable_attenuation=args.learnable_attenuation,
             )
             verdicts = {gate: value["verdict"] for gate, value in result["gates"].items()}
             print(f"gates: {json.dumps(verdicts, ensure_ascii=False)}")
