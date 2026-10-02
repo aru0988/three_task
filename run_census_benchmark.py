@@ -176,8 +176,15 @@ def _write_json(path: Path, payload: dict) -> None:
 
 def run_stage2(root=P.ARTIFACT_ROOT, *, stage1_dir, epochs=P.STAGE2_EPOCHS, tag="short", device=None,
                model=None, loaders=None, stats=None, indices=None, input_size=P.INPUT_SIZE,
-               rep_dim=P.EXPERT_HIDDEN[-1], now=None) -> dict:
-    """阶段 2：只从 Stage-1 产物加载 backbone，训练新任务头，做门禁与 SUMMARY。"""
+               rep_dim=P.EXPERT_HIDDEN[-1], spec_attenuation=1.0, now=None) -> dict:
+    """阶段 2：只从 Stage-1 产物加载 backbone，训练新任务头，做门禁与 SUMMARY。
+
+    `spec_attenuation`（默认 1.0）为跨数据集迁移臂的固定衰减系数（预注册见
+    docs/superpowers/specs/2026-10-03-census-stage2-attenuation-transfer-design.md）；!= 1.0 时
+    run_id 追加 `-sattn` 后缀并落盘构造审计、val 探针与 transfer_arm 判定。
+    """
+    if not (0.0 < float(spec_attenuation) <= 1.0):
+        raise ValueError(f"spec_attenuation 必须在 (0, 1] 内: {spec_attenuation}")
     root = Path(root)
     device = device or torch.device("cuda:0")
     sid = Path(stage1_dir).name
@@ -203,7 +210,7 @@ def run_stage2(root=P.ARTIFACT_ROOT, *, stage1_dir, epochs=P.STAGE2_EPOCHS, tag=
     env_ids_ok = P.sha256_tensor(env_ids) == meta["env_ids_sha256"]
 
     newtask = NewTask(input_size=input_size, rep_dim=rep_dim, tower_dnn_hidden_units=list(P.TOWER_HIDDEN),
-                      reg_dnn=P.REG_DNN, device=device).to(device)
+                      reg_dnn=P.REG_DNN, device=device, spec_attenuation=spec_attenuation).to(device)
     optimizer = torch.optim.Adam(params=newtask.parameters(), lr=P.LR)      # 只含 NewTask 参数
     loss_func = nn.BCELoss()
     best_auc, best_epoch, best_state, stale, epoch_records = -1.0, 0, None, 0, []
@@ -242,6 +249,30 @@ def run_stage2(root=P.ARTIFACT_ROOT, *, stage1_dir, epochs=P.STAGE2_EPOCHS, tag=
     sha_after = P.backbone_sha256(backbone)
     grads_all_none = all(param.grad is None for param in backbone.parameters())
     P.assert_no_grads(backbone)
+
+    # 4b) 处理臂专属：构造审计 + val 探针（预注册 §5/§6.1；默认臂完全跳过 → 相关键不落盘）
+    construction = arm_probe = transfer_verdict = None
+    if spec_attenuation != 1.0:
+        with torch.random.fork_rng(devices=[]):        # 参考头构造不消耗 RNG（不影响任何后续随机性）
+            reference_head = NewTask(input_size=input_size, rep_dim=rep_dim,
+                                     tower_dnn_hidden_units=list(P.TOWER_HIDDEN), reg_dnn=P.REG_DNN,
+                                     device=device)
+        trainable_params = sum(p.numel() for p in newtask.parameters() if p.requires_grad)
+        reference_params = sum(p.numel() for p in reference_head.parameters() if p.requires_grad)
+        param_names_match = (sorted(name for name, _ in newtask.named_parameters())
+                             == sorted(name for name, _ in reference_head.named_parameters()))
+        construction = {
+            "trainable_params": int(trainable_params),
+            "reference_trainable_params": int(reference_params),
+            "extra_trainable_params": int(trainable_params - reference_params),
+            "param_names_match_default": bool(param_names_match),
+            "spec_attenuation": float(spec_attenuation),
+            "spec_attenuation_equals_preregistered": bool(float(spec_attenuation) == metrics.SPEC_ATTENUATION_COEF),
+            "construction_ok": bool(trainable_params == reference_params and param_names_match
+                                    and float(spec_attenuation) == metrics.SPEC_ATTENUATION_COEF),
+        }
+        arm_probe = metrics.newtask_probe(newtask, backbone, loaders["val"], device)
+
     val_final = metrics.evaluate_newtask(newtask, backbone, loaders["val"], device, mechanism=True)
     test_final = metrics.evaluate_newtask(newtask, backbone, loaders["test"], device)
 
@@ -255,9 +286,17 @@ def run_stage2(root=P.ARTIFACT_ROOT, *, stage1_dir, epochs=P.STAGE2_EPOCHS, tag=
         gate_mean=val_final["gate_mean"], env_shares=env_shares)
     report["A3"] = {"status": "on_demand",
                     "detail": "按需复跑同一配置，比较 AUC-Test-Education 差 ≤ 1e-9 与 backbone_sha256 一致"}
+    if spec_attenuation != 1.0:                        # 臂级判定，不并入 overall_pass（A/B 门禁语义不变）
+        transfer_verdict = metrics.transfer_arm_verdict(
+            test_auc=test_final["auc"], val_best=best_auc,
+            construction_ok=construction["construction_ok"],
+            a_gates_ok=all(report[key]["pass"] for key in ("A1", "A2", "A4", "A5")))
+        report["transfer_arm"] = transfer_verdict
 
     run_id = P.make_run_id(now or datetime.now(), split_seed=meta["split_seed"],
                            model_seed=meta["model_seed"], tag=tag, commit=commit)
+    if spec_attenuation != 1.0:
+        run_id += "-sattn"
     run_path = root / "runs" / run_id
     run_path.mkdir(parents=True, exist_ok=True)
     torch.save(newtask.state_dict(), run_path / "newtask.pt")
@@ -265,11 +304,13 @@ def run_stage2(root=P.ARTIFACT_ROOT, *, stage1_dir, epochs=P.STAGE2_EPOCHS, tag=
     _write_json(run_path / "split_fingerprint.json", fp)
     _write_json(run_path / "config.json", {
         "run_id": run_id, "stage1_id": sid, "commit": commit, "tag": tag, "frozen": True,
+        "spec_attenuation": float(spec_attenuation),
         "split_seed": meta["split_seed"], "model_seed": meta["model_seed"], "env_seed": meta["env_seed"],
         "epochs": epochs, "patience": P.PATIENCE, "lr": P.LR, "batch_size": loaders["train"].batch_size,
         "input_size": input_size, "rep_dim": rep_dim})
-    _write_json(run_path / "metrics.json", {
+    metrics_payload = {
         "run_id": run_id, "stage1_id": sid, "commit": commit,
+        "spec_attenuation": float(spec_attenuation),
         "split_sha256": {"val": fp["val_sha256"], "test": fp["test_sha256"],
                          "fingerprint": fp["fingerprint_sha256"]},
         "env_ids_sha256": meta["env_ids_sha256"],
@@ -282,7 +323,14 @@ def run_stage2(root=P.ARTIFACT_ROOT, *, stage1_dir, epochs=P.STAGE2_EPOCHS, tag=
                    "best_val_auc": best_auc, "test_auc": test_final["auc"]},
         "mechanism": {"gate_mean": val_final["gate_mean"], "cos_gen_spec": val_final["cos_gen_spec"],
                       "gen_std": val_final["gen_std"],
-                      "env_acc_stage1": [record["env_acc"] for record in meta["epoch_records"]]}})
+                      "env_acc_stage1": [record["env_acc"] for record in meta["epoch_records"]]}}
+    if spec_attenuation != 1.0:                        # 处理臂落盘：构造审计 + 探针 + 臂级判定
+        metrics_payload.update({
+            "trainable_params": construction["trainable_params"],
+            "reference_trainable_params": construction["reference_trainable_params"],
+            "extra_trainable_params": construction["extra_trainable_params"],
+            "construction": construction, "probe": arm_probe, "transfer_arm": transfer_verdict})
+    _write_json(run_path / "metrics.json", metrics_payload)
     _write_json(run_path / "gate_report.json", report)
     P.append_summary_row(root / "SUMMARY.md", {
         "run_id": run_id, "commit": commit, "auc_test_education": f"{test_final['auc']:.6f}", "stage1_id": sid,
@@ -291,6 +339,13 @@ def run_stage2(root=P.ARTIFACT_ROOT, *, stage1_dir, epochs=P.STAGE2_EPOCHS, tag=
     (run_path / "stdout.log").write_text(log_buffer.getvalue(), encoding="utf-8")
     print(f"[stage2] run_id={run_id} test_auc={test_final['auc']:.4f} overall_pass={report['overall_pass']}")
     print(f"[stage2] failures={report['failures']} run_dir={run_path}")
+    if spec_attenuation != 1.0:
+        print(f"[stage2] spec_attenuation={spec_attenuation!r} construction_ok={construction['construction_ok']} "
+              f"extra_trainable_params={construction['extra_trainable_params']}")
+        print(f"[stage2] transfer_arm={transfer_verdict['verdict']} criteria={transfer_verdict['criteria']}")
+        print(f"[stage2] probe: pred_std={arm_probe['pred']['std']:.6g} "
+              f"head_gate_mean={arm_probe['head_gate_mean']} source_gate_mean={arm_probe['source_gate_mean']} "
+              f"norm_mean={arm_probe['norm_mean']}")
     return {"run_id": run_id, "run_dir": str(run_path), "report": report, "test_auc": test_final["auc"]}
 
 
@@ -311,6 +366,14 @@ def build_parser() -> argparse.ArgumentParser:
     second.add_argument("--gpu", type=int, default=0)
     second.add_argument("--tag", choices=["short", "full"], default="short")
     second.add_argument("--epochs", type=int, default=P.STAGE2_EPOCHS)
+    second.add_argument("--spec-attenuation", type=float, default=1.0,
+                        help="跨数据集迁移臂固定衰减系数（预注册冻结值 0.6972233730330467；≠1.0 时启用，禁止调参）")
+    third = sub.add_parser("compare", help="三方对照：基线/nullx/处理（纯分析、无训练）")
+    third.add_argument("--stage1-dir", type=Path, required=True)
+    third.add_argument("--control-run", required=True)
+    third.add_argument("--baseline-run", default=metrics.TRANSFER_BASELINE_RUN_ID)
+    third.add_argument("--null-run", default=metrics.TRANSFER_NULL_RUN_ID)
+    third.add_argument("--gpu", type=int, default=0)
     return parser
 
 
@@ -321,8 +384,13 @@ def main(argv=None) -> int:
     if args.command == "stage1":
         run_stage1(args.root, split_seed=args.split_seed, model_seed=args.model_seed,
                    env_seed=args.env_seed, epochs=args.epochs, tag=args.tag, device=device)
+    elif args.command == "stage2":
+        run_stage2(args.root, stage1_dir=args.stage1_dir, epochs=args.epochs, tag=args.tag,
+                   spec_attenuation=args.spec_attenuation, device=device)
     else:
-        run_stage2(args.root, stage1_dir=args.stage1_dir, epochs=args.epochs, tag=args.tag, device=device)
+        from census_benchmark import compare
+        compare.run_compare(args.root, stage1_dir=args.stage1_dir, control_run=args.control_run,
+                            baseline_run=args.baseline_run, null_run=args.null_run, device=device)
     return 0
 
 
