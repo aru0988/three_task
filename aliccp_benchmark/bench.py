@@ -309,6 +309,41 @@ def newtask_gate_mean(newtask, model, loader, device) -> list:
     return [float(v) / max(1, count) for v in total]
 
 
+def stage2_run_id(base_run_id: str, null_expert: bool) -> str:
+    """处理臂 run_id 追加 -nullx 后缀（spec 2026-10-03-...-null-expert-design.md §4）。"""
+    return f"{base_run_id}-nullx" if null_expert else base_run_id
+
+
+@torch.no_grad()
+def newtask_null_probe(newtask, model, loader, device) -> dict:
+    """处理臂专属机制探针（spec §7）：val 上一次遍历，no_grad；test 不参与任何机制诊断。
+
+    返回 M7 判定量（逐位可复现口径）与 C 类诊断：null 质量分布/分位数、router 熵与逐样本方差、
+    BSI 标签分层与相关、源任务 gate 均值、预测离散度。数值口径见 NullRouteDiagnostics 等类的说明。
+    """
+    newtask.eval()
+    model.eval()
+    null_stats = metrics.NullRouteStats()
+    diag = metrics.NullRouteDiagnostics()
+    gate_stats = metrics.SourceGateStats(protocol.NUM_TASKS)
+    ys, preds = [], []
+    for _, _, y, features in loader:
+        for key in features:
+            features[key] = features[key].to(device)
+        dnn_input, gen_rep, spec_reps, env_embs = model.get_infos(features)
+        pred = newtask(dnn_input, gen_rep, spec_reps, env_embs)
+        weights = newtask.routing_weights(dnn_input, env_embs)
+        null_stats.update(weights)
+        diag.update(weights)
+        gate_stats.update([model.gate_networks[i](dnn_input) for i in range(protocol.NUM_TASKS)])
+        ys.append(y)
+        preds.append(pred.detach())
+    out = {**null_stats.result(), **diag.result()}
+    out.update(metrics.null_supervision_stats(diag.null_values, torch.cat(ys), torch.cat(preds)))
+    out["source_gate_mean"] = gate_stats.result()
+    return out
+
+
 def run_stage2(
     *,
     root,
@@ -333,8 +368,14 @@ def run_stage2(
     reg_dnn=protocol.REG_DNN,
     newtask_rep_dim=None,
     run_id=None,
+    null_expert=False,
 ) -> dict:
-    """阶段 2：只从 --stage1-dir 加载 backbone，真冻结三件套，训练 NewTask 头，判定门禁（spec 7/8/10）。"""
+    """阶段 2：只从 --stage1-dir 加载 backbone，真冻结三件套，训练 NewTask 头，判定门禁（spec 7/8/10）。
+
+    `null_expert=True` 时新任务头的源任务路由追加零候选（Null Expert 处理臂，见
+    docs/superpowers/specs/2026-10-03-aliccp-stage2-null-expert-design.md）；两臂必须引用同一
+    `stage1_id`，默认臂（False）与未启用时行为完全一致。
+    """
     t0 = time.time()
     _reset_peak_vram(device)
     log(f"[stage2] 开始：stage1_id={stage1_id} tag={tag} model_seed={model_seed} enforce_b={enforce_b}")
@@ -401,6 +442,7 @@ def run_stage2(
         tower_dnn_hidden_units=list(tower_hidden),
         reg_dnn=reg_dnn,
         device=device,
+        use_null_expert=null_expert,
     ).to(device)
     optimizer = torch.optim.Adam(params=newtask.parameters(), lr=lr)
     loss_func = torch.nn.BCELoss()
@@ -437,6 +479,7 @@ def run_stage2(
     newtask.load_state_dict(best_weight)
     test_auc = evaluate_newtask(newtask, model, loaders["test"], device)  # test 只评一次（spec 7.5）
     gate_mean = newtask_gate_mean(newtask, model, loaders["val"], device)
+    null_metrics = newtask_null_probe(newtask, model, loaders["val"], device) if null_expert else None
 
     # ---- A1：冻结完整性 ----
     backbone_sha_after = protocol.backbone_sha256(model)
@@ -480,6 +523,7 @@ def run_stage2(
         run_id = protocol.make_run_id(
             datetime.now(), prefix_tag=prefix_tag, model_seed=model_seed, tag=tag, commit=protocol.code_commit()
         )
+        run_id = stage2_run_id(run_id, null_expert)
     run_path = protocol.run_dir(root, run_id)
     run_path.mkdir(parents=True, exist_ok=True)
     torch.save({k: v.detach().cpu() for k, v in newtask.state_dict().items()}, run_path / "newtask.pt")
@@ -494,6 +538,7 @@ def run_stage2(
         "epochs": int(epochs),
         "patience": int(patience),
         "enforce_b": bool(enforce_b),
+        "null_expert": bool(null_expert),
         "best_epoch": best_epoch,
         "best_val_auc_bsi": float(best_auc),
         "test_auc_bsi": float(test_auc),
@@ -515,6 +560,15 @@ def run_stage2(
             round(torch.cuda.max_memory_allocated(device.index) / 1e6, 1) if device.type == "cuda" else None
         ),
     }
+    if null_metrics is not None:
+        # 处理臂专属：机制块（M7 判定量 + C 类诊断）、精确可训练参数、臂级判定。
+        # null_arm 是臂级判定，不并入 hard_pass（A/B 门禁语义与 protocol.py 不变）。
+        trainable_params = sum(p.numel() for p in newtask.parameters() if p.requires_grad)
+        key_params = int(newtask.null_key.numel())
+        metrics_doc["mechanism"] = {**null_metrics, "gate_mean": gate_mean}
+        metrics_doc["trainable_params"] = int(trainable_params)
+        metrics_doc["trainable_params_default"] = int(trainable_params - key_params)
+        metrics_doc["null_arm"] = metrics.null_arm_verdict(test_auc, best_auc, null_metrics["null_top1_rate"])
     config_doc = {
         "run_id": run_id,
         "tag": tag,
@@ -531,6 +585,7 @@ def run_stage2(
         "input_size": int(input_size),
         "embedding_size": int(embedding_size),
         "enforce_b": bool(enforce_b),
+        "null_expert": bool(null_expert),
         "commit": protocol.code_commit(),
         "git": protocol.git_state(),
     }
@@ -550,4 +605,9 @@ def run_stage2(
     protocol.append_summary_row(Path(root) / "SUMMARY.md", summary_row)
     log(f"[stage2] 完成：run_id={run_id} AUC-Val-BSI(best)={best_auc:.4f} AUC-Test-BSI={test_auc:.4f} "
         f"hard_pass={passed} wall={metrics_doc['wall_seconds']}s")
+    if null_metrics is not None:
+        verdict = metrics_doc["null_arm"]
+        log(f"[stage2] null_arm_pass={verdict['pass']} delta_test_auc={verdict['delta_test_auc']:+.7f} "
+            f"delta_val_auc={verdict['delta_val_auc']:+.7f} null_top1_rate={verdict['null_top1_rate']:.4f} "
+            f"checks={verdict['checks']} protocol_checks={verdict['protocol_checks']}")
     return {"run_id": run_id, "run_dir": str(run_path), "gates": gates, "metrics": metrics_doc, "hard_pass": bool(passed)}

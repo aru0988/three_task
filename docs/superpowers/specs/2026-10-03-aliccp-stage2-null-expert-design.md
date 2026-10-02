@@ -64,7 +64,7 @@ W      = softmax(H_out · keys / T)         # (B, K+1)
 | I7 | M7（`null_mean` / `null_top1_rate`）计算正确、流式累加逐位可复现、CPU 累加器 | `TestNullRouteStats`（含 CUDA 回归，`skipUnless`） |
 | I8 | C 类诊断（分位数/熵/方差/分层/相关/预测离散度/源 gate 均值）在构造数据上数值正确 | `TestNullRouteDiagnostics` / `TestSourceGateStats` / `TestNullSupervisionStats` |
 | I9 | 预注册常量与本文档一致；判定边界为闭区间 | `TestNullArmVerdict`（含 `test_doc_preregisters_same_numbers`） |
-| I10 | 两臂共用同一 Stage-1 产物、冻结门禁 A1 仍 PASS、默认臂指标键集不变、处理臂落盘完整 | `TestRunnerNullArm`（CPU 极小夹具端到端） |
+| I10 | 两臂共用同一 Stage-1 产物、冻结门禁 A1 仍 PASS、默认臂 metrics 既有键与语义不变（仅新增顶层 `null_expert: false` 布尔标记，与 CensusIncome 臂口径一致；不出现 `mechanism`/`null_*`/`null_arm`）、处理臂落盘完整 | `TestRunnerNullArm`（CPU 极小夹具端到端） |
 | I11 | 模型侧唯一改动是 `model.py`；`aliccp_benchmark/protocol.py` 相对基点零改动 | 静态守卫（`git diff --name-only`） |
 
 CPU 极小夹具不构成任何性能证据，只验证语义与接线。

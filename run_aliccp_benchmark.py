@@ -72,6 +72,8 @@ def build_parser() -> argparse.ArgumentParser:
     p2.add_argument("--epochs", type=int, default=protocol.STAGE2_EPOCHS)
     p2.add_argument("--patience", type=int, default=protocol.STAGE2_PATIENCE)
     p2.add_argument("--no-enforce-b", action="store_true", help="只记录 B 类门禁（smoke 默认如此）")
+    p2.add_argument("--null-expert", action="store_true",
+                    help="阶段 2 源任务路由追加零候选（Null Expert 处理臂；默认关闭 = 基线行为）")
     return parser
 
 
@@ -90,7 +92,10 @@ def main(argv=None) -> int:
 
     run_id = None
     if args.command == "stage2":
-        run_id = protocol.make_run_id(now, prefix_tag=prefix_tag, model_seed=args.model_seed, tag=args.tag, commit=commit)
+        run_id = bench.stage2_run_id(
+            protocol.make_run_id(now, prefix_tag=prefix_tag, model_seed=args.model_seed, tag=args.tag, commit=commit),
+            args.null_expert,
+        )
         run_path = protocol.run_dir(root, run_id)
         if run_path.exists():
             raise SystemExit(f"run 目录已存在，禁止覆盖（换一分钟重跑或清理旧 run）：{run_path}")
@@ -114,10 +119,15 @@ def main(argv=None) -> int:
                 prefix_tag=prefix_tag, model_seed=args.model_seed,
                 epochs=args.epochs, patience=args.patience, tag=args.tag, device=device,
                 enforce_b=(args.tag != "smoke") and not args.no_enforce_b, run_id=run_id,
+                null_expert=args.null_expert,
             )
             verdicts = {gate: value["verdict"] for gate, value in result["gates"].items()}
             print(f"gates: {json.dumps(verdicts, ensure_ascii=False)}")
             print(f"run_id={result['run_id']} hard_pass={result['hard_pass']}")
+            if args.null_expert:
+                verdict = result["metrics"]["null_arm"]
+                print(f"null_arm_pass={verdict['pass']} null_top1_rate={verdict['null_top1_rate']:.4f} "
+                      f"checks={json.dumps(verdict['checks'])} protocol_checks={json.dumps(verdict['protocol_checks'])}")
     print(f"日志已写入: {log_path}")
     return 0
 
