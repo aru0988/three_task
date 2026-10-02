@@ -48,3 +48,12 @@ ENV/
 *.log
 logs/
 tb_logs/           # TensorBoard 日志
+
+# ==============================
+# 6. AliCCP 基准产物（spec 11.2）
+# ==============================
+# 权重 / 指标 / 指纹 / 日志一律不入库；SUMMARY.md 是唯一入库产物
+artifacts/aliccp_bench/splits/
+artifacts/aliccp_bench/stage1/
+artifacts/aliccp_bench/runs/
+!artifacts/aliccp_bench/SUMMARY.md
