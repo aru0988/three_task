@@ -388,12 +388,14 @@ artifacts/aliccp_bench/stage1/<stage1_id>/
 artifacts/aliccp_bench/
   splits/<PREFIX_TAG>/prefix_fingerprint.json
   stage1/<stage1_id>/{backbone.pt, env_ids.pt, meta.json}
-  runs/<run_id>/{config.json, metrics.json, gate_report.json, newtask.pt, run.log}
+  runs/<run_id>/{config.json, metrics.json, gate_report.json, newtask.pt}
+  logs/<YYYYMMDD-HHMMSS>-<stage1|stage2>-<tag>.log   # stdout 捕获（审计用）
   SUMMARY.md          # 唯一入库文件
 ```
 
 - `run_id`：`<YYYYMMDD-HHmm>-<PREFIX_TAG>-m<modelSeed>-<smoke|short>-<commit7>`
   例：`20261003-1530-p2M-v500k-t1M-m1688723512-short-fd75198`
+- **2026-10-03 修订（先于任何运行）**：日志统一置于 `logs/`（stage1 无 run_id，无法复用 `runs/<run_id>/run.log` 命名；`logs/` 已被既有 `logs/` 忽略规则覆盖）；`runs/<run_id>/` 不再含 `run.log`。同时 `SUMMARY.md` 列以 `aliccp_benchmark/protocol.SUMMARY_COLUMNS` 为准（在协议清单基础上增加 `tag`、`auc_val_bsi_best`、`A3` 三列）。
 
 ### 11.2 Git 保留策略
 
