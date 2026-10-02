@@ -60,6 +60,14 @@ def _versions() -> dict:
     return {"python": sys.version.split()[0], "torch": torch.__version__, "cuda": torch.version.cuda}
 
 
+def _reset_peak_vram(device) -> None:
+    """torch 2.6 在 CUDA 未初始化时，_cuda_resetPeakMemoryStats 对任何实参都报 Invalid device argument；
+    必须先 torch.cuda.init()（实测确认，2026-10-03 smoke）。"""
+    if device.type == "cuda":
+        torch.cuda.init()
+        torch.cuda.reset_peak_memory_stats(device)
+
+
 def _stage1_cfg(
     *, prefix_tag, budgets, model_seed, env_seed, epochs, patience, batch_size, lr,
     uni_coe, env_coe, reg_embedding, reg_dnn, embedding_size, input_size,
@@ -153,8 +161,7 @@ def run_stage1(
 ) -> dict:
     """阶段 1：训练 → 选点 → 单次 test 评估 → 保存内容寻址 Stage-1 产物（spec 7.1/8.1）。"""
     t0 = time.time()
-    if device.type == "cuda":
-        torch.cuda.reset_peak_memory_stats(device)
+    _reset_peak_vram(device)
     log(f"[stage1] 开始：prefix={prefix_tag} budgets={budgets} model_seed={model_seed} env_seed={env_seed}")
     protocol.seed_model(model_seed)
 
@@ -229,7 +236,7 @@ def run_stage1(
         )
     best_epoch = manager.best_epoch()
     peak_vram = (
-        round(torch.cuda.max_memory_allocated(device) / 1e6, 1) if device.type == "cuda" else None
+        round(torch.cuda.max_memory_allocated(device.index) / 1e6, 1) if device.type == "cuda" else None
     )
     meta = {
         "stage1_id": sid,
@@ -253,6 +260,7 @@ def run_stage1(
         "backbone_sha256": backbone_sha,
         "env_ids_sha256": protocol.sha256_tensor(env_ids_final),
         "commit": protocol.code_commit(),
+        "git": protocol.git_state(),
         "versions": _versions(),
         "device": str(device),
         "wall_seconds": round(time.time() - t0, 1),
@@ -328,8 +336,7 @@ def run_stage2(
 ) -> dict:
     """阶段 2：只从 --stage1-dir 加载 backbone，真冻结三件套，训练 NewTask 头，判定门禁（spec 7/8/10）。"""
     t0 = time.time()
-    if device.type == "cuda":
-        torch.cuda.reset_peak_memory_stats(device)
+    _reset_peak_vram(device)
     log(f"[stage2] 开始：stage1_id={stage1_id} tag={tag} model_seed={model_seed} enforce_b={enforce_b}")
     protocol.seed_model(model_seed)  # 独立进程重播种：头初始化与阶段 1 轨迹解耦（spec 6.1）
 
@@ -500,11 +507,12 @@ def run_stage2(
         "fingerprint_sha256": fp.get("fingerprint_sha256"),
         "hard_pass": bool(passed),
         "commit": protocol.code_commit(),
+        "git": protocol.git_state(),
         "versions": _versions(),
         "device": str(device),
         "wall_seconds": round(time.time() - t0, 1),
         "peak_vram_mb": (
-            round(torch.cuda.max_memory_allocated(device) / 1e6, 1) if device.type == "cuda" else None
+            round(torch.cuda.max_memory_allocated(device.index) / 1e6, 1) if device.type == "cuda" else None
         ),
     }
     config_doc = {
@@ -524,6 +532,7 @@ def run_stage2(
         "embedding_size": int(embedding_size),
         "enforce_b": bool(enforce_b),
         "commit": protocol.code_commit(),
+        "git": protocol.git_state(),
     }
     gate_doc = {"run_id": run_id, "tag": tag, "enforce_b": bool(enforce_b), "gates": gates, "hard_pass": bool(passed)}
     (run_path / "metrics.json").write_text(json.dumps(metrics_doc, ensure_ascii=False, indent=2), encoding="utf-8")

@@ -245,6 +245,13 @@ class TestFreezeTrio(unittest.TestCase):
         protocol.assert_no_grads(m)
 
 
+class TestGitState(unittest.TestCase):
+    def test_git_state_records_commit_and_dirty_flag(self):
+        state = protocol.git_state()
+        self.assertIn("commit", state)
+        self.assertIsInstance(state["dirty"], bool)
+
+
 class TestRunIdAndSummary(unittest.TestCase):
     def test_make_run_id_format(self):
         run_id = protocol.make_run_id(

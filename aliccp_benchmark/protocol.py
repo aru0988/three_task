@@ -101,6 +101,19 @@ def code_commit() -> str:
         return "nogit"
 
 
+def git_state() -> dict:
+    """运行时代码溯源：commit7 + 已跟踪文件是否存在未提交修改（未跟踪文件不计入）。"""
+    commit = code_commit()
+    try:
+        out = subprocess.check_output(
+            ["git", "status", "--porcelain", "--untracked-files=no"], text=True
+        )
+        dirty = bool(out.strip())
+    except Exception:  # noqa: BLE001
+        dirty = True
+    return {"commit": commit, "dirty": dirty}
+
+
 # ---- 前缀身份（spec 5.2）----
 def _prefix_budget_check(n: int) -> None:
     if n < 1:

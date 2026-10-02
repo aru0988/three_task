@@ -107,6 +107,9 @@ class TestTinyEndToEnd(unittest.TestCase):
             run_dir = protocol.run_dir(root, result["run_id"])
             for name in ("config.json", "metrics.json", "gate_report.json", "newtask.pt"):
                 self.assertTrue((run_dir / name).exists(), name)
+            # 代码溯源：commit + dirty 标记必须落盘
+            self.assertIn("git", result["metrics"])
+            self.assertIsInstance(result["metrics"]["git"]["dirty"], bool)
             # SUMMARY 只追加一行
             summary = (root / "SUMMARY.md").read_text(encoding="utf-8").strip().splitlines()
             self.assertEqual(len(summary), 3)
