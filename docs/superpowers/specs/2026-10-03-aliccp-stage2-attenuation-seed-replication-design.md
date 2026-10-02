@@ -199,4 +199,82 @@ python run_aliccp_benchmark.py replicate --stage1-id <新 sid> --baseline-run <�
 
 ## 10. 结果（实测；运行后追加，不得回填预期值）
 
-（待运行）
+**判定：`STABILITY_SUPPORTED`（§5.1 三条件全满足）→ 联合判定 `STABLE`（§5.2）。** Δtest = `+0.007713701281711671` ≥ +0.0055（闭）**且** Δval = `+0.004483122552346286` > 0（严格）**且**两臂 A 类门禁全 PASS。pooled 四项检查全真：mean Δtest = `+0.010209922928649862` ≥ +0.0055、mean Δval = `+0.008881199742142964` > 0、test/val 符号均一致。**seed-1 的固定衰减正增量在第二模型 seed 下按预注册判据复现。**
+
+### 10.1 运行记录（各恰一次；无重跑、无无效执行）
+
+| 项 | 基线臂 | 处理臂 |
+|---|---|---|
+| run_id | `20261003-0624-p2M-v500k-t1M-m1688723740-short-79b5e07` | `20261003-0627-p2M-v500k-t1M-m1688723740-short-79b5e07-sattn` |
+| commit / dirty | `79b5e07` / false | `79b5e07` / false |
+| stage1_id | `s1-5c060b9c-m1688723740-e3-4e1b5c6f` | 同左（同一 checkpoint，A5/A6 逐位校验通过） |
+| model seed / env seed | `1688723740` / `20261003` | 同左（两臂头 seed/顺序构造性相同；y_true sha256 两臂一致） |
+| **AUC-Test-BSI** | `0.5974422649550507` | `0.6051559662367624` |
+| AUC-Val-BSI(best) | `0.5809347091990792`（ep5） | `0.5854178317514255`（ep5） |
+| **Δtest / Δval（相对基线）** | — | **`+0.007713701281711671` / `+0.004483122552346286`** |
+| 逐 epoch val AUC | 0.4646 / 0.4856 / 0.5142 / 0.5509 / 0.5809 | 0.4651 / 0.4898 / 0.5283 / 0.5624 / 0.5854 |
+| 头 gate 均值（val） | `[0.789178, 0.2108221875]` | `[0.75060325, 0.24939646875]` |
+| trainable params | 8129 | 8129（零新增；`trainable_params == trainable_params_default`） |
+| 墙钟 / 峰值显存 | 142.9 s / 52.0 MB | 147.2 s / 52.0 MB |
+
+stage-1（seed-2）墙钟 159.8 s；`replicate` 纯分析 ≈56 s（含 A2 指纹重校验与 4 次评测遍历）。全部产物落于 `artifacts/aliccp_bench/{stage1,runs,logs}/`（gitignore；SUMMARY 两行追加入库）。
+
+### 10.2 seed-2 阶段 1 记录与 caveat
+
+- `stage1_id = s1-5c060b9c-m1688723740-e3-4e1b5c6f`；`config_hash = 4e1b5c6f…`；`fingerprint_sha256 = 5c060b9c…`（与 seed-1 相同，符合 §3 预期——前缀身份未变）；`backbone_sha256 = e5e7e610…`；`env_ids_sha256 = 5cd198f1…`；best_epoch = 3。
+- val 选点值：CTR `0.5558713922226883` / CVR `0.5028464480884318`；test（单次）：CTR `0.5534062000766764` / CVR `0.5420522697385088`；`env_acc = 0.9992525`。
+- cluster 事件：`[(epoch 2, diff_num 1000418, env_0 1532, env_1 1998468)]`——env_0 仅占训练集 0.077%，与 seed-1 的 `(566, 1999434)` 属**同型退化**（B4 继承失败的来源，臂无关，见 10.3）。
+- caveat：seed-2 的 val CTR `0.5559 ≥ 0.55`（B1 的 CTR 分量**通过**）；seed-1 的 stage-1 为 0.5493（B1 继承 FAIL）。两 seed 的 B1/B4 差异如实并列，均不归因于任何臂。
+
+### 10.3 门禁
+
+| 检查 | 基线臂 | 处理臂 |
+|---|---|---|
+| A1 / A2 / A4 / A5 / A6 | **PASS** | **PASS**（backbone sha before==after==loaded；`.grad` 全 None） |
+| A3 | SKIP（按需复跑，不阻塞） | SKIP |
+| B1 | **PASS**（CTR 0.5559 ≥ 0.55；CVR 0.5028 ≥ 0.50；BSI 0.5974 ≥ 0.53） | **PASS**（BSI 0.6052 ≥ 0.53） |
+| B2 | PASS（\|val−test\| = 0.0165 ≤ 0.05） | PASS（\|val−test\| = 0.0197 ≤ 0.05） |
+| B3 | PASS（gate_mean ∈ [0.05, 0.95]） | PASS |
+| B4 | **FAIL（继承 seed-2 stage-1，非臂引入）**：env_0 = 1532/2,000,000 | 同左（逐位相同，同一 stage-1 meta） |
+
+`hard_pass = false`（仅 B4 继承失败）。
+
+### 10.4 in-run 探针（处理臂专属，val 一次遍历，no_grad）
+
+| 键 | 值 |
+|---|---|
+| `pred_mean` / `pred_std` / `pred_var` | `0.9940284323790073` / `0.0050819538281967076` / `2.5826254711923174e-05` |
+| `pred_min` / `pred_max` | `0.762263298034668` / `0.9998414516448975` |
+| `pred_q10 / q50 / q90` | `0.9895503997802735` / `0.9950944781303406` / `0.997832715511322` |
+| `source_gate_mean`（backbone，冻结） | `[0.9240377414264083, 0.539432083903104]`（seed-2 backbone 固有值；与 seed-1 的 `[0.176…, 0.254…]` 属不同 backbone，**不可跨 seed 作因果比较**，§5.3） |
+
+### 10.5 双臂复现分析（`replicate`；同一 test/val 序；纯分析恰跑一次）
+
+**完整性检查：19/19 PASS，所有 AUC/gate/离散度重算 diff = 0.0（逐位相等）**；两臂 `model_seed == 1688723740` 且相等；`stage1_id` 两臂一致；`spec_attenuation` 记录 = 1.0 / 0.6972233730330467；y_true sha256 两臂一致（`2e251c4acd8ba848…`，与 seed-1 同一 test 序）；探针交叉核对逐位通过（`source_gate_mean`、`pred_std`）。
+
+**配对统计（test 同序 1M，arm − baseline）：**
+
+| 量 | 值 |
+|---|---|
+| pearson_logit / spearman_pred | `0.9543362093613366` / `0.9452396880888838` |
+| delta_mean（逐样本均值） | `+0.002121380322575569` |
+| delta_q10 / q50 / q90 | `+0.0007708072662353516` / `+0.0019840598106384277` / `+0.003656452894210814` |
+| frac_pos / frac_neg | `0.981141` / `0.018855` |
+| val pred_std：baseline → arm | `0.005217193225189258` → `0.0050819538281967076` |
+
+**判定（§5.1/§5.2，对记录值机械计算）：** `verdict = STABILITY_SUPPORTED`（`delta_test_ge_min = true`、`delta_val_positive = true`、`a_class_pass = true`）；`pooled_pass = true`（mean Δtest `+0.010209922928649862`、mean Δval `+0.008881199742142964`、符号一致 ×2）；`joint = STABLE`。
+
+### 10.6 解读（预注册口径 §5.3；不越界）
+
+1. **复现成立（方向 + 判据）**：seed-2 的 Δtest `+0.007714`、Δval `+0.004483`，两条件均过预注册阈值，且全部构造/冻结门禁通过；两 seed 的 Δ 符号完全一致 → 联合 `STABLE`。
+2. **幅度异质（如实披露，不挑拣）**：seed-2 增量小于 seed-1——Δtest 为 seed-1 的 `0.6070843311929397` 倍、Δval 为 `0.33760291131239` 倍。两次观测的效应量散布**混合了 seed 效应与 run 噪声，二者不可分离**（§9.1；A3 仍 SKIP）；不据此做方差分解或区间叙事。
+3. **预测位移形态不同（descriptive）**：seed-2 的 `frac_pos = 0.9811`（近全样本上移；seed-1 为 0.6388，更分化）——本实验只记录该差异，不归因。
+4. **头 gate 重平衡方向复现、幅度较小**：baseline `[0.7892, 0.2108]` → arm `[0.7506, 0.2494]`（同向朝均衡移动；seed-1 为 `[0.8511, 0.1489] → [0.4944, 0.5056]`）。
+5. **跨 seed 原始 AUC 未比较**（§5.3）：两 seed 的 baseline/arm 原始 AUC 已逐位入库，但仅作记录；唯一跨 seed 比较量 = 配对增量 Δ 与其 pooled 均值。
+6. **继承披露**：B4 两 seed 均 FAIL（共享 stage-1 的 cluster 退化；臂无关）；B1 于 seed-2 两臂均 PASS（seed-1 stage-1 的 CTR 分量 FAIL 为 seed-1 特有）——均照常披露，不作任何主张。
+
+### 10.7 纪律核对
+
+- seed-2 stage1 ×1、stage2 基线 ×1、stage2 处理臂 ×1、`replicate` ×1（纯分析）；**无重跑、无无效执行、无挑 seed/epoch**；系数与阈值自预注册提交（`ef07ff5`/`c4d5128`）起未修改；实现提交 `79b5e07` 后运行（run 记录的 commit 均为 `79b5e07`，`git.dirty = false`）。
+- SUMMARY 追加 2 行（append-only，未重写任何既有行）；产物留档：`artifacts/aliccp_bench/{stage1/s1-5c060b9c-m1688723740-e3-4e1b5c6f, runs/<两 run_id>（含 replication_compare.json）, logs/}`（gitignore）。
+- 测试：82/82 通过（含默认关逐位一致 I1–I2、系数钉死 I5、判定边界 I7、replicate 篡改留痕 I8、静态白名单 I10）。
