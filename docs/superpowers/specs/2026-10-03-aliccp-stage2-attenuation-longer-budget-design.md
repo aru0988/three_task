@@ -4,7 +4,7 @@
 - **日期**：2026-10-03
 - **适用分支**：`exp/aliccp-stage2-attenuation-longer-budget`（自 `infra/aliccp-fair-benchmark` @ `8133d32` 独立拉出；**不从**任何 exp 分支拉出、不继承其运行时状态；`aliccp_benchmark/protocol.py` 零修改）
 - **协议依赖**：`docs/superpowers/specs/2026-10-03-aliccp-fair-benchmark-design.md`（AliCCP 公平评测协议）与 `aliccp_benchmark/protocol.py`。本分支**只引用**，不修改其任何文件与常量（SUMMARY 列、A/B 门禁阈值、预算、指纹定义均不变）
-- **机制与先例来源（只读引用）**：处理臂机制 = `exp/aliccp-stage2-specific-attenuation-control` @ `3314420`，经 `exp/aliccp-stage2-attenuation-seed-replication` @ `f589e61` **逐字移植**（本分支自 `f589e61` 逐字复用，静态守卫见 §7）；seed-2 5-epoch 配对记录 = 同分支 run `20261003-0624-…-79b5e07`（基线）/ `20261003-0627-…-79b5e07-sattn`（处理臂）
+- **机制与先例来源（只读引用）**：处理臂机制 = `exp/aliccp-stage2-specific-attenuation-control` @ `3314420`，经 `exp/aliccp-stage2-attenuation-seed-replication` @ `f589e61` **逐字移植**（本分支自 `f589e61` 逐字复用，静态守卫见 §7）；seed-2 5-epoch 配对记录 = 同分支 run `20261003-0624-p2M-v500k-t1M-m1688723740-short-79b5e07`（基线）/ `20261003-0627-p2M-v500k-t1M-m1688723740-short-79b5e07-sattn`（处理臂）
 - **定位声明**：本实验是**稳健性 / 替代解释检验**（benefit 是持久收益还是仅仅加速收敛），不是新方法，不主张任何新颖性；不改系数、不调参、不换结构、不改损失。与 seed-2 5-epoch 配对相比**唯一的变化 = Stage2 max epochs 5→10 与 patience 2→3**（§3）。结论口径：seed-2 观察到的固定衰减正增量在更长 Stage2 预算下是否按预注册判据**仍然成立**（PERSISTS vs NOT_PERSIST）。
 
 ---
@@ -25,7 +25,7 @@ seed-2（`m1688723740`，Stage-1 产物 `s1-5c060b9c-m1688723740-e3-4e1b5c6f`）
 
 来源：`artifacts/aliccp_bench/runs/<run_id>/metrics.json` 与 `gate_report.json`（本机磁盘留存，逐位复核；与 `f589e61` 文档 §10.1 记录一致）。两臂同 `stage1_id`、同 model seed、同顺序、单次 test 评测。
 
-| 项 | 基线臂（`20261003-0624-…-79b5e07`） | 处理臂（`20261003-0627-…-79b5e07-sattn`） |
+| 项 | 基线臂（`20261003-0624-p2M-v500k-t1M-m1688723740-short-79b5e07`） | 处理臂（`20261003-0627-p2M-v500k-t1M-m1688723740-short-79b5e07-sattn`） |
 |---|---|---|
 | `epochs / patience`（记录值） | 5 / 2 | 5 / 2 |
 | 逐 epoch val AUC（BSI） | 0.4645711559 / 0.4856448122 / 0.5142344439 / 0.5508809596 / 0.5809347092 | 0.4650750989 / 0.4898335356 / 0.5283062258 / 0.5623536460 / 0.5854178318 |
