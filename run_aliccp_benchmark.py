@@ -7,6 +7,10 @@
   short（唯一一次基线运行，A+B 全判定）：
     python run_aliccp_benchmark.py stage1 --tag short
     python run_aliccp_benchmark.py stage2 --tag short --stage1-id <sid>
+  long（更长 Stage-2 预算持久性检验，预注册见
+  docs/superpowers/specs/2026-10-03-aliccp-stage2-attenuation-longer-budget-design.md §8）：
+    python run_aliccp_benchmark.py stage2 --tag long --epochs 10 --patience 3 --model-seed 1688723740 --stage1-id <sid>
+    python run_aliccp_benchmark.py stage2 --tag long --epochs 10 --patience 3 --model-seed 1688723740 --stage1-id <sid> --spec-attenuation 0.6972233730330467
 """
 from __future__ import annotations
 
@@ -46,7 +50,7 @@ def _prefix_tag_for(train_budget: int, val_budget: int, test_budget: int) -> str
 def _add_common(parser: argparse.ArgumentParser) -> None:
     parser.add_argument("--gpu", type=int, default=0)
     parser.add_argument("--root", type=str, default=str(protocol.ARTIFACT_ROOT))
-    parser.add_argument("--tag", type=str, default="short", choices=["short", "smoke"])
+    parser.add_argument("--tag", type=str, default="short", choices=["short", "smoke", "long"])
     parser.add_argument("--train-budget", type=int, default=protocol.TRAIN_BUDGET)
     parser.add_argument("--val-budget", type=int, default=protocol.VAL_BUDGET)
     parser.add_argument("--test-budget", type=int, default=protocol.TEST_BUDGET)
@@ -72,6 +76,8 @@ def build_parser() -> argparse.ArgumentParser:
     p2.add_argument("--epochs", type=int, default=protocol.STAGE2_EPOCHS)
     p2.add_argument("--patience", type=int, default=protocol.STAGE2_PATIENCE)
     p2.add_argument("--no-enforce-b", action="store_true", help="只记录 B 类门禁（smoke 默认如此）")
+    p2.add_argument("--spec-attenuation", type=float, default=1.0,
+                    help="阶段 2 specific 混合固定衰减系数 c∈(0,1]（默认 1.0 = 基线行为；更长预算持久性处理臂）")
     return parser
 
 
@@ -90,7 +96,10 @@ def main(argv=None) -> int:
 
     run_id = None
     if args.command == "stage2":
-        run_id = protocol.make_run_id(now, prefix_tag=prefix_tag, model_seed=args.model_seed, tag=args.tag, commit=commit)
+        run_id = bench.stage2_run_id(
+            protocol.make_run_id(now, prefix_tag=prefix_tag, model_seed=args.model_seed, tag=args.tag, commit=commit),
+            args.spec_attenuation,
+        )
         run_path = protocol.run_dir(root, run_id)
         if run_path.exists():
             raise SystemExit(f"run 目录已存在，禁止覆盖（换一分钟重跑或清理旧 run）：{run_path}")
@@ -114,10 +123,16 @@ def main(argv=None) -> int:
                 prefix_tag=prefix_tag, model_seed=args.model_seed,
                 epochs=args.epochs, patience=args.patience, tag=args.tag, device=device,
                 enforce_b=(args.tag != "smoke") and not args.no_enforce_b, run_id=run_id,
+                spec_attenuation=args.spec_attenuation,
             )
             verdicts = {gate: value["verdict"] for gate, value in result["gates"].items()}
             print(f"gates: {json.dumps(verdicts, ensure_ascii=False)}")
             print(f"run_id={result['run_id']} hard_pass={result['hard_pass']}")
+            if args.spec_attenuation != 1.0:
+                probe = result["metrics"]["probe"]
+                print(f"probe: pred_mean={probe['pred_mean']:.10f} pred_std={probe['pred_std']:.10f} "
+                      f"source_gate_mean={probe['source_gate_mean']} "
+                      f"trainable_params={result['metrics']['trainable_params']}")
     print(f"日志已写入: {log_path}")
     return 0
 
