@@ -56,4 +56,5 @@ tb_logs/           # TensorBoard 日志
 artifacts/aliccp_bench/splits/
 artifacts/aliccp_bench/stage1/
 artifacts/aliccp_bench/runs/
+artifacts/aliccp_bench/audit/
 !artifacts/aliccp_bench/SUMMARY.md
