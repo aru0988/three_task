@@ -206,9 +206,47 @@ I1–I9（rank01 语义、实现==审计参考逐位、manager 仅覆写 `cluste
 
 - 核验脚本（只读复算）：`artifacts/aliccp_bench/audit/verify_stage1_norm_seed2.py` → checks 11/11 true，`all_pass=True`（结果 JSON 同名 `_result.json`）。
 
-### 9.2 Stage-2（运行后填写）
+### 9.2 Stage-2（实测；运行恰一次，未改动头，tag `norm`）
 
-### 9.3 pooled 与分类（运行后填写）
+| 项 | 值 |
+|---|---|
+| run_id | `20261003-0932-p2M-v500k-t1M-m1688723740-norm-7b2c26a` |
+| commit / dirty / wall | `7b2c26a` / **false** / 155.6 s |
+| stage1_id | `s1-5c060b9c-m1688723740-e3-820697f6`（A5/A6 逐位校验通过） |
+| 逐 epoch val BSI | 0.466735 / 0.486959 / 0.514168 / 0.549250 / 0.579452（raw：0.464571 / 0.485645 / 0.514234 / 0.550881 / 0.580935） |
+| best_epoch / best val | 5 / `0.5794515447344156`（raw `0.5809347091990792`，**Δval = −0.0014831644646635667 < 0**） |
+| test BSI（单次） | `0.5979010844832302`（raw `0.5974422649550507`，**Δtest = +0.00045881952817949934 > 0**） |
+| gate_mean（val） | `[0.80868025, 0.19131965625]`（raw `[0.789178, 0.2108221875]`；B3 PASS） |
+| A 类（M7） | A1/A2/A4/A5/A6 **PASS**（backbone sha before==after==loaded、`.grad` 全 None）；A3 SKIP |
+| B 类 | **B1/B2/B3/B4 全 PASS**（B4 events `[(1106286, 893714)]`——协议 machinery 确认修复）；`hard_pass = true`（本 run 为该 seed 下首次全过；事实记录，非改进主张） |
+
+- **U 组判定（§4.2）**：U1 `Δtest_ctr = +0.00019645535010215376 ≥ −0.005` **PASS**；U2 `Δtest > 0` **PASS（边际，+0.00046）**；U3 `Δval > 0` **FAIL（−0.00148）** ⇒ `UTILITY_DIRECTION_REPLICATED = false`。
+- **披露（不判定）**：seed1 型底线（`Δtest ≥ −0.005 ∧ Δval ≥ −0.01`）双过（无实质退化，seed1-G7 口径）；报告项 `Δtest ≥ +0.0055` **未清除**（+0.00046）。
+
+### 9.3 pooled 与分类（实测；分类由 `verify_stage2_pool_seed2.py` 机械计算）
+
+**分类：`NOT_SUPPORTED`**（`MECHANISM_REPLICATED = true` ∧ `UTILITY_DIRECTION_REPLICATED = false`；§5 规则：`REPLICATION_SUPPORTED ⇔ M ∧ U`）。
+
+- **机制复现（M 组，10/10 全过）**：M1 B4 修复（55.3143%/44.6857% 双过）、M2a `stage1_id` bit 级预测命中、M2b epoch 1–2 与 raw 逐位相等、M3 有限性、M4 非标签恢复（565/1106286 = 0.051%）、M5 有效变化、M6 raw 诊断一致（重分析全字段逐位）、M7 A 类完整、M8a 测试 64/64、M8b smoke 恒等。**机制修复跨 seed 稳定成立。**
+- **效用方向复现（U 组）**：U1 过、U2 边际过（+0.00046）、**U3 失败（Δval = −0.00148）**——Stage-2 方向未在同 seed 内复现。
+
+**pooled（两 seed 并列，不混合）**：
+
+| seed | 聚类事件（diff_num / env_0 / env_1） | 占比 | Δtest BSI | Δval BSI | Δtest CTR（Stage-1） |
+|---|---|---|---|---|---|
+| 1688723512（已记录 @ `2058de8`） | 999966 / 959244 / 1040756 | 47.9622% / 52.0378% | +0.0082428399 | +0.0100592719 | −0.0015226 |
+| 1688723740（本次） | 998878 / 1106286 / 893714 | 55.3143% / 44.6857% | +0.0004588195 | −0.0014831645 | +0.0001965 |
+
+- **机制平衡 pooled**：两 seed 均 B4 双过（两环境 ≥ 5%），无坍缩；修复形态（均衡分配、非标签恢复、有限诊断）跨 seed 一致。
+- **within-seed Δ**：seed1 双向为正；seed2 test 边际为正、val 反向——**Stage-2 方向未稳定复现**；本 seed 的 `Δtest` 比 seed1 小约 18×，且 `Δval` 反号。按预注册口径（§4.2/§5）如实记为 `NOT_SUPPORTED`（不作"提升"或"退化"的额外主张；底线与报告项见 §9.2）。
+- 分类 JSON（机械复算）：`artifacts/aliccp_bench/audit/verify_stage2_pool_seed2_result.json`（`classification = "NOT_SUPPORTED"`）。
+
+### 9.4 纪律核对
+
+- **运行次数**：结果 run = Stage-1 归一化 ×1（`092819` 日志）+ Stage-2 未改动头 ×1（`093242` 日志）；**无重跑、无无效执行、无调参、无 epoch 挑选**。非结果核验 = 参考核验 ×1、raw 只读重分析 ×1、smoke 恒等 ×1（无 canonical 产物写入）。
+- **清洁树**：两条 run 记录 `git.dirty = false`（`a39c170` / `7b2c26a`）；run 间提交纪律成立（C1 `8ef0c9d` → C2 `a39c170` → C3 `7b2c26a` → C4 本次）。
+- **SUMMARY**：追加 1 行（append-only；本分支系谱为 `8133d32` 的 2 行 + 本行，未重写任何既有行）。
+- **未 push**（本地提交；推送需用户显式批准）。
 
 ---
 
