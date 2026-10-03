@@ -1,0 +1,974 @@
+{
+  "meta": {
+    "title": "MPT-Rec screening synthesis - machine-readable branch records",
+    "created": "2026-10-04",
+    "docs_branch": "docs/mptrec-screening-synthesis",
+    "base": "master fd751986b79ab90205231aec979a3be66591b9a7",
+    "scope": "All completed screening branches of the two fair-evaluation lineages (CensusIncome: base infra/fair-stage2-benchmark @ 87afe03; AliCCP: base infra/aliccp-fair-benchmark @ 8133d32), plus the Census-side AliCCP-attenuation transfer branch. One record per branch.",
+    "audit_method": "Read-only audit of committed git refs: per-branch SUMMARY.md versions (artifacts/census_stage2/SUMMARY.md, artifacts/aliccp_bench/SUMMARY.md, artifacts/census_stage1_grad/SUMMARY.md), branch-local design/experiment documents, and result commit messages. Run directories, JSONs and verifier reports are gitignored and were NOT audited; all values are as recorded in committed files. No training, no model-code changes, no merges.",
+    "value_conventions": {
+      "shas": "40-char commit SHAs; blobs are 40-char git blob hashes as committed at the branch tip",
+      "delta_reported": "string exactly as documented at the cited source; validator parses decimal places (d) and requires |recomputed - reported| <= 10^-d",
+      "arm_auc_full / baseline_auc_full": "full-precision values as given in design/experiment docs or SUMMARY rows; null when the doc only gives rounded values"
+    },
+    "not_audited": [
+      "artifacts/*/runs/** run-level JSON/prompt_report/gate_report (gitignored, not committed)",
+      "artifacts/aliccp_bench/audit/** and untracked verify_*.py scripts in worktrees (deliberately untouched)",
+      "two tooling-interrupted launch logs of the AliCCP residual-prompt-gate branch (0-byte, preserved locally, described in the design doc section 9.0)"
+    ],
+    "integrity_note_refs": "See docs/experiments/2026-10-04-mptrec-screening-synthesis.md section 7 for the full provenance and conflict notes; each entry below cites its evidence files."
+  },
+
+  "entries": [
+    {
+      "id": "infra-fair-stage2-benchmark",
+      "branch": "infra/fair-stage2-benchmark",
+      "tip_commit": "87afe037505a29046e1a9a8ba66b950fb30fe820",
+      "lineage": "census",
+      "dataset_stage": "CensusIncome, stage-1+stage-2 fair protocol infrastructure + baseline short run (education new task)",
+      "result_commits": [
+        {"sha": "904f8d07affcadff20a62ec2fd303baa5c7ed13d", "role": "fix: keep mechanism accumulators on CPU (HEAD at baseline run time)"},
+        {"sha": "87afe037505a29046e1a9a8ba66b950fb30fe820", "role": "docs: record benchmark smoke result + baseline SUMMARY row"}
+      ],
+      "hypothesis": "Protocol correctness only: decoupled split/model/env seeds, content-addressed stage-1 artifacts, true-freeze trio, A/B gates. No model change; no performance claim (N2).",
+      "positioning": "infrastructure/baseline (not a method; prior-art-free by construction; zero change to multitaskrec/* model semantics)",
+      "mechanism_verdict": "protocol verified: A1/A2/A4/A5 PASS; freeze trio enforced; B1/B2/B4 PASS; B3 FAIL on the frozen backbone gate_networks (shared boundary, inherited by every later census arm)",
+      "utility": {
+        "metric": "AUC-Test-Education",
+        "arm_auc_full": "0.8500685307175756",
+        "baseline_auc_full": null,
+        "baseline_run_id": null,
+        "delta_reported": null,
+        "delta_source": null,
+        "threshold": "none (baseline reference for the family)",
+        "status": "REFERENCE",
+        "note": "val best 0.8527881905614896; stage1_id s1-096f8f16-m1685480945-e2-cb2094b3; B3 detail gate_mean [0.952401451979339, 0.8543901456350915]"
+      },
+      "replication": "none (single model seed 1685480945; A3 rerun SKIP)",
+      "longer_budget": "not run",
+      "inherited_caveats": ["single model seed; 5-epoch short; A3 SKIP (no run-to-run noise floor)", "B3 FAIL is a frozen-backbone property shared by all census arms"],
+      "classification": "BASELINE (protocol-valid reference; B3 shared-boundary FAIL)",
+      "recommended_action": "reference",
+      "summary_file": "artifacts/census_stage2/SUMMARY.md",
+      "summary_blob": "f58c210f3b3d57d6a224f8719fe0d7afc03b68fd",
+      "summary_rows": ["20260929-1735-s20260929-m1685480945-short-904f8d0"],
+      "spec_path": "docs/superpowers/specs/2026-09-29-census-stage2-benchmark-design.md",
+      "spec_blob": "aa8d5800dc889f984f2ce24fbd787e2fcd175bf7",
+      "evidence": [
+        "artifacts/census_stage2/SUMMARY.md row 20260929-1735-s20260929-m1685480945-short-904f8d0 @ 87afe03 (blob f58c210f)",
+        "docs/superpowers/specs/2026-09-29-census-stage2-benchmark-design.md sections 6/8 (thresholds) @ 87afe03 (blob aa8d5800)"
+      ]
+    },
+    {
+      "id": "exp-stage2-attn-env-prior",
+      "branch": "exp/stage2-attn-env-prior",
+      "tip_commit": "d1a680f4f96ca3f90ac58e71686ab4e4620e090a",
+      "lineage": "census",
+      "dataset_stage": "CensusIncome stage-2 short screening (education)",
+      "result_commits": [
+        {"sha": "f27882e6128d23726ac42b69ffb16ce913cf721f", "role": "implementation + run (HEAD at run time)"},
+        {"sha": "d1a680f4f96ca3f90ac58e71686ab4e4620e090a", "role": "docs: record failed attention env prior experiment"}
+      ],
+      "hypothesis": "Replacing the learned stage-2 new-env embedding with an attention-weighted combination of stage-1 env_embs (same attention weights, temperature 150 unchanged) improves education AUC.",
+      "positioning": "engineering ablation of the env-vector source (attention pooling is standard prior art; branch doc claims no novelty; protocol files untouched)",
+      "mechanism_verdict": "variant active (attn output differs from learned; env_embedding grad None in attn mode) but no utility; B3 FAIL shared with baseline",
+      "utility": {
+        "metric": "AUC-Test-Education",
+        "arm_auc_full": "0.8489392168",
+        "baseline_auc_full": "0.8500685307175756",
+        "baseline_run_id": "20260929-1735-s20260929-m1685480945-short-904f8d0",
+        "delta_reported": "-0.0011293139",
+        "delta_source": "experiments/2026-09-29-stage2-attn-env-prior.md section 4.1",
+        "threshold": "arm >= 0.8521 (pre-registered)",
+        "status": "FAIL",
+        "note": "run 20260929-1745-s20260929-m1685480945-short-f27882e-pattn; B1/B2/B4 PASS"
+      },
+      "replication": "none (single-seed discovery run)",
+      "longer_budget": "not run",
+      "inherited_caveats": ["B3 FAIL inherited from frozen backbone", "single model seed; A3 SKIP"],
+      "classification": "NOT_MET -> direction stop (recorded, branch kept)",
+      "recommended_action": "stop",
+      "summary_file": "artifacts/census_stage2/SUMMARY.md",
+      "summary_blob": "89145fcca902cc7cafea6211c0c8b69c40aaec0d",
+      "summary_rows": ["20260929-1745-s20260929-m1685480945-short-f27882e-pattn"],
+      "spec_path": "docs/superpowers/experiments/2026-09-29-stage2-attn-env-prior.md",
+      "spec_blob": "eb7da638a8648e87ad72776951593ee259d021bc",
+      "evidence": [
+        "artifacts/census_stage2/SUMMARY.md row 20260929-1745-...-pattn @ d1a680f (blob 89145fcc)",
+        "docs/superpowers/experiments/2026-09-29-stage2-attn-env-prior.md sections 3/4/5 @ d1a680f (blob eb7da638)"
+      ]
+    },
+    {
+      "id": "exp-stage2-null-expert",
+      "branch": "exp/stage2-null-expert",
+      "tip_commit": "87e2b8dc9ab8d631b1f17e4c1f436a01d730ff42",
+      "lineage": "census",
+      "dataset_stage": "CensusIncome stage-2 short screening (education)",
+      "result_commits": [
+        {"sha": "1eadd059e7b75d3e718b7480912955f5ba745051", "role": "implementation + run (HEAD at run time)"},
+        {"sha": "87e2b8dc9ab8d631b1f17e4c1f436a01d730ff42", "role": "docs: record inconclusive null expert experiment"}
+      ],
+      "hypothesis": "Appending a value-zero candidate (null expert, learnable zero-init router key) to the source-task router lets samples abstain from borrowing old-task representations and improves education AUC.",
+      "positioning": "engineering ablation; abstention/zero-candidate routing is established MoE-family prior art (stated in the AliCCP replication doc)",
+      "mechanism_verdict": "mechanism ACTIVE: null_top1_rate 0.37256670876686515 in [0.05, 0.95]; null_mean 0.34177784155227137",
+      "utility": {
+        "metric": "AUC-Test-Education",
+        "arm_auc_full": "0.8513648272440768",
+        "baseline_auc_full": "0.8500685307175756",
+        "baseline_run_id": "20260929-1735-s20260929-m1685480945-short-904f8d0",
+        "delta_reported": "+0.001296296526501206",
+        "delta_source": "spec 2026-09-29-stage2-null-expert-design.md section 8.1",
+        "threshold": "arm >= 0.8521 AND null_top1_rate in [0.05, 0.95] (both required)",
+        "status": "FAIL",
+        "note": "run 20260929-1802-s20260929-m1685480945-short-1eadd05-nullx; AUC criterion failed; weak positive signal explicitly NOT claimed"
+      },
+      "replication": "none (single-seed discovery run)",
+      "longer_budget": "not run",
+      "inherited_caveats": ["B3 FAIL inherited from frozen backbone", "single model seed; A3 SKIP"],
+      "classification": "FAILED (utility below bar; mechanism active) -> stop",
+      "recommended_action": "stop",
+      "summary_file": "artifacts/census_stage2/SUMMARY.md",
+      "summary_blob": "626aaa098093ac3f52a4fbca14ab0d2f9299b4c3",
+      "summary_rows": ["20260929-1802-s20260929-m1685480945-short-1eadd05-nullx"],
+      "spec_path": "docs/superpowers/specs/2026-09-29-stage2-null-expert-design.md",
+      "spec_blob": "426648bffe74dd75c264c741d233b458f05aa810",
+      "evidence": [
+        "artifacts/census_stage2/SUMMARY.md row 20260929-1802-...-nullx @ 87e2b8d (blob 626aaa09)",
+        "docs/superpowers/specs/2026-09-29-stage2-null-expert-design.md sections 5/8 @ 87e2b8d (blob 426648bf)"
+      ]
+    },
+    {
+      "id": "exp-stage2-cond-scale-bias",
+      "branch": "exp/stage2-cond-scale-bias",
+      "tip_commit": "bd8aebad80a43c35d8251360f5f7244c6d2b66fc",
+      "lineage": "census",
+      "dataset_stage": "CensusIncome stage-2 short screening (education); includes zero-training router probe",
+      "result_commits": [
+        {"sha": "bd8aebad80a43c35d8251360f5f7244c6d2b66fc", "role": "implementation + run + result doc (single commit)"}
+      ],
+      "hypothesis": "Two-stage: (0) probe whether the trained router W actually carries per-sample signal; (1) if yes, condition the routed representation with gamma(x)/beta(x) mixture-of-per-env-vectors scale+bias (FiLM-style) and measure utility.",
+      "positioning": "engineering ablation / diagnostic; FiLM-family conditional modulation (doc explicitly disclaims novelty)",
+      "mechanism_verdict": "probe gate PASS (router_w_std 0.20744372956191676 >= 0.02); arm mechanism active (modulation_ratio 0.09219527083871916 in [0.01, 1.0]; gamma/beta left zero, both envs move)",
+      "utility": {
+        "metric": "AUC-Test-Education",
+        "arm_auc_full": "0.8501177932753766",
+        "baseline_auc_full": "0.8500685307175756",
+        "baseline_run_id": "20260929-1735-s20260929-m1685480945-short-904f8d0",
+        "delta_reported": "+0.0000492626",
+        "delta_source": "spec 2026-09-30-stage2-cond-scale-bias-design.md section 7",
+        "threshold": "C1 arm >= 0.8521 AND C2 modulation_ratio in [0.01, 1.0]",
+        "status": "FAIL",
+        "note": "run 20260930-1324-s20260929-m1685480945-short-87afe03-csb; C1 FAIL / C2 PASS; delta is ~43x smaller than required"
+      },
+      "replication": "none (single-seed discovery run)",
+      "longer_budget": "not run",
+      "inherited_caveats": ["B3 FAIL inherited from frozen backbone", "single model seed; A3 SKIP", "run recorded commit 87afe03 while the variant code was still uncommitted at run time (doc section 7 discloses; source mtimes predate artifacts)"],
+      "classification": "C1 FAIL (mechanism active, utility ~0) -> direction stop",
+      "recommended_action": "stop",
+      "summary_file": "artifacts/census_stage2/SUMMARY.md",
+      "summary_blob": "5bab8b7814c6a297faeadf54732c1702e3c17e31",
+      "summary_rows": ["20260930-1324-s20260929-m1685480945-short-87afe03-csb"],
+      "spec_path": "docs/superpowers/specs/2026-09-30-stage2-cond-scale-bias-design.md",
+      "spec_blob": "97320c0b584255b9fc91c6a9f221505afddc72c4",
+      "evidence": [
+        "artifacts/census_stage2/SUMMARY.md row 20260930-1324-...-csb @ bd8aeba (blob 5bab8b78)",
+        "docs/superpowers/specs/2026-09-30-stage2-cond-scale-bias-design.md sections 3/5/7 @ bd8aeba (blob 97320c0b)"
+      ]
+    },
+    {
+      "id": "exp-stage2-cgr-repro",
+      "branch": "exp/stage2-cgr-repro",
+      "tip_commit": "f3612467db39065fdab4adf85b0d33b0f890809b",
+      "lineage": "census",
+      "dataset_stage": "CensusIncome stage-2 short screening (education); faithful historical CGR reproduction + degeneracy diagnosis",
+      "result_commits": [
+        {"sha": "f3612467db39065fdab4adf85b0d33b0f890809b", "role": "implementation + run + result doc (single commit)"}
+      ],
+      "hypothesis": "Reproduce the archived CGR gate (Confidence-Gated Routing) verbatim on the fair protocol, preserving its defects (D1 batch-level gate, D2 RNG construction confound, D3 constant-init saturation, D4 warmup quirk, D5 weak gradient), and adjudicate degeneracy BEFORE interpreting AUC.",
+      "positioning": "faithful reproduction + audit (refutation material, not a method; gated fusion / MoE routing prior art; explicit non-novelty section)",
+      "mechanism_verdict": "CONFIRMED_DEGENERATE: 3/3 pre-registered rules hit (unique_frac 0.003909850230414747 <= 0.01; weight_l1 0.0 < 1e-6; grad_norm_max 0.0 == 0; 3900/3900 steps zero gradient); eval gate structurally g_hard==1 (pure attention)",
+      "utility": {
+        "metric": "AUC-Test-Education",
+        "arm_auc_full": "0.84735625087073",
+        "baseline_auc_full": "0.8500685307175756",
+        "baseline_run_id": "20260929-1735-s20260929-m1685480945-short-904f8d0",
+        "delta_reported": "-0.0027122798468456",
+        "delta_source": "experiments/2026-09-30-stage2-cgr-revalidation.md section 8.2",
+        "threshold": "arm >= 0.8521, but effect NOT evaluated (degeneracy dominates)",
+        "status": "NOT_EVALUATED",
+        "note": "run 20260930-1355-s20260929-m1685480945-short-87afe03-cgr; delta attributable to the preserved D2 init displacement + noise, not to CGR"
+      },
+      "replication": "none (mechanism degeneracy is structural; multi-seed deemed pointless)",
+      "longer_budget": "not run",
+      "inherited_caveats": ["B3 FAIL inherited from frozen backbone", "single model seed; A3 SKIP", "run recorded commit 87afe03; experiment code not committed (timestamps only) - disclosed in-branch"],
+      "classification": "CONFIRMED_DEGENERATE -> STOP (historical CGR interpretation refuted; effect not evaluated)",
+      "recommended_action": "stop",
+      "summary_file": "artifacts/census_stage2/SUMMARY.md",
+      "summary_blob": "1b5e66fc37d705336f30164c7f4f1681a3b8442f",
+      "summary_rows": ["20260930-1355-s20260929-m1685480945-short-87afe03-cgr"],
+      "spec_path": "docs/superpowers/experiments/2026-09-30-stage2-cgr-revalidation.md",
+      "spec_blob": "348b0dcef3920ef0c7923d0bb95c8c38f08037ee",
+      "evidence": [
+        "artifacts/census_stage2/SUMMARY.md row 20260930-1355-...-cgr @ f361246 (blob 1b5e66fc)",
+        "docs/superpowers/experiments/2026-09-30-stage2-cgr-revalidation.md sections 3/6/8 @ f361246 (blob 348b0dce)"
+      ]
+    },
+    {
+      "id": "exp-stage2-cgr-instance",
+      "branch": "exp/stage2-cgr-instance",
+      "tip_commit": "3702dc12c29f807ad8aa2e5500f56b0739f461f2",
+      "lineage": "census",
+      "dataset_stage": "CensusIncome stage-2 short screening (education); corrected per-sample CGR",
+      "result_commits": [
+        {"sha": "3702dc12c29f807ad8aa2e5500f56b0739f461f2", "role": "implementation + run + result doc (single commit)"}
+      ],
+      "hypothesis": "After fixing the audited CGR defects (per-sample gate features incl. H_out/p_max/entropy/cos-agreement, standard init + zero-init output layer, no warmup, RNG construction fixed), does a per-sample confidence gate mixing attention and uniform routing produce measurable utility?",
+      "positioning": "engineering ablation (defect-corrected re-test of a refuted mechanism; gated fusion prior art; explicit non-novelty)",
+      "mechanism_verdict": "MECHANISM_OK: 4/4 rules pass (g_within_batch_std_mean 0.14419801514551248; grad_norm_max 0.02980218017421471; g_mean 0.9009520232979779; weight_l1_mean 0.02337668896501307); g_mean drifts up 0.856 -> 0.914 over 5 epochs (toward attention)",
+      "utility": {
+        "metric": "AUC-Test-Education",
+        "arm_auc_full": "0.8482881971511005",
+        "baseline_auc_full": "0.8500685307175756",
+        "baseline_run_id": "20260929-1735-s20260929-m1685480945-short-904f8d0",
+        "delta_reported": "-0.0017803335664751",
+        "delta_source": "experiments/2026-09-30-stage2-cgr-instance.md section 8.5",
+        "threshold": "arm >= 0.8521",
+        "status": "FAIL",
+        "note": "run 20260930-1435-s20260929-m1685480945-short-87afe03-cgrinst; effect.evaluated=true, pass=false"
+      },
+      "replication": "none (single-seed discovery run)",
+      "longer_budget": "not run",
+      "inherited_caveats": ["B3 FAIL inherited from frozen backbone", "single model seed; A3 SKIP", "run recorded commit 87afe03; experiment code uncommitted at run time (doc section 8.1 discloses)"],
+      "classification": "MECHANISM_OK + EFFECT_NOT_CONFIRMED -> stop (clean falsifiable negative)",
+      "recommended_action": "stop",
+      "summary_file": "artifacts/census_stage2/SUMMARY.md",
+      "summary_blob": "4860cac205176946dfe605c2e55456e7a84c0178",
+      "summary_rows": ["20260930-1435-s20260929-m1685480945-short-87afe03-cgrinst"],
+      "spec_path": "docs/superpowers/experiments/2026-09-30-stage2-cgr-instance.md",
+      "spec_blob": "0a1eed5a43f6a3402779bbe34ab863a76ce1889d",
+      "evidence": [
+        "artifacts/census_stage2/SUMMARY.md row 20260930-1435-...-cgrinst @ 3702dc1 (blob 4860cac2)",
+        "docs/superpowers/experiments/2026-09-30-stage2-cgr-instance.md sections 5/8 @ 3702dc1 (blob 0a1eed5a)"
+      ]
+    },
+    {
+      "id": "exp-stage2-affinity-gate-repro",
+      "branch": "exp/stage2-affinity-gate-repro",
+      "tip_commit": "88d787c69055090358efeb2584a51999f931ba3b",
+      "lineage": "census",
+      "dataset_stage": "CensusIncome stage-2 short screening (education); faithful historical affinity-gate reproduction + degeneracy diagnosis",
+      "result_commits": [
+        {"sha": "88d787c69055090358efeb2584a51999f931ba3b", "role": "implementation + run + result doc (single commit)"}
+      ],
+      "hypothesis": "Reproduce the archived Affinity Gate verbatim (double sigmoid, Gumbel STE hard gate, batch/global RNG use) and test the historical claim 'per-sample cosine features detect OOD samples and switch to FW' under the fair protocol.",
+      "positioning": "faithful reproduction + audit (refutation material; hard gating / Gumbel-softmax routing prior art; explicit non-novelty)",
+      "mechanism_verdict": "CONFIRMED_DEGENERATE: rules 1&2 hit (eval_routing_share_attn 1.0; routing_l1_mean 8.425798429712178e-09 < 1e-6); rule 3 not hit (grad_norm_max 7.530469790294838e-04). Structural proof: g_logit=sigmoid(z) in (0,1) => g_hard==1 for any parameters/inputs => W==W_attn on the eval path; training route is Gumbel-noise dominated (noise_to_signal_ratio 15.677179855412485; flip_rate 0.1262)",
+      "utility": {
+        "metric": "AUC-Test-Education",
+        "arm_auc_full": "0.8465147339710887",
+        "baseline_auc_full": "0.8500685307175756",
+        "baseline_run_id": "20260929-1735-s20260929-m1685480945-short-904f8d0",
+        "delta_reported": "-0.0035537967464869",
+        "delta_source": "experiments/2026-09-30-stage2-affinity-gate-revalidation.md section 8.2",
+        "threshold": "arm >= 0.8521, but effect NOT evaluated (mechanism STOP dominates)",
+        "status": "NOT_EVALUATED",
+        "note": "run 20260930-1837-s20260929-m1685480945-short-87afe03-affinity; historical interpretation refuted"
+      },
+      "replication": "none (degeneracy is structural, parameter/input-independent)",
+      "longer_budget": "not run",
+      "inherited_caveats": ["B3 FAIL inherited from frozen backbone", "single model seed; A3 SKIP", "run recorded commit 87afe03 but experiment code was uncommitted at run time (doc section 8.3 item 9 discloses the auditability gap)"],
+      "classification": "STOP / CONFIRMED_DEGENERATE (historical OOD-switch claim refuted; effect not evaluated)",
+      "recommended_action": "stop",
+      "summary_file": "artifacts/census_stage2/SUMMARY.md",
+      "summary_blob": "6694f02fb57c842d50c28144721d5acf4943855c",
+      "summary_rows": ["20260930-1837-s20260929-m1685480945-short-87afe03-affinity"],
+      "spec_path": "docs/superpowers/experiments/2026-09-30-stage2-affinity-gate-revalidation.md",
+      "spec_blob": "bec9c6fb96ae3b0fe47fbb2826c9809770640a78",
+      "evidence": [
+        "artifacts/census_stage2/SUMMARY.md row 20260930-1837-...-affinity @ 88d787c (blob 6694f02f)",
+        "docs/superpowers/experiments/2026-09-30-stage2-affinity-gate-revalidation.md sections 3/6/8 @ 88d787c (blob bec9c6fb)"
+      ]
+    },
+    {
+      "id": "exp-stage2-affinity-gate-corrected",
+      "branch": "exp/stage2-affinity-gate-corrected",
+      "tip_commit": "78073393b72b1496efc4a16b122c4e331af7e908",
+      "lineage": "census",
+      "dataset_stage": "CensusIncome stage-2 short screening (education); corrected deterministic per-sample soft affinity gate",
+      "result_commits": [
+        {"sha": "78073393b72b1496efc4a16b122c4e331af7e908", "role": "implementation + run + result doc (single commit)"}
+      ],
+      "hypothesis": "With all audited defects fixed (single sigmoid, no Gumbel/no STE, deterministic train==eval, gen_rep-dependent 3-dim features, constructor appended after baseline modules, neutral init), does a deterministic per-sample soft gate between attention routing and uniform routing show mechanism + effect + gate-utility alignment?",
+      "positioning": "engineering ablation (defect-corrected re-test; soft gating / MoE routing prior art; explicit non-novelty; L1O source-reliance diagnostics are standard tools)",
+      "mechanism_verdict": "MECHANISM_FAIL: 5/6 rules pass; gate_std 0.007132461220191373 < 0.01 FAIL; gate drifts monotonically toward attention (gate_mean 0.6517 -> 0.9242; routing_l1 0.1487 -> 0.0357); alignment Spearman(gate, utility) = -0.24991698792103564 (negative, recorded not adjudicated)",
+      "utility": {
+        "metric": "AUC-Test-Education",
+        "arm_auc_full": "0.8491303844406325",
+        "baseline_auc_full": "0.8500685307175756",
+        "baseline_run_id": "20260929-1735-s20260929-m1685480945-short-904f8d0",
+        "delta_reported": "-0.0009381462769431",
+        "delta_source": "experiments/2026-09-30-stage2-affinity-gate-corrected.md section 11.1",
+        "threshold": "mechanism (6 rules) > effect (arm >= 0.8521) > alignment (Spearman >= 0.05)",
+        "status": "NOT_EVALUATED",
+        "note": "run 20260930-1912-s20260929-m1685480945-short-87afe03-affcorr; STOP_MECHANISM"
+      },
+      "replication": "none (single-seed discovery run)",
+      "longer_budget": "not run",
+      "inherited_caveats": ["B3 FAIL inherited from frozen backbone", "single model seed; A3 SKIP", "run recorded commit 87afe03 but experiment code was uncommitted at run time (doc section 11.11 discloses; second occurrence of the same gap)"],
+      "classification": "STOP_MECHANISM (engineering defects fixed; the corrected mechanism itself fails sample-variation bar)",
+      "recommended_action": "stop",
+      "summary_file": "artifacts/census_stage2/SUMMARY.md",
+      "summary_blob": "14a88ff6d002304da42c2db9d14c9f9e0f477375",
+      "summary_rows": ["20260930-1912-s20260929-m1685480945-short-87afe03-affcorr"],
+      "spec_path": "docs/superpowers/experiments/2026-09-30-stage2-affinity-gate-corrected.md",
+      "spec_blob": "a8fc199a2ef8af34c81d4ab6c0252baccad17bc4",
+      "evidence": [
+        "artifacts/census_stage2/SUMMARY.md row 20260930-1912-...-affcorr @ 7807339 (blob 14a88ff6)",
+        "docs/superpowers/experiments/2026-09-30-stage2-affinity-gate-corrected.md sections 6/11 @ 7807339 (blob a8fc199a)"
+      ]
+    },
+    {
+      "id": "exp-stage2-lora-adapter",
+      "branch": "exp/stage2-lora-adapter",
+      "tip_commit": "034d580185ca244b38effcd903fdc7c5b318d3c9",
+      "lineage": "census",
+      "dataset_stage": "CensusIncome stage-2 short screening (education); rank-4 residual adapter on frozen representations",
+      "result_commits": [
+        {"sha": "034d580185ca244b38effcd903fdc7c5b318d3c9", "role": "implementation + run + result doc (single commit)"}
+      ],
+      "hypothesis": "A tiny trainable low-rank residual (h' = h + scale*B(A(h)), rank=4, alpha=4, scale=1, shared across gen + 2 spec streams, up zero-init) added before fusion improves education AUC on the frozen stage-1 backbone.",
+      "positioning": "engineering ablation; explicit prior art list (Rebuffi 2017 residual adapters; Houlsby 2019 adapters; Hu 2022 LoRA; He 2022 unified view; Pfeiffer AdapterFusion; Sung Ladder Side-Tuning). No novelty claim.",
+      "mechanism_verdict": "A6 construction identity PASS; G gradient liveness PASS (up grad 0.065 first step, down 0 after step 1 by construction then 0.0779 at step 3900); R1 output-ratio FAIL (ratio_mean [0.06397237283220941, 1.0010842046095683, 0.5789968669901538]; spec_0 ~1.0x and spec_1 ~0.58x > 0.5 upper bound - over-perturbs the low-norm source streams)",
+      "utility": {
+        "metric": "AUC-Test-Education",
+        "arm_auc_full": "0.8491310170933439",
+        "baseline_auc_full": "0.8500685307175756",
+        "baseline_run_id": "20260929-1735-s20260929-m1685480945-short-904f8d0",
+        "delta_reported": "-0.0009375136242317",
+        "delta_source": "spec 2026-09-30-stage2-lora-adapter-design.md section 10.2",
+        "threshold": "S1 arm >= 0.8521 (baseline + 0.00203)",
+        "status": "FAIL",
+        "note": "run 20260930-1940-s20260929-m1685480945-short-87afe03 (no arm suffix); S1 FAIL + R1 FAIL"
+      },
+      "replication": "none (single-seed discovery run)",
+      "longer_budget": "not run",
+      "inherited_caveats": ["B3 FAIL inherited from frozen backbone", "single model seed; A3 SKIP", "run_id has no variant suffix (doc section 10.1)"],
+      "classification": "R1 FAIL + S1 FAIL -> stop (negative: shared absolute-scale rank-4 residual over-perturbs low-norm spec streams)",
+      "recommended_action": "stop",
+      "summary_file": "artifacts/census_stage2/SUMMARY.md",
+      "summary_blob": "6142be2a7e7e672aa01ada1257e78d2c36790be5",
+      "summary_rows": ["20260930-1940-s20260929-m1685480945-short-87afe03"],
+      "spec_path": "docs/superpowers/specs/2026-09-30-stage2-lora-adapter-design.md",
+      "spec_blob": "1ce6611cfa992d8840297fd3ea617073af00df61",
+      "evidence": [
+        "artifacts/census_stage2/SUMMARY.md row 20260930-1940-...-short-87afe03 @ 034d580 (blob 6142be2a)",
+        "docs/superpowers/specs/2026-09-30-stage2-lora-adapter-design.md sections 4/8/10 @ 034d580 (blob 1ce6611c)",
+        "INTEGRITY: commit 034d580 message cites Test AUC 0.8491303844, which conflicts with the spec/SUMMARY value 0.8491310171 (see synthesis section 7.2 item 1)"
+      ]
+    },
+    {
+      "id": "exp-stage1-gradient-conflict-audit",
+      "branch": "exp/stage1-gradient-conflict-audit",
+      "tip_commit": "b19c8c3887f382096c7ed23e0dc2f044ff53822c",
+      "lineage": "census",
+      "dataset_stage": "CensusIncome stage-1 (2-epoch fair protocol); read-only gradient-conflict audit, no training-change",
+      "result_commits": [
+        {"sha": "b19c8c3887f382096c7ed23e0dc2f044ff53822c", "role": "audit tooling + prereg + result record (single commit)"}
+      ],
+      "hypothesis": "Do income/marital/env loss components already exhibit measurable gradient conflict on the truly shared trunk such that PCGrad/GradNorm-style surgery is worth a separate branch? (action gate G0-G3 pre-registered)",
+      "positioning": "read-only audit; gradient surgery family (PCGrad/GradNorm/CAGrad/Gradient Vaccine) declared established prior art; no performance claim",
+      "mechanism_verdict": "NO_ACTION: G2 fails (mean cos(income, marital) = +0.000804, needs <= -0.05); neg_cos_rate 0.50 but conflicts cancel in the mean; env pairs diagnostic-only by design",
+      "utility": {
+        "metric": null,
+        "arm_auc_full": null,
+        "baseline_auc_full": null,
+        "baseline_run_id": null,
+        "delta_reported": null,
+        "delta_source": null,
+        "threshold": "G0 n>=50 (68 steps observed) AND G1 neg_cos_rate>=0.25 (0.50) AND G2 mean_cos<=-0.05 (+0.000804 FAIL) AND G3 nonzero_rate>=0.95 (1.00)",
+        "status": "NA",
+        "note": "run 20260930-2351-s20260929-m1685480945-short-87afe03; audit produces no AUC"
+      },
+      "replication": "none (single audit run; bit-fidelity vs MPTRecTrainManager enforced by tests)",
+      "longer_budget": "not run",
+      "inherited_caveats": ["audit reproduces a same-seed fair stage-1, not a bit-replay of the specific run_stage1 trace (CUDA atomicAdd non-determinism; doc section 3)"],
+      "classification": "NO_ACTION (audit) -> PCGrad branch not opened",
+      "recommended_action": "stop",
+      "summary_file": "artifacts/census_stage1_grad/SUMMARY.md",
+      "summary_blob": "34153f427c54072ba9d7e29b7067d95b6ea0c2f3",
+      "summary_rows": ["20260930-2351-s20260929-m1685480945-short-87afe03"],
+      "spec_path": "docs/superpowers/specs/2026-09-30-census-stage1-gradient-conflict-audit-prereg.md",
+      "spec_blob": "bf1852544837569a31606c055b9f2b70972688d8",
+      "evidence": [
+        "artifacts/census_stage1_grad/SUMMARY.md row 20260930-2351-...-short-87afe03 @ b19c8c3 (blob 34153f42)",
+        "docs/superpowers/specs/2026-09-30-census-stage1-gradient-conflict-audit-prereg.md sections 2/6 @ b19c8c3 (blob bf185254)"
+      ]
+    },
+    {
+      "id": "exp-stage2-residual-prompt-gate",
+      "branch": "exp/stage2-residual-prompt-gate",
+      "tip_commit": "e0ad6afbf61de037819f64b74021ff7ea95384ca",
+      "lineage": "census",
+      "dataset_stage": "CensusIncome stage-2 short screening (education); context-generated bounded norm-controlled residual prompt with zero-init scalar gate",
+      "result_commits": [
+        {"sha": "99b951069c8d870d9390bd60c2f6ceaa384b838c", "role": "implementation + run (HEAD at run time)"},
+        {"sha": "e0ad6afbf61de037819f64b74021ff7ea95384ca", "role": "docs: record negative result (VALID_NEGATIVE)"}
+      ],
+      "hypothesis": "A per-sample residual P(x)=tanh(MLP(x)) injected pre-fusion into gen+2 spec streams, scaled by a zero-init learnable scalar alpha and normalized per-stream (ratio == g_eff <= |alpha|), can convert context information into education AUC above the pre-registered bar.",
+      "positioning": "engineering ablation; prior art declared (prompt tuning Lester 2021 / VPT Jia 2022 / L2P; FiLM Perez 2018; adapters/LoRA; gated residuals; norm normalization). Weak redundancy vs lora-adapter injection point explicitly disclosed.",
+      "mechanism_verdict": "G1-G5 ALL PASS: construction identity; first-batch forward identity (alpha=0); gate active (alpha_final 0.314076; g_eff mean 0.12771817 std 0.02738926); norm-control bound holds (ratio_max 0.28415609 <= 0.31407733); activity band 0.12771816 in [0.005, 0.5]; predictions not collapsed (pred_std 0.129370 vs ref 0.133833)",
+      "utility": {
+        "metric": "AUC-Test-Education",
+        "arm_auc_full": "0.8477376872",
+        "baseline_auc_full": "0.8500685307175756",
+        "baseline_run_id": "20260929-1735-s20260929-m1685480945-short-904f8d0",
+        "delta_reported": "-0.0023308435",
+        "delta_source": "spec 2026-10-01-stage2-residual-prompt-gate-design.md section 9.1",
+        "threshold": "E1 arm >= 0.8521",
+        "status": "FAIL",
+        "note": "run 20261001-0123-s20260929-m1685480945-short-99b9510-rpg; per-sample cos(delta,h) = -0.3656/-0.0710/-0.2160"
+      },
+      "replication": "none at census (this is the census discovery run; the AliCCP cross-dataset branch later replicated the same mechanism form on AliCCP)",
+      "longer_budget": "not run",
+      "inherited_caveats": ["B3 FAIL inherited from frozen backbone", "single model seed; A3 SKIP"],
+      "classification": "VALID_NEGATIVE (mechanism active; utility negative) -> stop",
+      "recommended_action": "stop (census side); mechanism transferred to AliCCP by a separate branch",
+      "summary_file": "artifacts/census_stage2/SUMMARY.md",
+      "summary_blob": "417072b704045ee81193cda5e271f04a3d620195",
+      "summary_rows": ["20261001-0123-s20260929-m1685480945-short-99b9510-rpg"],
+      "spec_path": "docs/superpowers/specs/2026-10-01-stage2-residual-prompt-gate-design.md",
+      "spec_blob": "24784a1ce57854a386de975c1fc9795a0024d3e7",
+      "evidence": [
+        "artifacts/census_stage2/SUMMARY.md row 20261001-0123-...-rpg @ e0ad6af (blob 417072b7)",
+        "docs/superpowers/specs/2026-10-01-stage2-residual-prompt-gate-design.md sections 3/9 @ e0ad6af (blob 24784a1c)"
+      ]
+    },
+    {
+      "id": "exp-census-stage2-attenuation-transfer",
+      "branch": "exp/census-stage2-attenuation-transfer",
+      "tip_commit": "b990e11154dfb21540fc3cece7333fedbf1a2abc",
+      "lineage": "census (target dataset); mechanism frozen from the AliCCP lineage",
+      "dataset_stage": "CensusIncome stage-2 short screening (education); external validity check of the AliCCP post-hoc constant attenuation",
+      "result_commits": [
+        {"sha": "536acab1985bb8dded4421d5d8d0bf37bbc279a4", "role": "implementation + run (HEAD at run time; two executions: invalid 0527 + valid 0529)"},
+        {"sha": "b990e11154dfb21540fc3cece7333fedbf1a2abc", "role": "docs: record transfer run (TRANSFER_NOT_SUPPORTED)"}
+      ],
+      "hypothesis": "The fixed constant c = 0.6972233730330467 (= 1 - AliCCP null_mean), applied to the specific mixture before env scaling with all else unchanged, transfers to CensusIncome as a positive intervention (zero dataset-specific adaptation; no coefficient search).",
+      "positioning": "external validity check of a post-hoc attribution finding (not a method; constant-damping approximation of the AliCCP null arm)",
+      "mechanism_verdict": "construction audit PASS (f64 coefficient exactly preregistered; 0 extra trainable params; head gate ~= baseline [0.880981 -> 0.880931]; the AliCCP signature head-gate rebalancing does NOT occur on Census); noise:signal ratio effect -28.8% (env-aware), fused only -4.9% (general branch dominates)",
+      "utility": {
+        "metric": "AUC-Test-Education",
+        "arm_auc_full": "0.8489935694070636",
+        "baseline_auc_full": "0.8500685307175756",
+        "baseline_run_id": "20260929-1735-s20260929-m1685480945-short-904f8d0",
+        "delta_reported": "-0.0010749613105119904",
+        "delta_source": "spec 2026-10-03-census-stage2-attenuation-transfer-design.md section 10.1",
+        "threshold": "arm >= 0.8521 AND val_best > 0.8527881905614896 (strict) AND construction OK AND A-gates PASS",
+        "status": "FAIL",
+        "note": "run of record 20261003-0529-s20260929-m1685480945-short-536acab-sattn; delta_val -0.000969247326740863; reproduction_ratio_vs_null -0.8292557208445087 (direction reversed)"
+      },
+      "replication": "none (single-seed external check)",
+      "longer_budget": "not run",
+      "inherited_caveats": ["B3 FAIL inherited from frozen backbone", "single model seed; A3 SKIP", "invalid first execution (20261003-0527) preserved: 15-digit argv stringification of the coefficient; bit-identical stage2 block; judged invalid by the pre-registered f64 construction gate"],
+      "classification": "TRANSFER_NOT_SUPPORTED (negative direction; no gate rebalancing) -> stop; AliCCP-specific finding, not cross-dataset",
+      "recommended_action": "stop",
+      "summary_file": "artifacts/census_stage2/SUMMARY.md",
+      "summary_blob": "887d26fbc72cc98443deaa67f2cd56c41c0e45dc",
+      "summary_rows": [
+        "20261003-0527-s20260929-m1685480945-short-536acab-sattn",
+        "20261003-0529-s20260929-m1685480945-short-536acab-sattn"
+      ],
+      "spec_path": "docs/superpowers/specs/2026-10-03-census-stage2-attenuation-transfer-design.md",
+      "spec_blob": "d09bd60d068ea563c53da162b7f6cbd516417d75",
+      "evidence": [
+        "artifacts/census_stage2/SUMMARY.md rows 20261003-0527/0529-...-sattn @ b990e11 (blob 887d26fb; two rows, identical values)",
+        "docs/superpowers/specs/2026-10-03-census-stage2-attenuation-transfer-design.md sections 5/10 @ b990e11 (blob d09bd60d)"
+      ]
+    },
+    {
+      "id": "infra-aliccp-fair-benchmark",
+      "branch": "infra/aliccp-fair-benchmark",
+      "tip_commit": "8133d32cfa722b084c558b334f4792d85ce95c67",
+      "lineage": "aliccp",
+      "dataset_stage": "AliCCP stage-1+stage-2 fair protocol infrastructure + smoke + seed-1 short baseline",
+      "result_commits": [
+        {"sha": "8133d32cfa722b084c558b334f4792d85ce95c67", "role": "docs: record smoke + short benchmark runs"}
+      ],
+      "hypothesis": "Protocol only: fixed prefix budgets (train 2M / val 500k / test 1M), model seed 1688723512, env seed 20261003, content-addressed stage-1, true freeze, A1-A6/B1-B4 gates, provisional improvement threshold delta >= +0.005 AND delta_val > 0. No model change (N1/N4).",
+      "positioning": "infrastructure/baseline (protocol; prior-art-free by construction; multitaskrec/* zero-change)",
+      "mechanism_verdict": "protocol runs: smoke A-class clean; short baseline runs show B1 FAIL (AUC-Val-CTR 0.5493130789281618 < 0.55) and B4 FAIL (cluster env_0 566/2,000,000); both later inherited by every seed-1 arm",
+      "utility": {
+        "metric": "AUC-Test-BSI",
+        "arm_auc_full": "0.5988392178311113",
+        "baseline_auc_full": null,
+        "baseline_run_id": null,
+        "delta_reported": null,
+        "delta_source": null,
+        "threshold": "provisional: delta >= +0.005 AND delta_val > 0 (protocol section 10.1)",
+        "status": "REFERENCE",
+        "note": "seed-1 short run 20261003-0130-p2M-v500k-t1M-m1688723512-short-b2e17f9 (val best 0.5781533414372665); smoke 20261003-0126-...-8f597da; stage1_id s1-5c060b9c-m1688723512-e3-3a30e2c0"
+      },
+      "replication": "seed-2 baseline pair added later on exp/aliccp-stage2-attenuation-seed-replication (run 20261003-0624-...-79b5e07, test 0.5974422649550507)",
+      "longer_budget": "10-epoch baseline added later on exp/aliccp-stage2-attenuation-longer-budget (run 20261003-0724-...-bbd8a61, test 0.6614121223087556)",
+      "inherited_caveats": ["B1/B4 FAIL are shared stage-1 artifacts properties (not arm-attributable)", "A3 SKIP on all protocol runs"],
+      "classification": "BASELINE (protocol-valid reference; B1/B4 shared-boundary FAIL on seed-1)",
+      "recommended_action": "reference",
+      "summary_file": "artifacts/aliccp_bench/SUMMARY.md",
+      "summary_blob": "25edb1f62b540ff0c82a6c0fcbb29ac436821f91",
+      "summary_rows": [
+        "20261003-0126-p20000-v5000-t10000-m1688723512-smoke-8f597da",
+        "20261003-0130-p2M-v500k-t1M-m1688723512-short-b2e17f9"
+      ],
+      "spec_path": "docs/superpowers/specs/2026-10-03-aliccp-fair-benchmark-design.md",
+      "spec_blob": "48adf67fa7c443815694e8fe4c70f2cad8808e1a",
+      "evidence": [
+        "artifacts/aliccp_bench/SUMMARY.md rows smoke + b2e17f9 @ 8133d32 (blob 25edb1f6)",
+        "docs/superpowers/specs/2026-10-03-aliccp-fair-benchmark-design.md sections 8/10 @ 8133d32 (blob 48adf67f)"
+      ]
+    },
+    {
+      "id": "exp-aliccp-stage2-null-expert",
+      "branch": "exp/aliccp-stage2-null-expert",
+      "tip_commit": "aba8ee910fc4122e067c9cd45a4a7c4a1cbbd1e9",
+      "lineage": "aliccp",
+      "dataset_stage": "AliCCP stage-2 short (BSI third task); cross-dataset replication of the Census null expert",
+      "result_commits": [
+        {"sha": "6224c0f61a2b7b08fe8d464baa85b2232c2a67a9", "role": "implementation + run (HEAD at run time)"},
+        {"sha": "aba8ee910fc4122e067c9cd45a4a7c4a1cbbd1e9", "role": "docs: record run (mechanism gate FAIL -> stop)"}
+      ],
+      "hypothesis": "The Census null-expert mechanism (zero-value candidate + learnable router key at the end of the key set, verbatim port) replicates on AliCCP and clears the PI utility bar (delta_test >= +0.0055 AND delta_val > 0) with an ACTIVE mechanism (null_top1_rate in [0.05, 0.95]).",
+      "positioning": "cross-dataset mechanism replication of an engineering ablation; abstention/zero-candidate MoE-family prior art; explicit non-novelty",
+      "mechanism_verdict": "mechanism gate FAIL: null_top1_rate = 0.0000000000 (mathematically forced: null_q90 0.3137927442789078 < 1/3); null branch degenerates to near-constant damping x0.697 (null_mean 0.3027766269669533, std 0.008530222646916882); head gate rebalances [0.851149, 0.1488510625] -> [0.48325546875, 0.5167445625]",
+      "utility": {
+        "metric": "AUC-Test-BSI",
+        "arm_auc_full": "0.6126857532817985",
+        "baseline_auc_full": "0.5988392178311113",
+        "baseline_run_id": "20261003-0130-p2M-v500k-t1M-m1688723512-short-b2e17f9",
+        "delta_reported": "+0.013846535450687258",
+        "delta_source": "spec 2026-10-03-aliccp-stage2-null-expert-design.md section 9.1",
+        "threshold": "PI: delta_test >= +0.0055 AND delta_val > 0; mechanism: null_top1_rate in [0.05, 0.95]; both required",
+        "status": "PASS",
+        "note": "run 20261003-0221-p2M-v500k-t1M-m1688723512-short-6224c0f-nullx; utility passed but the arm is judged FAILED overall (mechanism gate); gain deliberately left UNATTRIBUTED; delta_val +0.013786499876619396"
+      },
+      "replication": "none (stopped by pre-registered rule; no multi-seed)",
+      "longer_budget": "not run",
+      "inherited_caveats": ["B1 FAIL (CTR 0.5493) and B4 FAIL (env_0 566/2M) inherited from the shared seed-1 stage-1 artifact", "single model seed; A3 SKIP"],
+      "classification": "FAILED overall (mechanism gate FAIL despite utility PASS) -> stop; AUC gain unattributed",
+      "recommended_action": "stop (diagnostic follow-up pursued via the attribution-control branch)",
+      "summary_file": "artifacts/aliccp_bench/SUMMARY.md",
+      "summary_blob": "d86af1d8478ad84bbb42fc5e4c81ae88422108a9",
+      "summary_rows": ["20261003-0221-p2M-v500k-t1M-m1688723512-short-6224c0f-nullx"],
+      "spec_path": "docs/superpowers/specs/2026-10-03-aliccp-stage2-null-expert-design.md",
+      "spec_blob": "5c05d2bf531ed83381a4a3112c734b9f22b98403",
+      "evidence": [
+        "artifacts/aliccp_bench/SUMMARY.md row 20261003-0221-...-nullx @ aba8ee9 (blob d86af1d8)",
+        "docs/superpowers/specs/2026-10-03-aliccp-stage2-null-expert-design.md sections 5/9 @ aba8ee9 (blob 5c05d2bf)"
+      ]
+    },
+    {
+      "id": "exp-aliccp-stage2-specific-attenuation-control",
+      "branch": "exp/aliccp-stage2-specific-attenuation-control",
+      "tip_commit": "331442077f378bb41cf1fef946b8b57e1c2cb95c",
+      "lineage": "aliccp",
+      "dataset_stage": "AliCCP stage-2 short (BSI); post-hoc attribution control for the null-expert gain",
+      "result_commits": [
+        {"sha": "f88dca4ae406072e4655e2a66f6b53b3dccd2824", "role": "implementation + run (HEAD at run time)"},
+        {"sha": "331442077f378bb41cf1fef946b8b57e1c2cb95c", "role": "docs: record run (ATTENUATION_SUPPORTED)"}
+      ],
+      "hypothesis": "The null-expert gain is largely explained by a constant aggregate damping of the specific mixture: multiplying new_spec_rep by the frozen post-hoc constant c = 1 - null_mean = 0.6972233730330467 (zero new parameters, no router change) reproduces most of the null gain (reproduction ratio r >= 0.70 with delta_val > 0).",
+      "positioning": "post-hoc attribution control / mechanistic follow-up (explicitly NOT a new-method experiment; no novelty claim)",
+      "mechanism_verdict": "ATTENUATION_SUPPORTED (band MOST): r = 0.917640706647481 >= 0.70; control replicates null's head-gate rebalancing to ~97% ([0.49435615625, 0.50564384375]); corr(control, null) Pearson-logit 0.9993984942943822 vs corr(control, baseline) 0.8153554490985575; un-attributed residual ~8.2% (test) / 3.7% (val)",
+      "utility": {
+        "metric": "AUC-Test-BSI",
+        "arm_auc_full": "0.6115453624066993",
+        "baseline_auc_full": "0.5988392178311113",
+        "baseline_run_id": "20261003-0130-p2M-v500k-t1M-m1688723512-short-b2e17f9",
+        "delta_reported": "+0.012706144575588052",
+        "delta_source": "spec 2026-10-03-aliccp-stage2-specific-attenuation-control-design.md section 10.1",
+        "threshold": "r >= 0.70 AND delta_val > 0 (AUC-literal form: >= 0.6085317926465923 AND val > 0.5781533414372665)",
+        "status": "PASS",
+        "note": "run 20261003-0322-p2M-v500k-t1M-m1688723512-short-f88dca4-sattn; provisional PI +0.0055 also passed (recorded separately, not part of classification); delta_val +0.013279276931939643"
+      },
+      "replication": "later by exp/aliccp-stage2-attenuation-seed-replication (seed 2)",
+      "longer_budget": "later by exp/aliccp-stage2-attenuation-longer-budget (10 epochs)",
+      "inherited_caveats": ["B1 FAIL (CTR 0.5493) and B4 FAIL (env_0 566/2M) inherited from the shared seed-1 stage-1 artifact", "single model seed; A3 SKIP", "constant approximates per-sample (1 - W_null); training-time aggregate not measurable"],
+      "classification": "ATTENUATION_SUPPORTED (post-hoc attribution: constant damping + induced head-gate rebalancing explains the null gain)",
+      "recommended_action": "continue (as attribution evidence; followed by discoverability + seed + budget checks)",
+      "summary_file": "artifacts/aliccp_bench/SUMMARY.md",
+      "summary_blob": "bb7e40302d6ca7b4beda602041146bf26c20f756",
+      "summary_rows": ["20261003-0322-p2M-v500k-t1M-m1688723512-short-f88dca4-sattn"],
+      "spec_path": "docs/superpowers/specs/2026-10-03-aliccp-stage2-specific-attenuation-control-design.md",
+      "spec_blob": "56d504247136fb9fb2fe61e9be06d0734587c926",
+      "evidence": [
+        "artifacts/aliccp_bench/SUMMARY.md row 20261003-0322-...-sattn @ 3314420 (blob bb7e4030)",
+        "docs/superpowers/specs/2026-10-03-aliccp-stage2-specific-attenuation-control-design.md sections 5/10 @ 3314420 (blob 56d50424)"
+      ]
+    },
+    {
+      "id": "exp-aliccp-stage2-learnable-attenuation",
+      "branch": "exp/aliccp-stage2-learnable-attenuation",
+      "tip_commit": "ac26eea10f02bffa613e754b2b3abddb82e1bb61",
+      "lineage": "aliccp",
+      "dataset_stage": "AliCCP stage-2 short (BSI); discoverability of the post-hoc attenuation operating point",
+      "result_commits": [
+        {"sha": "fe695bd55bf4825e073608442b0efcdf761f77f3", "role": "implementation + run (HEAD at run time)"},
+        {"sha": "ac26eea10f02bffa613e754b2b3abddb82e1bb61", "role": "docs: record run (IDENTITY_PRESERVED)"}
+      ],
+      "hypothesis": "A single learnable scalar attenuation, identity-initialized at c=1 via a kink clamp (the only construction satisfying exact identity + nonzero initial gradient), can be discovered by the training objective alone (no post-hoc coefficient) and clear the PI utility bar.",
+      "positioning": "discoverability ablation; learnable scalar gating is standard prior art; the document proves a smooth parameterization cannot satisfy identity+nonzero-gradient (kink required); no novelty claim",
+      "mechanism_verdict": "IDENTITY_PRESERVED: M2 PASS (initial gradient exists: step1 +0.09178249537944794, max first-10 0.1840665191411972); M1/M3 FAIL (c_final = 1.0 exactly); post-hoc trajectory: transient attenuation to depth 0.55% (c_min 0.9945009350776672 at step 84), gradient reverses (60/60 negative steps 85-144), theta crosses back above 1 at step 145, clamp parks it (clamp_upper_frac 0.9714, 4857/5000 dead-zone steps)",
+      "utility": {
+        "metric": "AUC-Test-BSI",
+        "arm_auc_full": "0.5996733678081829",
+        "baseline_auc_full": "0.5988392178311113",
+        "baseline_run_id": "20261003-0130-p2M-v500k-t1M-m1688723512-short-b2e17f9",
+        "delta_reported": "+0.0008341499770716521",
+        "delta_source": "spec 2026-10-03-aliccp-stage2-learnable-attenuation-design.md section 10.1",
+        "threshold": "mechanism M1-M5 (all) then U1 delta_test >= +0.0055 AND delta_val > 0",
+        "status": "FAIL",
+        "note": "run 20261003-0422-p2M-v500k-t1M-m1688723512-short-fe695bd-lattn; U1 FAIL (+0.000834 < +0.0055); delta_val +0.0009473306878787779; head gate stays near baseline (rebalancing absent)"
+      },
+      "replication": "none (clean negative per stop rules)",
+      "longer_budget": "not run",
+      "inherited_caveats": ["B1 FAIL (CTR 0.5493) and B4 FAIL (env_0 566/2M) inherited from the shared seed-1 stage-1 artifact", "single model seed; A3 SKIP", "negative applies to this construction only (one-sided kink); not generalized in-doc"],
+      "classification": "IDENTITY_PRESERVED (clean negative: operating point NOT discoverable from identity by this scalar) -> stop",
+      "recommended_action": "stop",
+      "summary_file": "artifacts/aliccp_bench/SUMMARY.md",
+      "summary_blob": "0896e6352340159d812139838cf90c98dc011952",
+      "summary_rows": ["20261003-0422-p2M-v500k-t1M-m1688723512-short-fe695bd-lattn"],
+      "spec_path": "docs/superpowers/specs/2026-10-03-aliccp-stage2-learnable-attenuation-design.md",
+      "spec_blob": "380c896f1fe0bf78a140ae800e81e0b9a631079e",
+      "evidence": [
+        "artifacts/aliccp_bench/SUMMARY.md row 20261003-0422-...-lattn @ ac26eea (blob 0896e635)",
+        "docs/superpowers/specs/2026-10-03-aliccp-stage2-learnable-attenuation-design.md sections 5/10 @ ac26eea (blob 380c896f)"
+      ]
+    },
+    {
+      "id": "exp-aliccp-stage2-attenuation-seed-replication",
+      "branch": "exp/aliccp-stage2-attenuation-seed-replication",
+      "tip_commit": "f589e6179d68669d71aa21e6313455e7976f85d4",
+      "lineage": "aliccp",
+      "dataset_stage": "AliCCP stage-2 short (BSI); second-canonical-seed stability replication of the fixed attenuation",
+      "result_commits": [
+        {"sha": "79b5e07d9eaf770cbdc79172ab7f646b2a066f70", "role": "implementation + seed-2 stage1 + both stage-2 runs (HEAD at run time)"},
+        {"sha": "f589e6179d68669d71aa21e6313455e7976f85d4", "role": "docs: record replication (STABILITY_SUPPORTED)"}
+      ],
+      "hypothesis": "The fixed-attenuation positive delta (seed-1: +0.0127) is stable on the second canonical seed (1688723740, list position 2, chosen by a deterministic seed list rule with no cherry-picking): delta_test >= +0.0055 AND delta_val > 0 on a NEW seed-2 baseline pair (new stage1_id).",
+      "positioning": "replication / robustness (not a method; seed choice rule pre-registered; no novelty claim; findings restricted to within-seed paired deltas - cross-seed raw AUCs explicitly non-comparable)",
+      "mechanism_verdict": "construction/freeze gates A1/A2/A4/A5/A6 PASS both arms; deterministic seed override audited as first-class CLI; head-gate rebalancing direction reproduced (baseline [0.789178, 0.2108221875] -> arm [0.75060325, 0.24939646875])",
+      "utility": {
+        "metric": "AUC-Test-BSI",
+        "arm_auc_full": "0.6051559662367624",
+        "baseline_auc_full": "0.5974422649550507",
+        "baseline_run_id": "20261003-0624-p2M-v500k-t1M-m1688723740-short-79b5e07",
+        "delta_reported": "+0.007713701281711671",
+        "delta_source": "spec 2026-10-03-aliccp-stage2-attenuation-seed-replication-design.md section 10.1",
+        "threshold": "C1 delta_test >= +0.0055 AND C2 delta_val > 0 AND C3 all construction/freeze gates",
+        "status": "PASS",
+        "note": "arm run 20261003-0627-...-79b5e07-sattn; delta_val +0.004483122552346286; pooled joint STABLE (mean delta_test +0.010209922928649862, mean delta_val +0.008881199742142964, signs +/+)"
+      },
+      "replication": "YES - seed-2 replication of the seed-1 attenuation finding (magnitude heterogeneous: seed-2 test delta is 0.607x seed-1)",
+      "longer_budget": "later by exp/aliccp-stage2-attenuation-longer-budget (10 epochs, NOT_PERSIST)",
+      "inherited_caveats": ["B4 FAIL inherited from the shared seed-2 stage-1 artifact (env_0 1532/2M); B1 PASS on seed-2 (differs from seed-1; disclosed, not arm-attributable)", "A3 SKIP: seed variance and run noise not separable", "the replicated object itself is a post-hoc attribution control"],
+      "classification": "STABILITY_SUPPORTED (pooled STABLE); magnitude seed-sensitive",
+      "recommended_action": "continue to longer-budget check (done) and learnable check (done)",
+      "summary_file": "artifacts/aliccp_bench/SUMMARY.md",
+      "summary_blob": "e6e13b2b3fcf9f502638d4fd213b85aefa1eda8e",
+      "summary_rows": [
+        "20261003-0624-p2M-v500k-t1M-m1688723740-short-79b5e07",
+        "20261003-0627-p2M-v500k-t1M-m1688723740-short-79b5e07-sattn"
+      ],
+      "spec_path": "docs/superpowers/specs/2026-10-03-aliccp-stage2-attenuation-seed-replication-design.md",
+      "spec_blob": "0b9117e7bae5b4b9a4439cb4b30a524bdcb90d5b",
+      "evidence": [
+        "artifacts/aliccp_bench/SUMMARY.md rows 20261003-0624/0627-...-79b5e07[-sattn] @ f589e61 (blob e6e13b2b)",
+        "docs/superpowers/specs/2026-10-03-aliccp-stage2-attenuation-seed-replication-design.md sections 5/10 @ f589e61 (blob 0b9117e7)"
+      ]
+    },
+    {
+      "id": "exp-aliccp-stage2-attenuation-longer-budget",
+      "branch": "exp/aliccp-stage2-attenuation-longer-budget",
+      "tip_commit": "b515f8c323d4155c6faa771b34e61aa02a257b9b",
+      "lineage": "aliccp",
+      "dataset_stage": "AliCCP stage-2 LONG budget (10 epochs / patience 3, tag long; BSI); persistence test of the attenuation delta",
+      "result_commits": [
+        {"sha": "bbd8a61bdfde98f8b9b24dde19534096aded05d0", "role": "implementation (TDD) + persistence analyzer"},
+        {"sha": "2d2bc5ed91ad19c1ade57ea8b8ea98637f24d115", "role": "baseline SUMMARY row commit (HEAD at baseline run time)"},
+        {"sha": "b515f8c323d4155c6faa771b34e61aa02a257b9b", "role": "docs: record runs (NOT_PERSIST)"}
+      ],
+      "hypothesis": "The seed-2 5-epoch attenuation delta (+0.0077) is a durable benefit, not merely early-convergence acceleration: at 10 epochs / patience 3 on the same stage-1 artifact, delta_test >= +0.0055 AND delta_val > 0 still hold.",
+      "positioning": "robustness / alternative-explanation test (persistence vs acceleration); establishes the longer-budget protocol (epochs 10 / patience 3 / tag long / commit-between-runs clean-tree discipline) reused by later branches; no novelty claim",
+      "mechanism_verdict": "construction/freeze gates PASS both arms; identity checks 8/8; shared first-5-epoch trajectories bit-identical across runs (cross-commit determinism evidence); head-gate rebalancing reproduced but did not convert into durable gain",
+      "utility": {
+        "metric": "AUC-Test-BSI",
+        "arm_auc_full": "0.6619394529639809",
+        "baseline_auc_full": "0.6614121223087556",
+        "baseline_run_id": "20261003-0724-p2M-v500k-t1M-m1688723740-long-bbd8a61",
+        "delta_reported": "+0.0005273306552253665",
+        "delta_source": "spec 2026-10-03-aliccp-stage2-attenuation-longer-budget-design.md section 10.1",
+        "threshold": "C1 delta_test >= +0.0055 AND C2 delta_val > 0 AND C3 identity/construction",
+        "status": "FAIL",
+        "note": "arm run 20261003-0729-...-2d2bc5e-sattn; delta_val -0.002653370173158476; per-epoch delta turns negative from ep7; NOT_PERSIST consistent with early-acceleration explanation"
+      },
+      "replication": "seed-2 artifact; each arm exactly once",
+      "longer_budget": "THIS branch is the longer-budget test: NOT_PERSIST",
+      "inherited_caveats": ["B4 FAIL inherited from the shared seed-2 stage-1 artifact", "single seed per arm; A3 SKIP (but shared-5-epoch bit-equality gives de-facto determinism evidence)", "no second test traversal (analyzer reads run records only)"],
+      "classification": "NOT_PERSIST (delta not durable at 10 epochs) -> attenuation line closed as early-acceleration-like",
+      "recommended_action": "stop",
+      "summary_file": "artifacts/aliccp_bench/SUMMARY.md",
+      "summary_blob": "1562e346a45e137c23d96a43510af7cd62ea9ca2",
+      "summary_rows": [
+        "20261003-0724-p2M-v500k-t1M-m1688723740-long-bbd8a61",
+        "20261003-0729-p2M-v500k-t1M-m1688723740-long-2d2bc5e-sattn"
+      ],
+      "spec_path": "docs/superpowers/specs/2026-10-03-aliccp-stage2-attenuation-longer-budget-design.md",
+      "spec_blob": "7043176d19d0d7024a9b52cc929c0f798d69fac3",
+      "evidence": [
+        "artifacts/aliccp_bench/SUMMARY.md rows 20261003-0724/0729-...-long-@ b515f8c (blob 1562e346)",
+        "docs/superpowers/specs/2026-10-03-aliccp-stage2-attenuation-longer-budget-design.md sections 5/10 @ b515f8c (blob 7043176d)"
+      ]
+    },
+    {
+      "id": "exp-aliccp-stage1-normalized-env-clustering",
+      "branch": "exp/aliccp-stage1-normalized-env-clustering",
+      "tip_commit": "2058de843282de2dd7113c95cedb7d5f2e7de7a6",
+      "lineage": "aliccp",
+      "dataset_stage": "AliCCP stage-1 (cluster_2 repair) + unchanged stage-2 head (BSI), tag norm; seed 1688723512",
+      "result_commits": [
+        {"sha": "e377a4e91aacfa57b839e72c39065f7dace70731", "role": "read-only cluster-loss audit tool"},
+        {"sha": "4b83863fe432b2eaab635b5c23f1f07d48fe76c0", "role": "preregistration of the normalization repair"},
+        {"sha": "66a8fa94159ffa96ade7ab3f7092f397ab2a97e8", "role": "Stage-1 run (HEAD at run time)"},
+        {"sha": "529090e8d2707be85676fe7b479b2dcdd362b5b5", "role": "Stage-2 run (HEAD at run time) + rule 4.2.1 pre-stage2 revision"},
+        {"sha": "2058de843282de2dd7113c95cedb7d5f2e7de7a6", "role": "docs: record results (REPAIRED + NO_MATERIAL_DEGRADATION)"}
+      ],
+      "hypothesis": "B4 env-collapse (env_0 = 566/2M) is caused by incomparable per-task loss scales in cluster_2's raw argmin (65x gap; argmin degenerates to the CVR label function); repairing the clustering signal with a no-hyperparameter per-task rank/quantile normalization (before argmin, training objective untouched) restores balanced envs with no material degradation.",
+      "positioning": "scale-correction ablation / infrastructure repair (cross-task loss-scale imbalance is known MTL prior art: Kendall 2018; GradNorm Chen 2018; rank/copula transform standard; repair applied to the clustering signal only; no novelty claim)",
+      "mechanism_verdict": "REPAIRED: cluster event bit-exactly predicted (diff_num 999966, env_0 959244, env_1 1040756; 47.96%/52.04%; env_ids sha 4b983fc9... matched); epoch 1-2 records bit-equal to baseline; non-label-recovery (env_0 cap purchase1 = 564/566); balanced-accuracy probe replaces misleading env_acc",
+      "utility": {
+        "metric": "AUC-Test-BSI (stage-2, unchanged head)",
+        "arm_auc_full": "0.6070820576951792",
+        "baseline_auc_full": "0.5988392178311113",
+        "baseline_run_id": "20261003-0130-p2M-v500k-t1M-m1688723512-short-b2e17f9",
+        "delta_reported": "+0.0082428399",
+        "delta_source": "spec 2026-10-03-aliccp-stage1-normalized-clustering-design.md section 9.2",
+        "threshold": "no improvement threshold (G6 stage-1 CTR no material degradation >= -0.005; G7 stage-2 delta_test >= -0.005 AND delta_val >= -0.01); nominal +0.0055 reported only, not claimed",
+        "status": "PASS",
+        "note": "stage-2 run 20261003-0838-p2M-v500k-t1M-m1688723512-norm-529090e (val delta +0.0100592719); stage-1 test CTR delta -0.001523 within tolerance; CVR recorded not adjudicated"
+      },
+      "replication": "later by exp/aliccp-stage1-normalized-clustering-seed-replication (seed 2): mechanism replicated, utility direction NOT replicated",
+      "longer_budget": "not run",
+      "inherited_caveats": ["B1 FAIL on this backbone = shared existing boundary (CTR-val 0.5475 < 0.55; baseline also FAIL) per pre-stage2 rule 4.2.1 revision (criteria numerically unchanged; revision disclosed pre-run)", "single seed; A3 SKIP", "utility deltas are report-only (no improvement claim); raw-stage-2 comparison is same-branch, different-backbone single-run pairing"],
+      "classification": "REPAIRED + NO_MATERIAL_DEGRADATION (repair real; no performance claim)",
+      "recommended_action": "continue as infrastructure (seed replication done); stop as utility lever",
+      "summary_file": "artifacts/aliccp_bench/SUMMARY.md",
+      "summary_blob": "4ad4063ab003c5a228f7653a05ef6453d42fa9cc",
+      "summary_rows": ["20261003-0838-p2M-v500k-t1M-m1688723512-norm-529090e"],
+      "spec_path": "docs/superpowers/specs/2026-10-03-aliccp-stage1-normalized-clustering-design.md",
+      "spec_blob": "a8ac406daaf3debb636c22a6ef0d2fc3ae21d57f",
+      "evidence": [
+        "artifacts/aliccp_bench/SUMMARY.md row 20261003-0838-...-norm-529090e @ 2058de8 (blob 4ad4063a)",
+        "docs/superpowers/specs/2026-10-03-aliccp-stage1-normalized-clustering-design.md sections 3/4/9 @ 2058de8 (blob a8ac406d)"
+      ]
+    },
+    {
+      "id": "exp-aliccp-stage1-normalized-clustering-seed-replication",
+      "branch": "exp/aliccp-stage1-normalized-clustering-seed-replication",
+      "tip_commit": "7ab445cb4126800c5d5e0decebb923c186780b23",
+      "lineage": "aliccp",
+      "dataset_stage": "AliCCP stage-1 (cluster repair) + unchanged stage-2 head (BSI), tag norm; seed 1688723740",
+      "result_commits": [
+        {"sha": "a39c1700507fe5c547929c6b74d1e4a04e6584a3", "role": "byte-verbatim port + Stage-1 run (HEAD at run time)"},
+        {"sha": "7b2c26af92d8eda7428a12b9338cab7e772655b9", "role": "Stage-2 run (HEAD at run time)"},
+        {"sha": "7ab445cb4126800c5d5e0decebb923c186780b23", "role": "docs: record replication + pooled (NOT_SUPPORTED)"}
+      ],
+      "hypothesis": "The rank/quantile clustering repair replicates its mechanism on seed 2 AND its stage-2 utility direction is positive within seed 2 (U2 delta_test > 0 AND U3 delta_val > 0).",
+      "positioning": "independent seed replication of an engineering repair (mechanism pinned by byte sha256 + AST guards to 2058de8; +0.0055 report-only; no novelty/improvement claim)",
+      "mechanism_verdict": "MECHANISM_REPLICATED 10/10: B4 repaired (env_0 1106286 / env_1 893714 = 55.31%/44.69%); stage1_id bit-exactly predicted (s1-5c060b9c-m1688723740-e3-820697f6); epoch 1-2 records bit-equal to raw seed2; non-label-recovery (565/1106286 = 0.051%); raw diagnostics re-analysis bit-identical; smoke identity check passed",
+      "utility": {
+        "metric": "AUC-Test-BSI (stage-2)",
+        "arm_auc_full": "0.5979010844832302",
+        "baseline_auc_full": "0.5974422649550507",
+        "baseline_run_id": "20261003-0624-p2M-v500k-t1M-m1688723740-short-79b5e07",
+        "delta_reported": "+0.00045881952817949934",
+        "delta_source": "spec 2026-10-03-aliccp-stage1-normalized-clustering-seed-replication-design.md section 9.2",
+        "threshold": "U1 stage-1 CTR delta >= -0.005; U2 delta_test > 0; U3 delta_val > 0",
+        "status": "FAIL",
+        "note": "stage-2 run 20261003-0932-...-norm-7b2c26a; U1 PASS (+0.00019645535010215376), U2 PASS marginal (+0.000459), U3 FAIL (delta_val -0.0014831644646635667); hard_pass = true (first all-B-pass run on this seed)"
+      },
+      "replication": "YES - this branch IS the seed-2 replication; classification NOT_SUPPORTED (mechanism yes, utility direction no)",
+      "longer_budget": "not run",
+      "inherited_caveats": ["A3 SKIP", "within-seed pairing is single-run per configuration", "CVR recorded not adjudicated (346 test positives)"],
+      "classification": "NOT_SUPPORTED (MECHANISM_REPLICATED=true, UTILITY_DIRECTION_REPLICATED=false) -> repair kept as mechanism fix only",
+      "recommended_action": "diagnostic-only (mechanism healthy; utility unstable across seeds)",
+      "summary_file": "artifacts/aliccp_bench/SUMMARY.md",
+      "summary_blob": "27d08268cad093f72b98add65d05f9f2b7b21336",
+      "summary_rows": ["20261003-0932-p2M-v500k-t1M-m1688723740-norm-7b2c26a"],
+      "spec_path": "docs/superpowers/specs/2026-10-03-aliccp-stage1-normalized-clustering-seed-replication-design.md",
+      "spec_blob": "1f816f47055e543cf1c65bcd21b88920d7d23675",
+      "evidence": [
+        "artifacts/aliccp_bench/SUMMARY.md row 20261003-0932-...-norm-7b2c26a @ 7ab445c (blob 27d08268)",
+        "docs/superpowers/specs/2026-10-03-aliccp-stage1-normalized-clustering-seed-replication-design.md sections 4/9 @ 7ab445c (blob 1f816f47)"
+      ]
+    },
+    {
+      "id": "exp-aliccp-stage2-residual-prompt-gate",
+      "branch": "exp/aliccp-stage2-residual-prompt-gate",
+      "tip_commit": "3e2f0833fdb8a4966d5d815b41a8cefcfb0887d6",
+      "lineage": "aliccp",
+      "dataset_stage": "AliCCP stage-2 short (BSI); cross-dataset replication of the Census residual prompt (seed 1)",
+      "result_commits": [
+        {"sha": "79ddefa98b8a4c4d32403ac5027c24bd7420844a", "role": "mechanism port (verbatim + AST-pinned) + run (HEAD at run time, valid run)"},
+        {"sha": "3e2f0833fdb8a4966d5d815b41a8cefcfb0887d6", "role": "docs: backfill section 9 results (VALID_NEGATIVE)"}
+      ],
+      "hypothesis": "The Census residual-prompt form (context-generated bounded norm-controlled residual on the three pre-fusion streams, zero-init scalar gate) ports to AliCCP with its assumptions intact (dimensions only: 80/64) and may have a different applicability profile on BSI.",
+      "positioning": "cross-dataset replication of an engineering ablation; prior-art list inherited from the Census design (prompt tuning, FiLM, adapters/LoRA, gated residual, norm normalization); no novelty claim",
+      "mechanism_verdict": "M0 + G1-G8 ALL PASS: reference identity bit-exact; alpha_final -0.060542766004800797; three-stream ratio 0.04480377 (spread 4.5e-12; norm-control bound holds); per-sample gate variance > 0; no prediction collapse (pred_std 0.0033045740 = 0.98x ref); params 2385/8129. Cross-dataset deltas: alpha sign OPPOSITE to Census, cos means all POSITIVE (+0.3583/+0.4824/+0.4692 vs Census all negative)",
+      "utility": {
+        "metric": "AUC-Test-BSI",
+        "arm_auc_full": "0.6042337617134492",
+        "baseline_auc_full": "0.5988392178311113",
+        "baseline_run_id": "20261003-0130-p2M-v500k-t1M-m1688723512-short-b2e17f9",
+        "delta_reported": "+0.005394543882337954",
+        "delta_source": "spec 2026-10-03-aliccp-stage2-residual-prompt-gate-design.md section 9.2",
+        "threshold": "U1 delta_test >= +0.0055 AND U2 delta_val > 0",
+        "status": "FAIL",
+        "note": "run 20261004-0214-p2M-v500k-t1M-m1688723512-short-79ddefa-rpg; U1 FAIL by 1.05e-4; U2 PASS (+0.00448174078674779); protocol provisional +0.005 conditions satisfied (report-only); VALID_NEGATIVE"
+      },
+      "replication": "later by exp/aliccp-stage2-residual-prompt-seed-replication (seed 2)",
+      "longer_budget": "later by exp/aliccp-stage2-residual-prompt-longer-budget (10 epochs)",
+      "inherited_caveats": ["B1 FAIL (CTR 0.5493) and B4 FAIL (env_0 566/2M) inherited from the shared seed-1 stage-1 artifact", "single run after TWO tooling-interrupted launches (0-byte logs preserved, disclosed in section 9.0)", "A3 SKIP"],
+      "classification": "VALID_NEGATIVE (mechanism fully active; utility 1.05e-4 under the U1 bar) -> stop at seed 1; replication proceeded as a separate branch",
+      "recommended_action": "continue (via the seed-replication branch)",
+      "summary_file": "artifacts/aliccp_bench/SUMMARY.md",
+      "summary_blob": "e62711fb08b3f2ae1a78182864de0bbe1e276225",
+      "summary_rows": ["20261004-0214-p2M-v500k-t1M-m1688723512-short-79ddefa-rpg"],
+      "spec_path": "docs/superpowers/specs/2026-10-03-aliccp-stage2-residual-prompt-gate-design.md",
+      "spec_blob": "c45168c9cdc761503f55a2873bdf45598eb2eed8",
+      "evidence": [
+        "artifacts/aliccp_bench/SUMMARY.md row 20261004-0214-...-rpg @ 3e2f083 (blob e62711fb)",
+        "docs/superpowers/specs/2026-10-03-aliccp-stage2-residual-prompt-gate-design.md sections 5/9 @ 3e2f083 (blob c45168c9)"
+      ]
+    },
+    {
+      "id": "exp-aliccp-stage2-residual-prompt-seed-replication",
+      "branch": "exp/aliccp-stage2-residual-prompt-seed-replication",
+      "tip_commit": "a40836e3d6a7f73c4943bada98139d414957301a",
+      "lineage": "aliccp",
+      "dataset_stage": "AliCCP stage-2 short (BSI); canonical seed-2 replication of the residual prompt",
+      "result_commits": [
+        {"sha": "013e105f6dfb35e630d261696290635d0263ce99", "role": "verbatim port from 79ddefa (rebuild-equality pinned) + run (HEAD at run time)"},
+        {"sha": "a40836e3d6a7f73c4943bada98139d414957301a", "role": "docs: record canonical seed-2 replication (REPLICATION_SUPPORTED)"}
+      ],
+      "hypothesis": "The residual-prompt mechanism (pinned byte-for-byte to seed-1 impl 79ddefa) replicates on seed 2 with the SAME unrelaxed utility bar (U1 delta_test >= +0.0055 AND U2 delta_val > 0).",
+      "positioning": "independent seed replication (no novelty/improvement claim; thresholds not relaxed; pooled states pre-defined; per-seed deltas only - cross-seed raw AUCs non-comparable)",
+      "mechanism_verdict": "M0 + G1-G8 ALL PASS: alpha_final +0.07101669907569885 (sign OPPOSITE seed 1); ratio 0.02813939 (spread 3.3e-12); cos means near zero (+0.01287/+0.08432/+0.05899) unlike seed 1's large positive; pred_std 0.0049475979 = 0.948x ref; params 2385/8129. Reference pre-check 21/21 (after fixing a checker defect - missing freeze_backbone; disclosed).",
+      "utility": {
+        "metric": "AUC-Test-BSI",
+        "arm_auc_full": "0.6055453782825184",
+        "baseline_auc_full": "0.5974422649550507",
+        "baseline_run_id": "20261003-0624-p2M-v500k-t1M-m1688723740-short-79b5e07",
+        "delta_reported": "+0.008103113327467715",
+        "delta_source": "spec 2026-10-04-aliccp-stage2-residual-prompt-seed-replication-design.md section 10.2",
+        "threshold": "U1 delta_test >= +0.0055 AND U2 delta_val > 0 (same as seed 1, unrelaxed)",
+        "status": "PASS",
+        "note": "run 20261004-0325-p2M-v500k-t1M-m1688723740-short-013e105-rpg; U1 PASS (margin +0.0026031); U2 PASS (+0.008622497456618139); arm classification VALID_POSITIVE; pooled REPLICATION_SUPPORTED; descriptive means: delta_test +0.0067488286049028345, delta_val +0.006552119121682964, sign consistency True/True"
+      },
+      "replication": "YES - this branch IS the seed-2 replication; REPLICATION_SUPPORTED (M_both AND P2)",
+      "longer_budget": "later by exp/aliccp-stage2-residual-prompt-longer-budget (10 epochs, PERSISTS)",
+      "inherited_caveats": ["B4 FAIL inherited from the shared seed-2 stage-1 artifact; B1 PASS inherited (differs from seed-1's B1 FAIL; disclosed)", "A3 SKIP; n=2 with no formal noise estimate (pooled means descriptive only)", "mechanism internals seed-sensitive (alpha sign flip; cos structure differs) - utility sign consistent"],
+      "classification": "REPLICATION_SUPPORTED (seed-2 VALID_POSITIVE with unrelaxed thresholds; seed-1's narrow U1 miss disclosed per se, not re-judged)",
+      "recommended_action": "continue (to the longer-budget branch)",
+      "summary_file": "artifacts/aliccp_bench/SUMMARY.md",
+      "summary_blob": "3f9ad73669e04908a69536b2fdd1f4d1a32d22a8",
+      "summary_rows": ["20261004-0325-p2M-v500k-t1M-m1688723740-short-013e105-rpg"],
+      "spec_path": "docs/superpowers/specs/2026-10-04-aliccp-stage2-residual-prompt-seed-replication-design.md",
+      "spec_blob": "1ee41e493707b853f1511800a496a537fe51f523",
+      "evidence": [
+        "artifacts/aliccp_bench/SUMMARY.md row 20261004-0325-...-rpg @ a40836e (blob 3f9ad736)",
+        "docs/superpowers/specs/2026-10-04-aliccp-stage2-residual-prompt-seed-replication-design.md sections 6/10 @ a40836e (blob 1ee41e49)"
+      ]
+    },
+    {
+      "id": "exp-aliccp-stage2-residual-prompt-longer-budget",
+      "branch": "exp/aliccp-stage2-residual-prompt-longer-budget",
+      "tip_commit": "e46e5d28ea572c1d6d5ace68b8100b848fe374e7",
+      "lineage": "aliccp",
+      "dataset_stage": "AliCCP stage-2 LONG budget (10 epochs / patience 3, tag long; BSI); persistence test of the residual-prompt delta",
+      "result_commits": [
+        {"sha": "2b1d58518e90da0991ab2d8b3f68c0fc99b22d4c", "role": "TDD port + analyzer + guards (HEAD at baseline run time)"},
+        {"sha": "f2ccec291bea72f0dc3cfc8013f4fa488ac97613", "role": "baseline SUMMARY row commit (HEAD at arm run time)"},
+        {"sha": "e46e5d28ea572c1d6d5ace68b8100b848fe374e7", "role": "docs: record canonical results (PERSISTS)"}
+      ],
+      "hypothesis": "The seed-2 5-epoch residual-prompt delta (+0.0081) persists at 10 epochs / patience 3 on the same stage-1 artifact (delta_test >= +0.0055 AND delta_val > 0), unlike the attenuation line (NOT_PERSIST).",
+      "positioning": "robustness / alternative-explanation test; reuses the established longer-budget protocol verbatim (47ecb0c/bbd8a61); no novelty claim",
+      "mechanism_verdict": "M0 + G1-G8 ALL PASS at 10 epochs: alpha_final +0.1025848239660263 (still growing); ratio 0.0412006563 (spread 3.3e-12); cos means -0.0086/+0.0614/+0.0650; pred_std 0.0047167253 = 0.904x ref; C3b identity 11/11; C3c mechanism gates PASS; independent verifier 47/47 ALL_PASS incl. bit-equal delta re-derivation",
+      "utility": {
+        "metric": "AUC-Test-BSI",
+        "arm_auc_full": "0.6688517876477933",
+        "baseline_auc_full": "0.6614121223087556",
+        "baseline_run_id": "20261004-0427-p2M-v500k-t1M-m1688723740-long-2b1d585",
+        "delta_reported": "+0.0074396653390377265",
+        "delta_source": "spec 2026-10-04-aliccp-stage2-residual-prompt-longer-budget-design.md section 10.2",
+        "threshold": "C1 delta_test >= +0.0055 AND C2 delta_val > 0 AND C3a/C3b/C3c gates",
+        "status": "PASS",
+        "note": "arm run 20261004-0431-p2M-v500k-t1M-m1688723740-long-f2ccec2-rpg; delta_val +0.0048363447472773435; classification PERSISTS; per-epoch delta narrows monotonically from ep4 peak +0.00892 to +0.00484 but stays >= +0.0055; both arms right-censored at ep10"
+      },
+      "replication": "seed-2 artifact; baseline arm bit-equal to the attenuation-branch 10-epoch baseline; arm first-5-epoch bit-equal to the 5-epoch arm (determinism evidence)",
+      "longer_budget": "THIS branch is the longer-budget test: PERSISTS (contrast: attenuation line NOT_PERSIST on the same artifact/budget)",
+      "inherited_caveats": ["B4 FAIL inherited from the shared seed-2 stage-1 artifact", "single run per arm; A3 SKIP (de-facto determinism checks are descriptive)", "extension beyond 10 epochs not tested; narrowing trend not extrapolated", "in-run rp_arm.U reads against 5-epoch constants (class C diagnostic only, not the persistence verdict)"],
+      "classification": "PERSISTS (delta durable at the 10-epoch decision point; monotone narrowing recorded, not extrapolated)",
+      "recommended_action": "continue (AliCCP-only confirmation agenda; see synthesis section 9)",
+      "summary_file": "artifacts/aliccp_bench/SUMMARY.md",
+      "summary_blob": "b1542db6bbdf9213d5452a13ab0ecf8cb88a0f1a",
+      "summary_rows": [
+        "20261004-0427-p2M-v500k-t1M-m1688723740-long-2b1d585",
+        "20261004-0431-p2M-v500k-t1M-m1688723740-long-f2ccec2-rpg"
+      ],
+      "spec_path": "docs/superpowers/specs/2026-10-04-aliccp-stage2-residual-prompt-longer-budget-design.md",
+      "spec_blob": "af80ec97ae0dadc0e955451c6aadc3eeac14cfea",
+      "evidence": [
+        "artifacts/aliccp_bench/SUMMARY.md rows 20261004-0427/0431-...-long-[-rpg] @ e46e5d2 (blob b1542db6)",
+        "docs/superpowers/specs/2026-10-04-aliccp-stage2-residual-prompt-longer-budget-design.md sections 5/10 @ e46e5d2 (blob af80ec97)"
+      ]
+    }
+  ],
+
+  "recommended_directions": [
+    {
+      "id": "D1",
+      "title": "AliCCP residual prompt: noise floor + third canonical seed + extended-budget point (AliCCP-only)",
+      "rationale": "Only line with committed evidence for (i) full mechanism gates (M0+G1-G8, seed 1 and seed 2), (ii) unrelaxed seed-2 replication (REPLICATION_SUPPORTED), (iii) 10-epoch persistence (PERSISTS). All on AliCCP only.",
+      "steps": [
+        "Run the protocol-defined A3 same-seed reruns for the 10-epoch pair (currently A3 SKIP; de-facto bit-equality observed but not a formal A3).",
+        "Third canonical seed (1688738016, list position 3) using the seed-replication branch protocol verbatim (pinned mechanism, same U1/U2, pooled machinery).",
+        "One extended-budget point (e.g., 20 epochs / patience 3) under the longer-budget protocol; the ep4->ep10 monotone narrowing (+0.00892 -> +0.00484) makes this the open question."
+      ],
+      "explicit_non_claims": [
+        "cross-dataset generality (Census counterpart was VALID_NEGATIVE at -0.00233)",
+        "mechanism-path stability (alpha sign flips across seeds; cos structure differs)",
+        "any novelty claim"
+      ]
+    },
+    {
+      "id": "D2",
+      "title": "Diagnostic-only: run-to-run noise floor (A3) for both pipelines",
+      "rationale": "Every screening classification rests on single runs with A3 SKIP. De-facto determinism was observed on the AliCCP stage-2 pipeline (bit-equal trajectories across processes/commits), but never measured for the Census pipeline. Without a noise floor, deltas of |1e-4..1e-3| (several census arms, learnable attenuation) cannot be separated from run noise.",
+      "steps": [
+        "Formal A3 reruns (same seed, same config, protocol-defined tolerance 1e-9) for one Census stage-2 pair and the AliCCP stage-2 pair already used in the longer-budget analysis.",
+        "Record results in the respective SUMMARY ledgers; use only to calibrate interpretation of existing deltas - no new arms, no method claims."
+      ],
+      "explicit_non_claims": [
+        "no new method work",
+        "does not re-judge any already-decided run"
+      ]
+    }
+  ],
+
+  "not_recommended": [
+    "Attenuation line: closed - seed-replicated at 5 epochs but NOT_PERSIST at 10 epochs; the fixed constant does not transfer to Census (r = -0.83).",
+    "Census stage-2 head-side arm family: closed - 0/10 arms met the pre-registered utility bar; every mechanism active arm kept delta <= +0.0013.",
+    "PCGrad / gradient surgery on the Census stage-1 trunk: pre-registered audit says NO_ACTION (mean cos +0.0008, gate needs <= -0.05).",
+    "CGR / affinity gate lines: refuted (structural degeneracy reproduced); no reopen without a new pre-registration and a new mechanism.",
+    "Any novelty framing for gating, prompts, adapters/LoRA, MoE routing, gradient surgery or task weighting - all have extensive prior art (see synthesis section 6)."
+  ]
+}

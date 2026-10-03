@@ -48,3 +48,8 @@ ENV/
 *.log
 logs/
 tb_logs/           # TensorBoard 日志
+# ==============================
+# 6. docs/experiments deliverable exception (machine-readable synthesis record must be committable;
+#    same convention as the SUMMARY.md exception above)
+# ==============================
+!docs/experiments/*.json
