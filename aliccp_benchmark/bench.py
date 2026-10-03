@@ -11,6 +11,7 @@ import sys
 import time
 from datetime import datetime
 from pathlib import Path
+from typing import Callable, NamedTuple
 
 import torch
 from torch.utils.data import DataLoader
@@ -20,6 +21,17 @@ from multitaskrec.model import MPTRec, NewTask
 from multitaskrec.train import MPTRecTrainManager
 
 from . import metrics, protocol
+
+
+class ClusteringArm(NamedTuple):
+    """Stage-1 聚类赋值规则的可插拔描述（预注册 §6）。
+
+    默认路径（`run_stage1(clustering_arm=None)`）不引用任何 arm：产物、config 哈希与
+    meta schema 与基线逐位一致；arm 由 CLI 显式选择时才注入（含 cfg 标识 → 新 stage1_id）。
+    """
+
+    name: str
+    manager_factory: Callable[..., MPTRecTrainManager]
 
 
 class RecordingMPTRecTrainManager(MPTRecTrainManager):
@@ -133,6 +145,28 @@ def env_accuracy_probe(model, loader, env_ids, batch_size, device, max_batches=2
     return correct / max(1, total)
 
 
+@torch.no_grad()
+def env_accuracy_and_balance_probe(model, loader, env_ids, batch_size, device, max_batches=200):
+    """单次遍历同时返回 (acc, balanced_acc)：acc 口径与 `env_accuracy_probe` 完全一致（整数计数）；
+    balanced_acc = macro recall，用于披露退化分配下多数类准确率的误导性（预注册 §6，仅 arm 路径使用）。"""
+    model.eval()
+    preds, ids_list = [], []
+    for step, (_, _, _, features) in enumerate(loader):
+        if step >= max_batches:
+            break
+        for key in features:
+            features[key] = features[key].to(device)
+        env_pred = model(features)["env_pred"]
+        ids = env_ids[batch_size * step : batch_size * (step + 1)].to(device)
+        n = len(ids)
+        preds.append(env_pred.argmax(dim=1)[:n].cpu())
+        ids_list.append(ids.cpu())
+    pred = torch.cat(preds)
+    ids = torch.cat(ids_list)
+    acc = int((pred == ids).sum()) / max(1, int(ids.numel()))
+    return acc, metrics.env_balanced_accuracy(pred, ids)
+
+
 def run_stage1(
     *,
     root,
@@ -158,8 +192,12 @@ def run_stage1(
     reg_dnn=protocol.REG_DNN,
     dropout=protocol.DROPOUT,
     log_batches=200,
+    clustering_arm: ClusteringArm | None = None,
 ) -> dict:
-    """阶段 1：训练 → 选点 → 单次 test 评估 → 保存内容寻址 Stage-1 产物（spec 7.1/8.1）。"""
+    """阶段 1：训练 → 选点 → 单次 test 评估 → 保存内容寻址 Stage-1 产物（spec 7.1/8.1）。
+
+    `clustering_arm=None`（默认）= 仓库原聚类规则，行为与产物逐位不变；
+    非 None 时仅替换聚类赋值规则并在 cfg/meta 中记录（预注册 §6）。"""
     t0 = time.time()
     _reset_peak_vram(device)
     log(f"[stage1] 开始：prefix={prefix_tag} budgets={budgets} model_seed={model_seed} env_seed={env_seed}")
@@ -190,7 +228,8 @@ def run_stage1(
     ).to(device)
 
     env_ids = protocol.make_env_ids(len(datasets["train"]), env_seed)
-    manager = RecordingMPTRecTrainManager(
+    manager_cls = RecordingMPTRecTrainManager if clustering_arm is None else clustering_arm.manager_factory
+    manager = manager_cls(
         model=model,
         train_loader=loaders["train"],
         val_loader=loaders["val"],
@@ -206,7 +245,13 @@ def run_stage1(
     manager.train_two_task()
     model.load_state_dict(manager.best_weight)
     test_aucs = manager.evaluation_two_task(loaders["test"])  # test 只评一次，不参与选点（spec 7.5）
-    env_acc = env_accuracy_probe(model, loaders["train"], manager.env_ids, batch_size, device, log_batches)
+    if clustering_arm is None:
+        env_acc = env_accuracy_probe(model, loaders["train"], manager.env_ids, batch_size, device, log_batches)
+        env_bal_acc = None
+    else:
+        env_acc, env_bal_acc = env_accuracy_and_balance_probe(
+            model, loaders["train"], manager.env_ids, batch_size, device, log_batches
+        )
 
     cfg = _stage1_cfg(
         prefix_tag=prefix_tag, budgets=budgets, model_seed=model_seed, env_seed=env_seed,
@@ -215,6 +260,8 @@ def run_stage1(
         input_size=input_size, expert_hidden=expert_hidden, tower_hidden=tower_hidden,
         dropout=dropout, vocab=vocab,
     )
+    if clustering_arm is not None:
+        cfg["clustering"] = clustering_arm.name  # 身份的一部分：进 config_hash → 新 stage1_id（预注册 §3）
     cfg_sha = protocol.config_hash(cfg)
     sid = protocol.make_stage1_id(fp["fingerprint_sha256"], model_seed, epochs, cfg_sha)
     backbone_sha = protocol.backbone_sha256(model)
@@ -266,6 +313,10 @@ def run_stage1(
         "wall_seconds": round(time.time() - t0, 1),
         "peak_vram_mb": peak_vram,
     }
+    if clustering_arm is not None:
+        meta["clustering"] = clustering_arm.name
+        meta["cluster_diagnostics"] = list(getattr(manager, "cluster_diagnostics", []))
+        meta["env_bal_acc"] = env_bal_acc
     protocol.save_stage1(
         root, sid,
         backbone_state={k: v.detach().cpu() for k, v in model.state_dict().items()},
@@ -275,6 +326,9 @@ def run_stage1(
     log(f"[stage1] 完成：stage1_id={sid} best_epoch={best_epoch} "
         f"test_auc_ctr={meta['test_auc_ctr']:.4f} test_auc_cvr={meta['test_auc_cvr']:.4f} "
         f"env_acc={env_acc:.4f} wall={meta['wall_seconds']}s")
+    if clustering_arm is not None:
+        log(f"[stage1] clustering={clustering_arm.name} env_bal_acc={env_bal_acc} "
+            f"cluster_events={meta['cluster_events']}")
     return meta
 
 

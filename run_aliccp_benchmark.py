@@ -46,7 +46,7 @@ def _prefix_tag_for(train_budget: int, val_budget: int, test_budget: int) -> str
 def _add_common(parser: argparse.ArgumentParser) -> None:
     parser.add_argument("--gpu", type=int, default=0)
     parser.add_argument("--root", type=str, default=str(protocol.ARTIFACT_ROOT))
-    parser.add_argument("--tag", type=str, default="short", choices=["short", "smoke"])
+    parser.add_argument("--tag", type=str, default="short", choices=["short", "smoke", "norm"])
     parser.add_argument("--train-budget", type=int, default=protocol.TRAIN_BUDGET)
     parser.add_argument("--val-budget", type=int, default=protocol.VAL_BUDGET)
     parser.add_argument("--test-budget", type=int, default=protocol.TEST_BUDGET)
@@ -64,6 +64,8 @@ def build_parser() -> argparse.ArgumentParser:
     p1.add_argument("--env-seed", type=int, default=protocol.ENV_SEED)
     p1.add_argument("--epochs", type=int, default=protocol.STAGE1_EPOCHS)
     p1.add_argument("--patience", type=int, default=protocol.STAGE1_PATIENCE)
+    p1.add_argument("--clustering", type=str, default="raw", choices=["raw", "rank_normalized"],
+                    help="Stage-1 聚类赋值规则；默认 raw = 仓库原规则（默认路径行为与产物逐位不变）")
 
     p2 = sub.add_parser("stage2", help="阶段 2：加载固定产物 + 真冻结 + NewTask 头 + 门禁")
     _add_common(p2)
@@ -99,10 +101,16 @@ def main(argv=None) -> int:
         print(f"command={args.command} tag={args.tag} prefix_tag={prefix_tag} budgets={budgets}")
         print(f"model_seed={args.model_seed} device={device} commit={commit} root={root}")
         if args.command == "stage1":
+            clustering_arm = None
+            if args.clustering == "rank_normalized":
+                from aliccp_benchmark.normalized_clustering import RANK_NORMALIZED_ARM
+
+                clustering_arm = RANK_NORMALIZED_ARM
             meta = bench.run_stage1(
                 root=root, data_files=protocol.DATA_FILES, budgets=budgets, prefix_tag=prefix_tag,
                 model_seed=args.model_seed, env_seed=args.env_seed,
                 epochs=args.epochs, patience=args.patience, device=device,
+                clustering_arm=clustering_arm,
             )
             print(f"stage1_id={meta['stage1_id']}")
             print(f"summary: best_epoch={meta['best_epoch']} test_auc_ctr={meta['test_auc_ctr']:.4f} "
