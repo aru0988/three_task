@@ -158,7 +158,7 @@ env(i) = argmin_k [loss_0(i), loss_1(i)][k]        # 原始（未归一化）逐
 
 | 项 | 预测值 |
 |---|---|
-| 新 `stage1_id` | `s1-5c060b9c-m1688723512-e3-ad3b353f`（config hash `ad3b353f…` = 基线配置 + `{"clustering": "rank_normalized"}`；基线 hash `3a30e2c0…` 不变） |
+| 新 `stage1_id` | `s1-5c060b9c-m1688723512-e3-ad3b353f`（config hash `ad3b353f6d436ac95c26703e504a318e3441933a4e00e3f3d6c5e22a05bfe96e` = 基线配置 + `{"clustering": "rank_normalized"}`；基线 hash `3a30e2c0b1e8a2b4e9fecaa4d76893b775f6ee9e597922dce7303ac3b77b08c4` 不变） |
 | epoch 1–2 逐 epoch 记录（val AUC、uni/fuse/env loss） | 与基线**逐位相等**（第一个聚类调用发生在 epoch 2 训练之后，此前两臂代码路径完全一致） |
 | epoch 2 聚类事件 | `diff_num = 999966`；`env_0 = 959244`；`env_1 = 1040756` |
 | 最终 `env_ids_sha256` | `4b983fc9f485d7cba853b8d5f0846b292e85344fc5b6f3725845dbba5ea0d52b` |
