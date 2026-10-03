@@ -23,6 +23,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import sys
 import time
 from datetime import datetime
 from pathlib import Path
@@ -203,11 +204,13 @@ def env_pred_probe(model, loader, env_ids, batch_size, device, max_batches=ENV_P
         ids_list.append(ids.cpu())
     pred = torch.cat(preds)
     ids = torch.cat(ids_list)
-    acc = float((pred == ids).float().mean())
+    # 与 bench.env_accuracy_probe 完全一致的整数计数口径（避免 float32 mean 的表示差）
+    correct = int((pred == ids).sum())
+    acc = correct / max(1, int(ids.numel()))
     recalls = {}
     for env in (0, 1):
         m = ids == env
-        recalls[env] = float((pred[m] == env).float().mean()) if bool(m.any()) else float("nan")
+        recalls[env] = int((pred[m] == env).sum()) / max(1, int(m.sum()))
     bal = (recalls[0] + recalls[1]) / 2.0
     return {"n": int(ids.numel()), "acc": acc, "balanced_acc": bal,
             "recall_env_0": recalls[0], "recall_env_1": recalls[1]}
@@ -392,11 +395,14 @@ def run_audit(stage1_dir: Path, out_dir: Path, data_files: dict, device, reprodu
 
     # ---- 候选尺度校正分配对照（同一损失向量） ----
     candidates = {}
+    initial_env_ids = protocol.make_env_ids(losses.shape[0], meta["env_seed"])
     for name, fn in CANDIDATES.items():
         q = fn(losses)
         assign = torch.argmin(q, dim=1)
         candidates[name] = {
             "env_crosstab": _assignment_summary(assign, ys),
+            "env_ids_sha256": protocol.sha256_tensor(assign),
+            "diff_num_vs_initial_env_ids": int((initial_env_ids != assign).sum()),
             "normalized_stats": {
                 task: _quantile_stats(q[:, k]) for k, task in enumerate(("ctr_task0", "cvr_task1"))
             },
@@ -475,6 +481,10 @@ def build_parser() -> argparse.ArgumentParser:
 
 
 def main(argv=None) -> int:
+    try:  # Windows 控制台默认 GBK，审计摘要含 ⊂/⊆ 等字符；统一按 UTF-8 输出
+        sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+    except Exception:  # noqa: BLE001
+        pass
     args = build_parser().parse_args(argv)
     device = torch.device("cpu") if args.cpu else torch.device(f"cuda:{args.gpu}")
     if device.type == "cuda":
