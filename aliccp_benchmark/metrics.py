@@ -25,6 +25,23 @@ def env_accuracy(env_pred, env_ids) -> float:
     return float((pred[:n] == ids[:n]).float().mean())
 
 
+def env_balanced_accuracy(env_pred_argmax, env_ids) -> float:
+    """macro recall（各环境召回的平均，整数计数、精确有理数）。
+
+    分配退化（如 AliCCP B4 坍缩到 0.028% 小组）时，多数类准确率会给出 ~1.0 的误导值；
+    平衡准确率暴露"从不命中小组"的失败模式。某环境缺席时其召回按 0 计。
+    """
+    pred = env_pred_argmax if isinstance(env_pred_argmax, torch.Tensor) else torch.as_tensor(env_pred_argmax)
+    ids = env_ids if isinstance(env_ids, torch.Tensor) else torch.as_tensor(env_ids)
+    n = min(len(pred), len(ids))
+    pred, ids = pred[:n], ids[:n]
+    recalls = []
+    for env in (0, 1):
+        mask = ids == env
+        recalls.append(int((pred[mask] == env).sum()) / max(1, int(mask.sum())))
+    return sum(recalls) / 2.0
+
+
 def evaluate_a_gates(facts: dict) -> dict:
     """A 类协议正确性门禁（spec 10）。A3 为按需复跑，首轮 SKIP。"""
     a1_ok = facts["backbone_sha_before"] == facts["backbone_sha_after"] and facts["backbone_grads_none"]
