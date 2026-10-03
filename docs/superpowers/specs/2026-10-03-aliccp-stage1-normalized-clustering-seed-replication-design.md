@@ -177,9 +177,34 @@ I1–I9（rank01 语义、实现==审计参考逐位、manager 仅覆写 `cluste
 
 ## 9. 结果（实测；运行后追加，不得回填预期值）
 
-### 9.0 非结果核验（运行后填写）
+### 9.0 非结果核验（实测）
 
-### 9.1 Stage-1（运行后填写）
+- **参考基线核验（§2）**：35/35 通过（`verify_reference_seed2.py`；含 head 严格载入 + val/test BSI 与 gate_mean 逐位重评测）。结果 JSON：`artifacts/aliccp_bench/audit/verify_reference_seed2_result.json`。
+- **M6 raw 诊断重分析**（`a39c170`，audit 工具 artifact_only、只读）：与既有记录（`…-analysis/audit.json` @ `e377a4e`）**全字段一致**——`env_crosstab_final_env_ids`/`loss_stats`/`candidates`/`rank_correlation`/`loss_vectors` 逐项相等，probe `acc=0.9992525`、`balanced_acc=0.50`、`recall_env_0=0` 逐位一致；尺度比 64.6×，候选 rank01 = 1077778/922222。输出：`artifacts/aliccp_bench/audit/s1-5c060b9c-m1688723740-e3-4e1b5c6f-reanalysis/audit.json`。
+- **M8b 默认关 smoke 恒等**（`a39c170`，temp root `artifacts/aliccp_bench/_identity_check_smoke/`，1 epoch / p20k-v5k-t10k / 默认 raw）：产物 id `s1-550e4d92-m1688723512-e1-d069eadf`（内容寻址一致）；除 `commit/git/versions/device/wall_seconds/peak_vram_mb` 外全部字段与既有记录产物 meta **逐位一致**（含 backbone/env_ids sha、逐 epoch 7 值、test AUC、env_acc）；smoke 前缀指纹亦逐位一致。
+- **测试**：64/64 通过（37 基线 + 19 移植 + 8 本分支守卫；含 §8.1 字节钉死、§8.2 AST 守卫、§8.3 seed2 身份/文档钉死；TDD 先红后绿）。
+
+### 9.1 Stage-1（实测；运行恰一次）
+
+**结论：M1、M2(a/b)、M3、M4、M5、U1 全过（§4）；其中 M2 为 bit 级预测命中 + epoch 1–2 逐位等式。** 运行恰一次（无重跑、无无效执行）。
+
+| 项 | 值 |
+|---|---|
+| stage1_id | `s1-5c060b9c-m1688723740-e3-820697f6`（**== §3 预测**；M2a） |
+| commit / dirty / wall / peak | `a39c170` / **false** / 184.2 s / 159.2 MB |
+| 聚类事件（epoch 2，恰 1 次） | `diff_num = 998878`、`env_0 = 1106286`、`env_1 = 893714` |
+| env 占比 | 55.3143% / 44.6857%（M1：B4 双过） |
+| `env_ids_sha256` | `285365696d98a22c50c064439921d76c455815b1d25cb4e0431a86040e728a9e` |
+| epoch 1–2 记录（14 值） | 与 raw seed2 **逐位相等**（M2b） |
+| epoch 3（处理臂特有轨迹） | val CTR 0.556007 / CVR 0.504594；env_loss 1.1400（raw 0.0806——平衡分配下 env 头不再可平凡拟合） |
+| best_epoch / best val | 3 / 0.556007（CTR）、0.504594（CVR） |
+| test（单次） | CTR `0.5536026554267786`（raw `0.5534062000766764`，**Δ = +0.00019645535010215376**；U1 容差 −0.005 内 PASS）；CVR `0.5486753127564796`（记录不判定） |
+| env_pred 探针（best 权重，前 400k 行） | acc `0.668745`、bal_acc `0.647417`（同量级——多数类失真不出现；raw 对照 bal_acc=0.50） |
+| M4 交叉表（逐位） | `env_0 = 1106286`（含 565 purchase、1,105,721 非 purchase）/ `env_1 = 893714`（含 1 purchase）；`env_0∩purchase1 = 0.051%·|env_0|` ≤ 5%；≠ purchase1 集合；非子集（raw 对照：1532 中 564 purchase） |
+| M5 | 事件 diff_num 998878 ≥ 5%·N；norm vs raw env_ids 逐位差 1,104,756（55.24% ≥ 5%） |
+| 诊断（`cluster_diagnostics[0]`，聚类时刻真值） | raw 中位 CTR `0.045550` / CVR `3.082e-06`（尺度差复现；均值 0.18758 vs 0.004665 ≈ 40×）；归一化中位 ≈0.500000（rank 语义自检）；全分位数有限（M3） |
+
+- 核验脚本（只读复算）：`artifacts/aliccp_bench/audit/verify_stage1_norm_seed2.py` → checks 11/11 true，`all_pass=True`（结果 JSON 同名 `_result.json`）。
 
 ### 9.2 Stage-2（运行后填写）
 
