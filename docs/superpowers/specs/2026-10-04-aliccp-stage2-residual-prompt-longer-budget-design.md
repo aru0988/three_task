@@ -3,7 +3,7 @@
 - **状态**：预注册已写死（本文件在本分支任何实现、任何 run 之前**单独提交**；commit C1）。结果只在第 10 节以新增小节回填；第 1–9 节的判据与数字不得在看到结果后改动。
 - **日期**：2026-10-04
 - **适用分支**：`exp/aliccp-stage2-residual-prompt-longer-budget`（自 `infra/aliccp-fair-benchmark` @ `8133d32` **独立拉出**；不从任何 exp 分支拉出、不继承其运行时状态；不合并 `master`、不触碰其它 worktree；`aliccp_benchmark/protocol.py`、`aliccp_benchmark/metrics.py` 语义、`multitaskrec/*`、`config.py`、master 脚本与 `baseline/*` 零修改）。
-- **被检验对象（只读引用）**：残差 prompt 机制 = `exp/aliccp-stage2-residual-prompt-seed-replication` @ `013e105:aliccp_benchmark/residual_prompt.py`（其自身为 `79ddefa`（seed1 实现）的 A1′ 适配移植，机制系谱 `99b9510` Census 祖本）。该机制的 canonical seed-2 5-epoch 配对结果（run `20261004-0325-p2M-v500k-t1M-m1688723740-short-013e105-rpg` vs 基线 run `20261003-0624-p2M-v500k-t1M-m1688723740-short-79b5e07`）：`VALID_POSITIVE`（M0+G1–G8+A 类全 PASS；U1 PASS `Δtest = +0.008103113327467715 ≥ +0.0055`；U2 PASS `Δval = +0.008622497456618139 > 0`），记录 @`a40836e`（§1 为运行前对本机磁盘 run 记录的只读审计）。
+- **被检验对象（只读引用）**：残差 prompt 机制 = `exp/aliccp-stage2-residual-prompt-seed-replication` @ `013e105:aliccp_benchmark/residual_prompt.py`（其自身为 `79ddefa`（seed1 实现）的 A1′ 适配移植——机制 blob `5dc7158ca999c9e7e6217a999c37869231411549`，机制系谱 `99b9510` Census 祖本）。该机制的 canonical seed-2 5-epoch 配对结果（run `20261004-0325-p2M-v500k-t1M-m1688723740-short-013e105-rpg` vs 基线 run `20261003-0624-p2M-v500k-t1M-m1688723740-short-79b5e07`）：`VALID_POSITIVE`（M0+G1–G8+A 类全 PASS；U1 PASS `Δtest = +0.008103113327467715 ≥ +0.0055`；U2 PASS `Δval = +0.008622497456618139 > 0`），记录 @`a40836e`（§1 为运行前对本机磁盘 run 记录的只读审计）。
 - **上游协议（只引用、不修改）**：
   1. `docs/superpowers/specs/2026-10-03-aliccp-fair-benchmark-design.md`（AliCCP 公平评测协议）——前缀预算、种子、Stage-1 产物、真冻结三件套、A/B/C 门禁、SUMMARY 台账全部沿用；
   2. `exp/aliccp-stage2-attenuation-longer-budget` @ `47ecb0c:docs/superpowers/specs/2026-10-03-aliccp-stage2-attenuation-longer-budget-design.md`（下称"更长预算协议"）——**已建立的更长预算协议**：唯一变化 = Stage2 max epochs 5→10 与 patience 2→3（tag `"long"`）、判定结构 C1/C2/C3 → `PERSISTS`/`NOT_PERSIST`/`INVALID`、`commit-between-runs` 清洁树纪律、`persistence_verdict` 阈值语义——**逐字沿用（§2/§4/§5）**。其实现提交 `bbd8a61`（`aliccp_benchmark/longer_budget.py` 为本次分析器 `persistence_verdict`/`_read_json`/`_a_class_ok` 的逐字来源）。
@@ -15,7 +15,7 @@
 
 ## 0. 目的与判定问题
 
-seed-2（`m1688723740`，Stage-1 产物 `s1-5c060b9c-m1688723740-e3-4e1b5c6f`）在 5-epoch Stage2 预算下观察到残差 prompt 处理臂相对配对基线 `Δtest = +0.008103113327467715`、`Δval = +0.008622497456618139`（同 `stage1_id`、同顺序、单次 test 评测；`VALID_POSITIVE`）。但两条 5-epoch 轨迹**都在最后一个 epoch 仍在改进**（best_epoch = 5/5，§1），判定点落在轨迹的右删失处，无法区分"持久收益"与"仅加速收敛"。同一 seed-2 产物上，固定衰减机制线的 10-epoch 检验（`20261003-0724`/`20261003-0729`）已观察到增量被基线追平（`NOT_PERSIST`：`Δtest = +0.0005273306552253665`、`Δval = −0.002653370173158476`）——替代解释在另一机制线上成立；本实验检验其在**残差 prompt 线**上是否同样成立。
+seed-2（`m1688723740`，Stage-1 产物 `s1-5c060b9c-m1688723740-e3-4e1b5c6f`）在 5-epoch Stage2 预算下观察到残差 prompt 处理臂相对配对基线 `Δtest = +0.008103113327467715`、`Δval = +0.008622497456618139`（同 `stage1_id`、同顺序、单次 test 评测；`VALID_POSITIVE`）。但两条 5-epoch 轨迹**都在最后一个 epoch 仍在改进**（best_epoch = 5/5，§1），判定点落在轨迹的右删失处，无法区分"持久收益"与"仅加速收敛"。同一个 seed-2 产物上，固定衰减机制线的 10-epoch 检验（基线 `20261003-0724-p2M-v500k-t1M-m1688723740-long-bbd8a61` / 处理臂 `20261003-0729-p2M-v500k-t1M-m1688723740-long-2d2bc5e-sattn`）已观察到增量被基线追平（`NOT_PERSIST`：`Δtest = +0.0005273306552253665`、`Δval = −0.002653370173158476`）——替代解释在另一机制线上成立；本实验检验其在**残差 prompt 线**上是否同样成立。
 
 **判定问题 Q**：在同一 seed-2 Stage-1 产物上，把 Stage2 预算延长到 **10 epochs / patience 3**（其余全部钉死），残差 prompt 处理臂相对**本实验新跑的配对 10-epoch 基线臂**的 **Δtest ≥ +0.0055 且 Δval > 0** 是否仍成立，且全部机制/构造/冻结门禁通过？
 - 成立 → **`PERSISTS`**（增量在更长预算下持续；非纯加速解释）
@@ -59,10 +59,10 @@ seed-2（`m1688723740`，Stage-1 产物 `s1-5c060b9c-m1688723740-e3-4e1b5c6f`）
 | 组 | 核对 | 结果 |
 |---|---|---|
 | 产物文件字节 | `backbone.pt`/`env_ids.pt`/`meta.json` sha256 == 钉死值 | PASS |
-| 产物内容寻址 | `stage1_id` 重算 == 记录 == 期望；`config_hash` 重算 == `4e1b5c6f…`；id 分量（seed/epochs/env_seed/budgets）；`fingerprint_sha256 == 5c060b9c…`；`backbone_sha256` 重算 == `e5e7e610…`；`env_ids` sha 重算 == `5cd198f1…` | PASS |
+| 产物内容寻址 | `stage1_id` 重算 == 记录 == 期望；`config_hash` 重算 == `4e1b5c6ffe9b6ff49cda34691de27390669396337e64e867f0f83b6ec4da7981`；id 分量（seed/epochs/env_seed/budgets）；`fingerprint_sha256 == 5c060b9c5c9d0e235ec815e1b488b9dec222fc37887ad2eedd2afadc82bdd0d8`；`backbone_sha256` 重算 == `e5e7e610f9dcbe9b748820079187dfbd70510dfe41fa46dd85a6baeba97d990c`；`env_ids` sha 重算 == `5cd198f1a22e829de1ac5cabfdf03fb80d95caec6775534bf00918b89acf2ac0` | PASS |
 | 前缀指纹 A2 级 | 自哈希 + 前缀字节 sha256 ×3 + 表头 + 文件大小 + 原始扫描标签计数 ×3（2473647855 / 274769757 / 2711167840） | PASS |
 | env_ids | 形状 (2000000,)∈{0,1}；env_0=1532 / env_1=1998468 | PASS |
-| 参照头 | 文件 sha256 == `90ee06da…`；`NewTask(80/64/[32,32])` strict 载入成功 | PASS |
+| 参照头 | 文件 sha256 == `90ee06da387129b50ed7ba0b93742a02db6e87d40d60ae11dbc6b189aeecb94f`；`NewTask(80/64/[32,32])` strict 载入成功 | PASS |
 
 **失败处置**：任一不一致 ⇒ **停止**（不重训、不替换、不静默换产物），保留现场并如实报告。
 
@@ -86,7 +86,7 @@ seed-2（`m1688723740`，Stage-1 产物 `s1-5c060b9c-m1688723740-e3-4e1b5c6f`）
 | **Stage2 epochs** | 5 | **10** | 唯一变化之一（§2） |
 | **Stage2 patience** | 2 | **3** | 唯一变化之二（§2） |
 | tag / run_id | `short` | **`long`**（沿用更长预算协议引入的 tag 词汇；`smoke`/`short` 语义不变） | 处理臂 run_id 由 runner 追加 `-rpg` 后缀 |
-| Stage-1 产物 | `s1-5c060b9c-m1688723740-e3-4e1b5c6f` | **同一产物（钉死；不重训 Stage-1）** | 预注册前完整性核验 28/28 通过（§1.5）；`backbone_sha256 = e5e7e610…`；`env_ids_sha256 = 5cd198f1…`；`fingerprint_sha256 = 5c060b9c…`；`config_hash = 4e1b5c6f…`；文件 sha256：`backbone.pt = cd7b0334…`、`env_ids.pt = 4660be5a…`、`meta.json = 61a66d81…`（A2/A5/A6 在 run 内再次逐位校验） |
+| Stage-1 产物 | `s1-5c060b9c-m1688723740-e3-4e1b5c6f` | **同一产物（钉死；不重训 Stage-1）** | 预注册前完整性核验 28/28 通过（§1.5）；`backbone_sha256 = e5e7e610f9dcbe9b748820079187dfbd70510dfe41fa46dd85a6baeba97d990c`；`env_ids_sha256 = 5cd198f1a22e829de1ac5cabfdf03fb80d95caec6775534bf00918b89acf2ac0`；`fingerprint_sha256 = 5c060b9c5c9d0e235ec815e1b488b9dec222fc37887ad2eedd2afadc82bdd0d8`；`config_hash = 4e1b5c6ffe9b6ff49cda34691de27390669396337e64e867f0f83b6ec4da7981`；文件 sha256：`backbone.pt = cd7b033423499e0d36eea988835cea4ac4e2a8e26427a2aea627333822101e0b`、`env_ids.pt = 4660be5aaa3c59f53dd5b4394f77114a87db69064b32c45517db049a6b9157e7`、`meta.json = 61a66d81ce3dcf6bae64f4c2b37cf12e722943def646336a588746aba932931d`（A2/A5/A6 在 run 内再次逐位校验） |
 | model seed | `1688723740` | `1688723740`（不变） | 头初始化 + 训练 dropout；两臂同进程重播种 → 头初始化与样本顺序构造性相同 |
 | env seed / 预算 / 前缀 | `20261003` / p2M-v500k-t1M | 同（不变） | `env_ids` 来自产物（不重抽） |
 | 机制超参 | hidden=16；α 初值 0；注入三路 `("gen","spec_0","spec_1")`；RNG 隔离；新增参数 2385/8129 | **逐字不变（不搜索、不调参）** | §6-A1″ 逐字节移植保证 |
@@ -134,7 +134,7 @@ seed-2（`m1688723740`，Stage-1 产物 `s1-5c060b9c-m1688723740-e3-4e1b5c6f`）
 
 | 编号 | 文件 | 处置 | 守卫 |
 |---|---|---|---|
-| A1″ | `aliccp_benchmark/residual_prompt.py` | **逐字节移植** `013e105:aliccp_benchmark/residual_prompt.py`（blob `674213f619c5d5039811c71242a7727118348daf`；LF sha256 `b3b93b3aa501277656b57e7e89e5ab38a76343f005d0b312e4dc18c8a98120cc`）。**零文本适配**（seed2 run-reference 常量已就位，与 §3 钉死参照一致；docstring 的"唯一事实来源"指向 seed-2 复现设计文档 = 机制系谱文档，本分支不改）| 守卫测试：工作树 == 钉死 blob 逐字节 + sha/blob 钉死 + docstring token |
+| A1″ | `aliccp_benchmark/residual_prompt.py` | **逐字节移植** `013e105:aliccp_benchmark/residual_prompt.py`（blob `674213f619c5d5039811c71242a7727118348daf`；LF sha256 `b3b93b3aa501277656b57e7e89e5ab38a76343f005d0b312e4dc18c8a98120cc`）。**零文本适配**（seed2 run-reference 常量已就位，与 §3 钉死参照一致；docstring 的"唯一事实来源"指向 seed-2 复现设计文档 `docs/superpowers/specs/2026-10-04-aliccp-stage2-residual-prompt-seed-replication-design.md` = 机制系谱文档，本分支不改）| 守卫测试：工作树 == 钉死 blob 逐字节 + sha/blob 钉死 + docstring token |
 | A2″a | `aliccp_benchmark/bench.py` | **逐字节移植** `013e105:aliccp_benchmark/bench.py`（blob `bf3647686838157bf5fd7645615faad9f2d7185d`；LF sha256 `b063a36667173b66fc8a7ac932502cc34753c91e2bfcfdafaedfce443f1db3b4`；== `79ddefa`） | 守卫测试：逐字节 + sha/blob 钉死 |
 | A2″b | `run_aliccp_benchmark.py` | `013e105:run_aliccp_benchmark.py`（blob `229c25a1c86719fa6fb6b057d6cff3f4120fa053`；LF sha256 `2966ec3985e5b91e277f429c2f236fb551de7479d114def90f767f2d813ad285`）**恰 1 行**适配：`--tag` choices 增加 `"long"`（`["short", "smoke"]` → `["short", "smoke", "long"]`；默认仍 `short`）| 守卫测试：单行替换重建等式（替换前断言旧行恰出现 1 次）+ 新 LF sha 钉死 |
 | A3″ | `aliccp_benchmark/tests/test_residual_prompt.py` | `013e105:aliccp_benchmark/tests/test_residual_prompt.py`（blob `768a477b5c71af32c5c59ec6feb20c29f7873557`；LF sha256 `dab737a1422b88befc4c19f2bee408618061de7fd3bf0b2f83ebcdd85fd1cbc2`）**恰 4 处**适配：(a) 模块 docstring；(b) `DOC_PATH` → 本文件；(c) `WHITELIST` → 本分支 10 项白名单（逐项集合钉死）；(d) `TestPreregConstants.test_prereg_doc_tokens_and_summary_ledger` 的 token 表 → 本文件 token 表。**其余逐类/逐方法/逐模块级语句不变**（含 `TestMechanismPin` 对 Census 祖本的全套 AST 钉死与 `test_thresholds_and_baseline_reference` 的常量断言——本实验常量与 seed-2 复现相同，**无需改动**）| 守卫测试：重建等式（docstring + `DOC_PATH` 段 + `WHITELIST` 段 + 该 1 个方法段替换）+ AST 差异集合 == 恰 1 个方法 + 模块级函数逐字 + 新 LF sha 钉死 |
@@ -213,6 +213,8 @@ D:\MPT-Rec-three_task\MPT-Rec\.venv\Scripts\python.exe verify_rp_longer_budget.p
 （待运行后回填）
 
 ## 11. 偏离披露（预声明 + 运行后补）
+
+- **预注册前澄清提交**（先于任何实现与 run；判据、预算、阈值、分类规则**零改动**；仅把 §0/§1.5/§3/§6 中已按"…"省略的内容寻址哈希与 run id 写全，并补 79ddefa 系谱 blob）：`docs: complete full content-addressed hashes and run ids in longer-budget prereg (pre-run clarification, criteria unchanged)`。与更长预算协议 `53346eb` 先例同类。
 
 - **分支工作流**：自 `infra/aliccp-fair-benchmark` @ `8133d32` 拉出（不从 seed-2 复现分支拉出）；机制经 A1″ 逐字节守卫钉死等价于 `013e105`（后者经种子复现分支的重建等式钉死于 `79ddefa`）。协议未合并入 master，与同批 exp 分支先例一致。
 - **tag `"long"` 词汇**：沿用更长预算协议（`47ecb0c`/`bbd8a61`）先例；`protocol.py` 零修改。
