@@ -174,13 +174,40 @@ def _write_json(path: Path, payload: dict) -> None:
     path.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
 
 
-def run_stage2(root=P.ARTIFACT_ROOT, *, stage1_dir, epochs=P.STAGE2_EPOCHS, tag="short", device=None,
-               model=None, loaders=None, stats=None, indices=None, input_size=P.INPUT_SIZE,
+@torch.no_grad()
+def newtask_null_probe(newtask, backbone, loader, device) -> dict:
+    """处理臂专属机制探针（预注册 §5）：val 上一次遍历，no_grad；test 不参与任何机制诊断。
+
+    移植自姊妹线 `aliccp_benchmark/bench.py::newtask_null_probe`（`exp/aliccp-stage2-null-expert` `6224c0f`），
+    不含 gate 均值（Census 的 M3 由 `evaluate_newtask(mechanism=True)` 提供）。返回 M7 判定量
+    （逐位可复现口径，与 `evaluate_newtask` 的对应值逐位一致，由测试强制）与 C 类诊断：
+    null 质量分布/分位数、router 熵与逐样本方差、education 标签分层与相关、预测离散度。
+    """
+    newtask.eval(); backbone.eval()
+    null_stats, diag = metrics.NullRouteStats(), metrics.NullRouteDiagnostics()
+    ys, preds = [], []
+    for _, _, y, features in loader:
+        features = {key: value.to(device) for key, value in features.items()}
+        dnn_input, gen_rep, spec_reps, env_embs = backbone.get_infos(features)
+        pred = newtask(dnn_input, gen_rep, spec_reps, env_embs)
+        weights = newtask.routing_weights(dnn_input, env_embs)
+        null_stats.update(weights)
+        diag.update(weights)
+        ys.append(y)
+        preds.append(pred.detach())
+    out = {**null_stats.result(), **diag.result()}
+    out.update(metrics.null_supervision_stats(diag.null_values, torch.cat(ys), torch.cat(preds)))
+    return out
+
+
+def run_stage2(root=P.ARTIFACT_ROOT, *, stage1_dir, epochs=P.STAGE2_EPOCHS, patience=P.PATIENCE, tag="short",
+               device=None, model=None, loaders=None, stats=None, indices=None, input_size=P.INPUT_SIZE,
                rep_dim=P.EXPERT_HIDDEN[-1], now=None, null_expert=False) -> dict:
     """阶段 2：只从 Stage-1 产物加载 backbone，训练新任务头，做门禁与 SUMMARY。
 
     `null_expert=True` 时新任务头的源任务路由追加零候选（见 2026-09-29-stage2-null-expert-design.md）；
     两臂必须引用同一 `stage1_dir`，默认臂与未启用时行为完全一致。
+    `patience` 默认 = 协议常量（逐位不变）；更长预算实验显式传入 3（预注册 longer-budget §2）。
     """
     root = Path(root)
     device = device or torch.device("cuda:0")
@@ -237,7 +264,7 @@ def run_stage2(root=P.ARTIFACT_ROOT, *, stage1_dir, epochs=P.STAGE2_EPOCHS, tag=
                 best_state = copy.deepcopy(newtask.state_dict())
             else:
                 stale += 1
-                if stale == P.PATIENCE:
+                if stale == patience:
                     print(f"[stage2] early stop at epoch {epoch}")
                     break
 
@@ -248,6 +275,7 @@ def run_stage2(root=P.ARTIFACT_ROOT, *, stage1_dir, epochs=P.STAGE2_EPOCHS, tag=
     P.assert_no_grads(backbone)
     val_final = metrics.evaluate_newtask(newtask, backbone, loaders["val"], device, mechanism=True)
     test_final = metrics.evaluate_newtask(newtask, backbone, loaders["test"], device)
+    null_probe = newtask_null_probe(newtask, backbone, loaders["val"], device) if null_expert else None
 
     # 5) 门禁判定 + 产物落盘（spec 8、9.1、9.2）
     env_shares = [count / meta["n_train"] for record in meta["cluster_records"] for count in record["env_counts"]]
@@ -268,8 +296,9 @@ def run_stage2(root=P.ARTIFACT_ROOT, *, stage1_dir, epochs=P.STAGE2_EPOCHS, tag=
                  "gen_std": val_final["gen_std"],
                  "env_acc_stage1": [record["env_acc"] for record in meta["epoch_records"]]}
     if null_expert:
-        # M7 只在处理臂出现；基线臂 mechanism 的键集保持不变（spec 6）
-        mechanism.update({"null_mean": val_final["null_mean"], "null_top1_rate": val_final["null_top1_rate"]})
+        # M7 + C 类诊断只在处理臂出现；基线臂 mechanism 的键集保持不变（spec 6 / 预注册 §5）。
+        # null_mean / null_top1_rate 取自探针同一遍 pass，与 evaluate_newtask 的值逐位一致（测试强制）。
+        mechanism.update(null_probe)
     run_path = root / "runs" / run_id
     run_path.mkdir(parents=True, exist_ok=True)
     torch.save(newtask.state_dict(), run_path / "newtask.pt")
@@ -279,7 +308,7 @@ def run_stage2(root=P.ARTIFACT_ROOT, *, stage1_dir, epochs=P.STAGE2_EPOCHS, tag=
         "run_id": run_id, "stage1_id": sid, "commit": commit, "tag": tag, "frozen": True,
         "null_expert": null_expert,
         "split_seed": meta["split_seed"], "model_seed": meta["model_seed"], "env_seed": meta["env_seed"],
-        "epochs": epochs, "patience": P.PATIENCE, "lr": P.LR, "batch_size": loaders["train"].batch_size,
+        "epochs": epochs, "patience": patience, "lr": P.LR, "batch_size": loaders["train"].batch_size,
         "input_size": input_size, "rep_dim": rep_dim})
     payload = {
         "run_id": run_id, "stage1_id": sid, "commit": commit, "null_expert": null_expert,
@@ -327,8 +356,9 @@ def build_parser() -> argparse.ArgumentParser:
     second = sub.add_parser("stage2", help="阶段 2：加载固定 Stage-1 产物，只训练新任务头")
     second.add_argument("--stage1-dir", type=Path, required=True)       # spec 4.3：唯一引用方式
     second.add_argument("--gpu", type=int, default=0)
-    second.add_argument("--tag", choices=["short", "full"], default="short")
+    second.add_argument("--tag", choices=["short", "full", "long"], default="short")
     second.add_argument("--epochs", type=int, default=P.STAGE2_EPOCHS)
+    second.add_argument("--patience", type=int, default=P.PATIENCE)      # 默认 = 协议常量（逐位不变）
     second.add_argument("--null-expert", action="store_true",       # 默认关闭 = master 行为
                         help="阶段 2 源任务路由追加零候选（Null Expert 臂）")
     return parser
@@ -342,8 +372,8 @@ def main(argv=None) -> int:
         run_stage1(args.root, split_seed=args.split_seed, model_seed=args.model_seed,
                    env_seed=args.env_seed, epochs=args.epochs, tag=args.tag, device=device)
     else:
-        run_stage2(args.root, stage1_dir=args.stage1_dir, epochs=args.epochs, tag=args.tag, device=device,
-                   null_expert=args.null_expert)
+        run_stage2(args.root, stage1_dir=args.stage1_dir, epochs=args.epochs, patience=args.patience,
+                   tag=args.tag, device=device, null_expert=args.null_expert)
     return 0
 
 
