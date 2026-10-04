@@ -278,13 +278,96 @@ $env:RP_REFERENCE_PRED_STD = "<pin.reference_pred_std>"
 
 ## 10. 结果（运行后回填，不回写第 0–9 节）
 
-**（占位：待三新 seed 运行与 pin 完成后回填逐 seed 表、机制诊断、二级分类、5-seed 汇总与 20-epoch 条件判定。）**
+### 10.0 执行记录（非结果核验与首跑序列偏差披露）
+
+- **pin 规程预检**：§4.3 的 pin 脚本先以 seed2 既有基线做**只读 dry-run** 复核（输出到 job tmp，不写任何 worktree）：复算 `reference_pred_std = 0.005217193225189258` 与 seed2 记录**逐位一致**、`newtask.pt` sha `90ee06da387129b50ed7ba0b93742a02db6e87d40d60ae11dbc6b189aeecb94f` 一致、双测量路径（机制函数 vs 脚本内独立实现）逐位一致 ⇒ pin 口径成立。随后对 seed3–5 各执行一次只读参照核验并落盘 pin（三份 pin 内嵌 5 项 checks 全 true；`baseline_auc_test/val` 与配对基线 `metrics.json` 逐位相等；`reference_pred_std` 为参照头 val pred_std，fp64、n=500000）。
+- **运行序列**（全部前台、逐条等待结束；每一步运行前单元测试 106/106 绿）：stage1 ×3（提交 `c17b100`，三份 meta 均 `dirty=false`）→ 配对基线 ×3 → 只读 pin ×3 → 处理臂 ×3（env 三常量逐位取自各自 pin）。
+- **首跑批次偏差（披露）**：首跑批次的 5 个 stage2 run（基线 m1688749593/m1688762746 与 3 个臂）记录 `git.dirty=true`——原因 = 前序 run 的协议台账行（`SUMMARY.md`，追踪文件）未提交即续跑（执行侧 run 序列错误；machinery 零改动的证据：`git diff c17b100` 仅 `SUMMARY.md` +6 行、全部静态/AST 守卫测试通过）。按 §4.2（工具性/程序性无效，非结果原因）保留现场、记录原因，并**对全部 5 个受影响 run（不区分其结果）各重跑一次**，每两次 run 之间提交台账行保持树干净。重跑全部 `dirty=false` 且与首跑**逐位相同**（§10.6）；canonical 记录 = §10.1 表中的 run id（seed3 基线为首跑；seed4/5 基线与三个臂为 clean 重跑）。
+- 全程未调参、未改判据/阈值/参照、未因结果重跑；每 seed 的 stage1/基线/臂各恰一次有效执行（首跑按 §4.2 记无效留痕，其行保留于台账）。
+
+### 10.1 逐 seed 配对结果（canonical；跨 seed 不混）
+
+| 位置 | `model_seed` | 配对基线 run | 处理臂 run | 基线 test/val | 臂 test/val | `Δtest` | `Δval` | U1 (≥+0.0055) | U2 (>0) | 三标签分类 | 二级分类 |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| 1 | 1688723512 | `20261003-0130-p2M-v500k-t1M-m1688723512-short-b2e17f9` | `20261004-0214-p2M-v500k-t1M-m1688723512-short-79ddefa-rpg` | 0.5988392178311113 / 0.5781533414372665 | 0.6042337617134492 / 0.5826350822240143 | +0.005394543882337954 | +0.00448174078674779 | FAIL | PASS | `VALID_NEGATIVE` | `POSITIVE_IMPROVEMENT` |
+| 2 | 1688723740 | `20261003-0624-p2M-v500k-t1M-m1688723740-short-79b5e07` | `20261004-0325-p2M-v500k-t1M-m1688723740-short-013e105-rpg` | 0.5974422649550507 / 0.5809347091990792 | 0.6055453782825184 / 0.5895572066556973 | +0.008103113327467715 | +0.008622497456618139 | PASS | PASS | `VALID_POSITIVE` | `POSITIVE_IMPROVEMENT` |
+| 3 | 1688738016 | `20261005-0632-p2M-v500k-t1M-m1688738016-short-c17b100` | `20261005-0701-p2M-v500k-t1M-m1688738016-short-ab7f337-rpg` | 0.6169265645506535 / 0.5839919245306395 | 0.6183829042203324 / 0.5853617876680048 | +0.001456339669678841 | +0.0013698631373653125 | FAIL | PASS | `VALID_NEGATIVE` | `POSITIVE_IMPROVEMENT` |
+| 4 | 1688749593 | `20261005-0654-p2M-v500k-t1M-m1688749593-short-23eb4d0` | `20261005-0705-p2M-v500k-t1M-m1688749593-short-e86f938-rpg` | 0.6799165153727622 / 0.629554258588165 | 0.6848685140438336 / 0.6337670282397281 | +0.004951998671071434 | +0.004212769651563031 | FAIL | PASS | `VALID_NEGATIVE` | `POSITIVE_IMPROVEMENT` |
+| 5 | 1688762746 | `20261005-0657-p2M-v500k-t1M-m1688762746-short-2fba320` | `20261005-0709-p2M-v500k-t1M-m1688762746-short-9f9da65-rpg` | 0.657729030107454 / 0.601838646234007 | 0.6673750462948658 / 0.6135061036853381 | +0.009646016187411788 | +0.011667457451331131 | PASS | PASS | `VALID_POSITIVE` | `POSITIVE_IMPROVEMENT` |
+
+- 三个新 seed 的 `stage1_id`（内容寻址）：seed3 `s1-5c060b9c-m1688738016-e3-47619ce0`、seed4 `s1-5c060b9c-m1688749593-e3-bb2b68de`、seed5 `s1-5c060b9c-m1688762746-e3-6343490f`（前缀指纹三 seed 同 `5c060b9c…`）。
+- 全部五个臂 `best_epoch = 5/5`（**右删失、无早停**）；两臂（臂与基线）逐 epoch val 轨迹均单调上升（§10.2）。历史 U1/U2 与三标签**未改写**；二级分类为新增字段。
+- 二级分类：`POSITIVE_IMPROVEMENT` ×5（`Δtest` 全部 ≥ +0.001）；`NO_CLEAR_IMPROVEMENT` 与 `CLEAR_DEGRADATION` 计数均为 0 ⇒ §5.2 的 headroom 机械评估**无适用对象**（无 seed 落入 NO_CLEAR 区间）。
+
+### 10.2 机制门禁与诊断（M0 + G1–G8 + A 类 全 PASS × 5；B1/B4 及个别 B2 为继承形态）
+
+| seed | α_final | ratio_mean（gen/spec_0/spec_1） | cos_mean（gen/spec_0/spec_1） | geff std/min/max | pred_std / ref_std | 逐 epoch val（臂；基线同型单调） |
+|---|---|---|---|---|---|---|
+| 1688723512 | −0.060542766004800797 | 0.04480377…（三路同） | +0.358286 / +0.482366 / +0.469241 | 0.003910 / 0.015271 / 0.052774 | 0.0033045740 / 0.0033728455 | 0.492985→0.582635 |
+| 1688723740 | +0.07101669907569885 | 0.02813939…（三路同） | +0.012872 / +0.084322 / +0.058991 | 0.006023 / 0.010255 / 0.049055 | 0.0049475979 / 0.0052171933 | 0.465089→0.589557 |
+| 1688738016 | −0.04903412237763405 | 0.03840118…（三路同） | +0.277202 / +0.244851 / +0.196755 | 0.001810 / 0.014410 / 0.042297 | 0.0059564801 / 0.0060753855 | 0.506754→0.585362 |
+| 1688749593 | +0.053119830787181854 | 0.02352144…（三路同） | +0.000123 / +0.102022 / +0.178061 | 0.004097 / 0.008431 / 0.043477 | 0.0036228213 / 0.0036485375 | 0.511580→0.633767 |
+| 1688762746 | −0.04552163928747177 | 0.02505395…（三路同） | +0.207222 / +0.076746 / +0.031090 | 0.002986 / 0.008550 / 0.034685 | 0.0031868872 / 0.0034185690 | 0.499814→0.613506 |
+
+- 逐 epoch（α, α_grad, gen_grad）首 batch 探针（流序同 seed1/seed2 口径；首步 gen_grad=0 为预注册已知代价）：
+  - seed3：(0, 0.0119, 0) / (−0.04663, 0.6515, 0.02563) / (−0.04634, 0.6269, 0.02644) / (−0.04700, 0.5818, 0.02640) / (−0.04794, 0.5542, 0.02579)
+  - seed4：(0, 0.0676, 0) / (0.01970, 0.4196, 0.02349) / (0.02346, 0.1844, 0.02693) / (0.03203, 0.1174, 0.04184) / (0.04253, 0.0920, 0.06026)
+  - seed5：(0, 0.0040, 0) / (−0.02676, 0.8537, 0.04228) / (−0.02457, 0.5331, 0.04940) / (−0.02772, 0.3348, 0.06570) / (−0.03477, 0.2095, 0.09392)
+- M0 运行期参照身份：三新 arm 的 `ref_val_auc`/`ref_pred_std` 与各自 pin（= 配对基线 val / 预 pin 实测参照 std）逐位一致（≤1e-9）；`rp_arm.M0.rule` 文本逐字记录当次 per-seed 期望值。G8 参数：三新 arm 均 `new_params_total=2385`、`head_params=8129`（total 10514）。
+- A 类：三新 arm A1/A2/A4/A5/A6 PASS、A3 SKIP。B 类（继承事实、不归因于本臂）：seed3 B1 FAIL（CTR 0.5317<0.55）+B4 FAIL（`cluster_events=[(epoch2, env_0 567, env_1 1999433)]`，env_0 0.028%）；seed4 B1 FAIL（CTR 0.5476<0.55）、**B2 FAIL**（|val−test|=0.0504>0.05）、B4 FAIL（env_0 份额 <5%）；seed5 B1 FAIL（CTR 0.5469）、**B2 FAIL**、B4 FAIL；三新 arm `hard_pass=false` 为预期值（仅由继承 B 类决定）。
+
+### 10.3 五 seed 汇总与 20-epoch 立项条件（§6.3/§6.4 机械计算；`five_seed_report.json`）
+
+| 量 | 值 |
+|---|---|
+| `mean_Δtest` ± 样本 std（ddof=1） | **+0.005910402347593546** ± 0.0031538117454772883 |
+| `Δtest` Student-t 95% CI（df=4，t=2.7764451051977987） | **[+0.0019944278461222166, +0.009826376849064875]** |
+| `mean_Δval` ± std | +0.00607086569672508 ± 0.004059246477533843 |
+| `Δval` CI95 | [+0.0010306454857358528, +0.011111085907714308] |
+| 正例计数（`Δtest ≥ +0.001` / `≥ +0.0055`） | **5 / 5** 与 **2 / 5**；`Δval > 0`：**5 / 5** |
+| 最差 seed | 1688738016，`Δtest = +0.001456339669678841` |
+| 符号一致性 | `sgn(Δtest)` 全正（5/5，同号计数 5）✓；`sgn(Δval)` 全正（5/5）✓ |
+| 二级分类计数 | POSITIVE 5 / NO_CLEAR 0 / DEGRADATION 0 |
+| 机制稳定性 | 五 seed M0+G1–G8+A 全 PASS（5/5）；α_final 符号 2 正 3 负；三路 ratio_mean 跨 seed 区间 [0.02352, 0.04480]；cos_mean 跨 seed 区间 gen [0.000123, 0.358286] / spec_0 [0.076746, 0.482366] / spec_1 [0.031090, 0.469241]；geff_std 区间 [0.001810, 0.006023]；pred_std/ref_std 区间 [0.9322284168992446, 0.9929516345302134] |
+
+**20-epoch 立项条件（§6.4 真值表）：`TWENTY_EPOCH_CONDITION_SATISFIED`**
+
+| 条件 | 判定 | 实测 |
+|---|---|---|
+| C1 机制（5/5 全门禁） | ✔ | n_full_mechanism_pass = 5/5 |
+| C2 无退化 | ✔ | CLEAR_DEGRADATION = 0 |
+| C3 `mean_Δtest ≥ +0.0055` | ✔ | +0.005910402347593546 |
+| C4 CI 下界 > 0 | ✔ | +0.0019944278461222166 |
+| C5 `n(Δtest ≥ +0.001) ≥ 4` | ✔ | 5 |
+| C6 `n(Δval > 0) ≥ 4` | ✔ | 5 |
+
+- 读法（不构成改进主张）：五 seed 逐 seed 配对 `Δtest` 全为正（+0.0015 ~ +0.0096），但历史 U1 阈值（+0.0055）仅 2/5 seed 越过；均值 +0.0059、CI 下界 +0.0020 > 0。按 §6.4 预注册，**满足另开 20-epoch 分支的立项条件**（本分支本身不启动，§9）。统计范围限定：五 canonical seed、同配置 run-to-run 噪声为零（A3）前提下的 seed 间变异；不做超总体推断。
+
+### 10.4 重跑位等性（clean 重跑 vs 首跑；§10.0 披露项）
+
+| 首跑（`dirty=true`，留痕） | clean 重跑（`dirty=false`，canonical/comparison 用） | 位等性 |
+|---|---|---|
+| `20261005-0635-…-m1688749593-short-c17b100` | `20261005-0654-…-m1688749593-short-23eb4d0` | val/test/轨迹/gate_mean/`newtask.pt` 字节全同 |
+| `20261005-0638-…-m1688762746-short-c17b100` | `20261005-0657-…-m1688762746-short-2fba320` | 同上 |
+| `20261005-0642-…-m1688738016-short-c17b100-rpg` | `20261005-0701-…-m1688738016-short-ab7f337-rpg` | 同上 + `rp_arm` 与 `prompt_report`（除 `run_id`）全同 |
+| `20261005-0646-…-m1688749593-short-c17b100-rpg` | `20261005-0705-…-m1688749593-short-e86f938-rpg` | 同上（`prompt_report` 差异仅 `run_id` 与参照 checkpoint 路径字符串） |
+| `20261005-0649-…-m1688762746-short-c17b100-rpg` | `20261005-0709-…-m1688762746-short-9f9da65-rpg` | 同上 |
+
+- 位等性由独立复核脚本（§11）逐位断言 ⇒ 首跑的所有数值即 canonical 数值；`dirty` 状态对任何数字无影响（实验证明）。
+
+### 10.5 独立复核 → 见 §11。
 
 ---
 
 ## 11. 独立复核（运行后回填）
 
-**（占位：独立 verifier 逐 arm 复核 + 五 seed 汇总独立重推 + 与本文档记录值逐位对照。）**
+- `verify_residual_prompt_five_seed.py`（未跟踪脚本，worktree 根；**不 import 机制模块与汇总模块**，Student-t 分位用 `scipy.stats.t.ppf` 独立取得）：
+  1. **逐臂复核**（写入各新 arm run 目录 `verify_report.json`）：配对身份、变体、pin 闭合（pin ↔ 配对基线 `metrics.json` ↔ arm 记录 U observed，逐位）、A 类链（freeze sha 前后/加载一致、env_ids、backbone、指纹、stage1 身份）、M0/G1–G8 与 U1/U2 与三标签分类**独立重推**、`protocol_10_1`、cross-JSON 一致、B1/B4 从产物 meta 重推、`hard_pass=false`、SUMMARY 行、`git.dirty=false`（canonical）；
+  2. **遗留 seed1/seed2 复核**：同一重推核心对其只读复制 run JSON 重算，数值/分类/门禁与 §1 审计记录逐位一致；
+  3. **重跑位等性**（§10.4 五对）逐位断言；
+  4. **五 seed 汇总独立重算**（均值/样本 std/Student-t CI/计数/最差 seed/符号一致性/二级分类/20-epoch 条件）与 `five_seed_report.json` 逐位对照；
+  5. **文档对照**：§10 记录的逐 seed 数值与汇总数值 token 在本文档中逐项存在。
+- 结果：**151/151 ALL_PASS（exit 0）**——五 seed 逐臂 26/26（seed1、seed2）与 28/28（seed3–5，含 pin 闭合与 `dirty=false` 断言）；根级 15 项（5 对重跑位等性 + 汇总 8 项逐位对照 + 文档对照 + 汇总状态）全过；独立重算 `mean_Δtest/CI95/计数/最差 seed/20-epoch 状态` 与 `five_seed_report.json` 逐位一致。三个新 arm 的 `verify_report.json` 已落盘各自 run 目录；总报告 `artifacts/aliccp_bench/audit/five-seed/verify_five_seed.json`。
 
 ---
 
@@ -299,8 +382,12 @@ $env:RP_REFERENCE_PRED_STD = "<pin.reference_pred_std>"
 - **分支工作流**：自 `infra/aliccp-fair-benchmark` @ `8133d32` 独立拉出；机制经 §3 三层守卫钉死等价；协议不合并 `master`。
 - **分支本地 SUMMARY 系谱**：本分支 `SUMMARY.md` 基线含 smoke 行与 seed1 基线行（`8133d32` 携带）；seed1/seed2 的 arm 行与其 seed2 基线行记录在各自分支，本分支**不复制**其它分支行，只由本次运行追加自己的行（6 行：3 基线 + 3 臂）。
 - **文档转述偏差披露**：§1.3-1（verify 计数 26/28 vs "27/27"）为对历史文档转述的更正性披露，不改历史结论。
-- **非结果文件（未跟踪，同 seed1/seed2 先例）**：`artifacts/aliccp_bench/audit/five-seed/`（pin、汇总报告、审计报告）、worktree 根的核验/分析脚本（`verify_reference_residual_prompt_five_seed.py`、`verify_residual_prompt_five_seed.py`、一次性审计脚本）。
+- **非结果文件（未跟踪，同 seed1/seed2 先例）**：`artifacts/aliccp_bench/audit/five-seed/`（三份 pin、`pairs.json`、`five_seed_report.json`、`verify_five_seed.json`）、worktree 根的核验/分析脚本（`verify_reference_residual_prompt_five_seed.py` 参照核验 + pin、`verify_residual_prompt_five_seed.py` 运行后独立复核、一次性只读审计脚本）。
 - **预注册前参照值不可预置**：seed3–5 的配对基线与参照值只能在各自基线 run 完成后取得（§4.3 机械规程），本预注册因此把"pin 手续与闭合校验"写死为流程判据，而非假设运行前已知数值。
+- **运行后补（§10.0/§10.4）**：首跑批次 5 个 stage2 run 因台账行未提交而记录 `dirty=true`；按 §4.2 记为程序性无效（非结果原因）、全部留痕、对**全部受影响 run 不加区分地**各 clean 重跑一次；重跑与首跑逐位相同（独立复核 §11 断言）。
+- **pin 引用细节（运行后补）**：seed4/5 的 pin 由**首跑**基线导出（`baseline_run_id` 字段指向首跑 id）；canonical 配对改用 clean 重跑基线，二者逐位相同（§10.4），pin 数值与两代基线 `metrics.json` 均逐位闭合（§11）。seed3 的基线首跑即 clean（canonical）。
+- **A4″ 替换清单细化（运行后补，无判据/阈值改动）**：移植测试文件的适配由 §3.2 表中"4 处"细化为**5 组**替换——docstring、导入机制模块前的 run-reference 示例 env 块（`TestArmVerdict` 判定构造与 tiny 端到端经逐字节 pin 的 bench 接线依赖模块常量，须在导入前固定示例值；"未设 env ⇒ None ⇒ 响亮失败"的运行期语义改由 `test_residual_prompt_five_seed.py` 的 subprocess 守卫覆盖）、`DOC_PATH`、`WHITELIST`（9 项）、`TestPreregConstants` 整类；重建等式守卫按此 5 组钉死。
+- **seed1/seed2 run 目录与 stage1 产物只读复制（运行后补）**：为以单一 root 运行汇总与复核（`five_seed` CLI 与 verifier 只读 `root/runs/`、`root/stage1/`），seed1/seed2 的 4 个 run 目录与 2 个 stage1 产物目录自其分支 worktree **只读复制**至本 worktree `artifacts/aliccp_bench/`（复制后逐文件 sha256 与源相等；汇总与复核仅读）；本分支 `SUMMARY.md` **仍不复制**其它分支的行。
 
 ---
 
