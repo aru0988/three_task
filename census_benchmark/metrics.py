@@ -1,6 +1,8 @@
 """AUC、机制指标 M1/M3/M4、A/B 门禁判定（spec 7、8）。不 import fvcore，不做 FLOPs。"""
 from __future__ import annotations
 
+import math
+
 import torch
 import torch.nn.functional as F
 from sklearn.metrics import roc_auc_score
@@ -93,6 +95,81 @@ class NullRouteStats:
     def result(self) -> dict:
         n = max(self.count, 1)
         return {"null_mean": self.weight_sum / n, "null_top1_rate": self.top1_count / n}
+
+
+class NullRouteDiagnostics:
+    """C 类：null 质量分布（std/var/分位数）与 router 熵、逐样本方差。
+
+    移植自姊妹线 `aliccp_benchmark/metrics.py`（`exp/aliccp-stage2-null-expert` `6224c0f`），口径逐字一致，
+    仅命名空间不同。诊断值只要求同机同输入确定性（**不**承担 M7 的逐位复现契约）：逐样本值按批序累积，
+    result() 时一次性在 float64 上计算。只在 val 上使用，test 不参与任何机制诊断（预注册 §5）。
+    """
+
+    QUANTILES = (10, 25, 50, 75, 90)
+
+    def __init__(self):
+        self.null_values = []          # 逐样本保留（Census val 49881 行 → 内存可忽略）
+        self.entropy_sum = 0.0
+        self.entropy_sq_sum = 0.0
+        self.route_var_sum = 0.0
+        self.count = 0
+
+    def update(self, weights: torch.Tensor) -> None:
+        w = weights.detach().cpu().double()
+        self.null_values.extend(w[:, -1].tolist())
+        # 0 权重贡献恰为 0（clamp 只防 log(0)，乘回原 w）；softmax 输出严格为正，clamp 仅为防御
+        entropy = -(w.clamp_min(1e-12).log() * w).sum(dim=1)
+        self.entropy_sum += float(entropy.sum())
+        self.entropy_sq_sum += float((entropy * entropy).sum())
+        self.route_var_sum += float(w.var(dim=1, unbiased=False).sum())
+        self.count += w.shape[0]
+
+    def result(self) -> dict:
+        n = max(self.count, 1)
+        values = torch.tensor(self.null_values, dtype=torch.float64) if self.null_values else torch.zeros(1, dtype=torch.float64)
+        ent_mean = self.entropy_sum / n
+        ent_var = max(self.entropy_sq_sum / n - ent_mean * ent_mean, 0.0)
+        out = {
+            "null_std": float(values.std(unbiased=False)),
+            "null_var": float(values.var(unbiased=False)),
+            "route_entropy_mean": ent_mean,
+            "route_entropy_std": math.sqrt(ent_var),
+            "route_var_mean": self.route_var_sum / n,
+        }
+        for q in self.QUANTILES:
+            out[f"null_q{q:02d}"] = float(torch.quantile(values, q / 100))
+        return out
+
+
+def null_supervision_stats(null_values, y_true: torch.Tensor, y_pred: torch.Tensor) -> dict:
+    """分层与相关性（C 类）：education 标签分层 null 均值、corr(null, pred)、corr(null, |err|)、预测离散度。
+
+    移植自姊妹线 `aliccp_benchmark/metrics.py`（`6224c0f`）的 `null_supervision_stats`，标签名由 BSI 改为
+    education（键 `null_mean_edu_pos/neg`）。只在 val 上使用（预注册 §5）；常量向量（零方差）→ 相关无定义，
+    返回 None，如实记录不解读。
+    """
+    values = torch.tensor(list(null_values), dtype=torch.float64)
+    y = y_true.detach().cpu().double().flatten()
+    pred = y_pred.detach().cpu().double().flatten()
+
+    def _pearson(a: torch.Tensor, b: torch.Tensor):
+        a_c, b_c = a - a.mean(), b - b.mean()
+        denom = float((a_c * a_c).sum() * (b_c * b_c).sum()) ** 0.5
+        if denom == 0.0:
+            return None
+        return float((a_c * b_c).sum()) / denom
+
+    pos, neg = y > 0.5, y <= 0.5
+    pos_mean = float(values[pos].mean()) if bool(pos.any()) else None
+    neg_mean = float(values[neg].mean()) if bool(neg.any()) else None
+    return {
+        "null_mean_edu_pos": pos_mean,
+        "null_mean_edu_neg": neg_mean,
+        "null_label_gap": (pos_mean - neg_mean) if (pos_mean is not None and neg_mean is not None) else None,
+        "corr_null_pred": _pearson(values, pred),
+        "corr_null_abs_err": _pearson(values, (y - pred).abs()),
+        "pred_std": float(pred.std(unbiased=False)),
+    }
 
 
 # ---- Null Expert 臂的预注册接受标准（spec 2026-09-29-stage2-null-expert-design.md 5；看到结果前写死）----

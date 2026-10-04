@@ -182,7 +182,7 @@ headroom_remains = mechanism_active AND val_direction_positive
 
 ### 6.3 三 seed 检查点统计（方法写死）
 
-- 逐 seed `Δtest`；`mean`、`std`（**样本标准差，ddof=1**）；`positive_count = #{Δtest >= +0.001}`；`worst_seed = argmin(Δtest)`（并列取 seed 值小者）。
+- 逐 seed `Δtest`；`mean`、`std`（**样本标准差，ddof=1**）；`positive_count = #{Δtest >= +0.001}`；`worst_seed = argmin(Δtest)`（并列取 `CHECKPOINT_SEEDS` 列表序靠前者；本轮列表序 = `[1685480945, 1685463909, 1685477428]`）。
 - **95% 置信区间**：对 3 个配对 Δtest 的 **Student t 区间**：`mean ± t(0.975, df=2) · s/√3`，`t = 4.303`。方法原文写入记录；并注明 n=3 下该区间为**描述性**（不构成确证性推断）。
 
 ### 6.4 门禁与塌缩检查（逐 seed 记录，不新增阈值）
