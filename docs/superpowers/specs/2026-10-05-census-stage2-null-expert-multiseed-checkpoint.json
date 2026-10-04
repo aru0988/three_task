@@ -1,0 +1,1108 @@
+{
+  "spec": "docs/superpowers/specs/2026-10-05-census-stage2-null-expert-multiseed-design.md",
+  "created": "2026-10-05T02:39:52",
+  "seeds": [
+    {
+      "model_seed": 1685480945,
+      "stage1_id": "s1-096f8f16-m1685480945-e2-cb2094b3",
+      "stage1": {
+        "stage1_id": "s1-096f8f16-m1685480945-e2-cb2094b3",
+        "meta": {
+          "backbone_sha256": "a12a5f5369a7002fb12f0ead7576e4dad3375a060ba2f90d45bfb1d566153f85",
+          "env_ids_sha256": "9605cef86202e4f6fec6bd27d34f57245123d8a7e143aaeac6d7359a24bf8395",
+          "split_fingerprint_sha256": "096f8f16db081d7ad024b7aa450a40510a50e0acdbb439d973cc8fc9557d460c",
+          "config_hash": "cb2094b3cccff033bbc328b47344bf8bd441ed3a659bacca8d4496833a83e15d",
+          "epochs": 2,
+          "model_seed": 1685480945,
+          "env_seed": 20260929
+        },
+        "files": {
+          "backbone.pt": "f41aa2c06deecc0a3fe29c94c91c1726a3414d7a6d57bd8e87d7a2c4fef9add2",
+          "env_ids.pt": "3977f76d0c8a541e40257ab5538b9e0fc2ba12fd53bc50e20aa176b09b724154",
+          "meta.json": "c67f1a2aa46b2213fea33f3c5e70508966a766f56aef49b1ac4610bcd6ed6ebc",
+          "stdout.log": "e81ca1b94d4b575d4b8c3294df70d059d3001ee46d7423a53f9ad7aebab63c00"
+        }
+      },
+      "baseline": {
+        "run_id": "20261005-0225-s20260929-m1685480945-short-b4933e2",
+        "commit": "b4933e2",
+        "test_auc": 0.8500685307175756,
+        "best_val_auc": 0.8527881905614896,
+        "best_epoch": 5,
+        "epoch_records": [
+          {
+            "epoch": 1,
+            "loss": 0.2581464692186087,
+            "auc_val_education": 0.8412748819561441
+          },
+          {
+            "epoch": 2,
+            "loss": 0.24581092139467214,
+            "auc_val_education": 0.8473774764767228
+          },
+          {
+            "epoch": 3,
+            "loss": 0.24355692607470047,
+            "auc_val_education": 0.8496795536233096
+          },
+          {
+            "epoch": 4,
+            "loss": 0.24217080378379577,
+            "auc_val_education": 0.8516411115669168
+          },
+          {
+            "epoch": 5,
+            "loss": 0.24093620702624322,
+            "auc_val_education": 0.8527881905614896
+          }
+        ],
+        "split_fingerprint": "096f8f16db081d7ad024b7aa450a40510a50e0acdbb439d973cc8fc9557d460c",
+        "env_ids_sha256": "9605cef86202e4f6fec6bd27d34f57245123d8a7e143aaeac6d7359a24bf8395",
+        "config": {
+          "run_id": "20261005-0225-s20260929-m1685480945-short-b4933e2",
+          "stage1_id": "s1-096f8f16-m1685480945-e2-cb2094b3",
+          "commit": "b4933e2",
+          "tag": "short",
+          "frozen": true,
+          "null_expert": false,
+          "split_seed": 20260929,
+          "model_seed": 1685480945,
+          "env_seed": 20260929,
+          "epochs": 5,
+          "patience": 2,
+          "lr": 0.001,
+          "batch_size": 256,
+          "input_size": 123,
+          "rep_dim": 128
+        },
+        "files": {
+          "config.json": "80b8552b3bc77ec3867d522f2a21c241bc3a3ccec41669c6c052afb73fab688f",
+          "env_ids.pt": "3977f76d0c8a541e40257ab5538b9e0fc2ba12fd53bc50e20aa176b09b724154",
+          "gate_report.json": "417f9216500c122c1ad770dc0993d24691917f0befd2fce53395490f2041872f",
+          "metrics.json": "7381a9b6eaf0297fcd02102186f1e51bc4842c7b9e81a418883b1c5390ced0ee",
+          "newtask.pt": "15242625cd1d0d2d24079a79542ab5e9cb379df71132757900f7baf698793802",
+          "split_fingerprint.json": "37a6ff553780e191a3d81a2691afc099ac23223f48b00a5e9ea34c4adac99411",
+          "stdout.log": "ddad943a8091166c0abbce0e617f7a720c9e12a57a6c83e28d182d5b38632600"
+        }
+      },
+      "arm": {
+        "run_id": "20261005-0227-s20260929-m1685480945-short-9898f9e-nullx",
+        "commit": "9898f9e",
+        "test_auc": 0.8513648272440768,
+        "best_val_auc": 0.853020431042571,
+        "best_epoch": 5,
+        "epoch_records": [
+          {
+            "epoch": 1,
+            "loss": 0.25791979691921135,
+            "auc_val_education": 0.8430593709189393
+          },
+          {
+            "epoch": 2,
+            "loss": 0.24541825038882403,
+            "auc_val_education": 0.8485697869218705
+          },
+          {
+            "epoch": 3,
+            "loss": 0.24288596144089333,
+            "auc_val_education": 0.8512257439952509
+          },
+          {
+            "epoch": 4,
+            "loss": 0.2411445111227341,
+            "auc_val_education": 0.852506891493769
+          },
+          {
+            "epoch": 5,
+            "loss": 0.23972534713072655,
+            "auc_val_education": 0.853020431042571
+          }
+        ],
+        "mechanism": {
+          "gate_mean": [
+            0.952401451979339,
+            0.8543901456350915
+          ],
+          "cos_gen_spec": [
+            0.3259840184960287,
+            0.39654519772756186
+          ],
+          "gen_std": 3.4769905669669257,
+          "env_acc_stage1": [
+            0.500548779964447,
+            0.46184149384498596
+          ],
+          "null_mean": 0.34177784155227137,
+          "null_top1_rate": 0.37256670876686515,
+          "null_std": 0.17065749985572967,
+          "null_var": 0.02912398225700837,
+          "route_entropy_mean": 0.9130456576425505,
+          "route_entropy_std": 0.10797621047119045,
+          "route_var_mean": 0.04254366427528993,
+          "null_q10": 0.1244942843914032,
+          "null_q25": 0.1574186533689499,
+          "null_q50": 0.3394399881362915,
+          "null_q75": 0.5051119327545166,
+          "null_q90": 0.5790694952011108,
+          "null_mean_edu_pos": 0.43329068341623306,
+          "null_mean_edu_neg": 0.3318900555419573,
+          "null_label_gap": 0.10140062787427578,
+          "corr_null_pred": 0.4201185132971488,
+          "corr_null_abs_err": 0.3789601801635377,
+          "pred_std": 0.13307149666323032
+        },
+        "null_arm": {
+          "test_auc": 0.8513648272440768,
+          "null_top1_rate": 0.37256670876686515,
+          "baseline_test_auc": 0.8500685307,
+          "auc_min": 0.8521,
+          "top1_range": [
+            0.05,
+            0.95
+          ],
+          "checks": {
+            "auc": false,
+            "top1": true
+          },
+          "pass": false
+        },
+        "config": {
+          "run_id": "20261005-0227-s20260929-m1685480945-short-9898f9e-nullx",
+          "stage1_id": "s1-096f8f16-m1685480945-e2-cb2094b3",
+          "commit": "9898f9e",
+          "tag": "short",
+          "frozen": true,
+          "null_expert": true,
+          "split_seed": 20260929,
+          "model_seed": 1685480945,
+          "env_seed": 20260929,
+          "epochs": 5,
+          "patience": 2,
+          "lr": 0.001,
+          "batch_size": 256,
+          "input_size": 123,
+          "rep_dim": 128
+        },
+        "files": {
+          "config.json": "f9347b1b0ac5092d75c219f8a3a02a27f0877a255ee90e283ff6abf06174dd1e",
+          "env_ids.pt": "3977f76d0c8a541e40257ab5538b9e0fc2ba12fd53bc50e20aa176b09b724154",
+          "gate_report.json": "a59f797de16af662d759b3868caa6936f598586f09c72c6b32ec204dabda2cb2",
+          "metrics.json": "07f6156e98c82e4925c4f7d5307f564aa7194045df076802990a9966a3384f98",
+          "newtask.pt": "57227b7d393e5d593435a77fe1305ed06d6039527a5940537cb4f8b0bf3422c9",
+          "split_fingerprint.json": "37a6ff553780e191a3d81a2691afc099ac23223f48b00a5e9ea34c4adac99411",
+          "stdout.log": "c175cbd9c684e7ba4bdb7f7bf3ea436372697422cc3648fb46bb93455b9dd84d"
+        }
+      },
+      "delta_test": 0.001296296526501206,
+      "delta_val": 0.00023224048108139161,
+      "classification": "POSITIVE_IMPROVEMENT",
+      "budget": {
+        "baseline_best_epoch": 5,
+        "baseline_last_epoch": 5,
+        "arm_best_epoch": 5,
+        "arm_last_epoch": 5,
+        "baseline_right_censored": true,
+        "arm_right_censored": true,
+        "common_epochs": 5,
+        "delta_val_by_epoch": [
+          0.001784488962795261,
+          0.0011923104451476707,
+          0.0015461903719412584,
+          0.000865779926852217,
+          0.00023224048108139161
+        ],
+        "delta_val_last_common": 0.00023224048108139161
+      },
+      "headroom": {
+        "mechanism_active": true,
+        "val_direction_positive": true,
+        "budget_right_censored": true,
+        "budget_last_delta_positive": true,
+        "cross_seed_consistent": true,
+        "delta_val": 0.00023224048108139161,
+        "headroom_remains": true
+      },
+      "gates": {
+        "baseline": {
+          "A1": {
+            "pass": true,
+            "detail": {
+              "backbone_sha_equal": true,
+              "grads_all_none": true
+            }
+          },
+          "A2": {
+            "pass": true,
+            "detail": {
+              "split_fingerprint_consistent": true
+            }
+          },
+          "A4": {
+            "pass": true,
+            "detail": {
+              "disjoint_and_complete": true
+            }
+          },
+          "A5": {
+            "pass": true,
+            "detail": {
+              "env_ids_sha256_matches_stage1": true
+            }
+          },
+          "B1": {
+            "pass": true,
+            "detail": {
+              "auc_val_income": 0.9373971773636002,
+              "auc_val_marital": 0.9912246018108644,
+              "auc_test_education": 0.8500685307175756,
+              "floor": 0.6
+            }
+          },
+          "B2": {
+            "pass": true,
+            "detail": {
+              "gap": 0.0027196598439139796,
+              "limit": 0.03
+            }
+          },
+          "B3": {
+            "pass": false,
+            "detail": {
+              "gate_mean": [
+                0.952401451979339,
+                0.8543901456350915
+              ]
+            }
+          },
+          "B4": {
+            "pass": true,
+            "detail": {
+              "env_shares": [
+                0.49411847255704855,
+                0.5058815274429515
+              ]
+            }
+          },
+          "overall_pass": false,
+          "failures": [
+            "B3"
+          ],
+          "A3": {
+            "status": "on_demand",
+            "detail": "按需复跑同一配置，比较 AUC-Test-Education 差 ≤ 1e-9 与 backbone_sha256 一致"
+          }
+        },
+        "arm": {
+          "A1": {
+            "pass": true,
+            "detail": {
+              "backbone_sha_equal": true,
+              "grads_all_none": true
+            }
+          },
+          "A2": {
+            "pass": true,
+            "detail": {
+              "split_fingerprint_consistent": true
+            }
+          },
+          "A4": {
+            "pass": true,
+            "detail": {
+              "disjoint_and_complete": true
+            }
+          },
+          "A5": {
+            "pass": true,
+            "detail": {
+              "env_ids_sha256_matches_stage1": true
+            }
+          },
+          "B1": {
+            "pass": true,
+            "detail": {
+              "auc_val_income": 0.9373971773636002,
+              "auc_val_marital": 0.9912246018108644,
+              "auc_test_education": 0.8513648272440768,
+              "floor": 0.6
+            }
+          },
+          "B2": {
+            "pass": true,
+            "detail": {
+              "gap": 0.0016556037984941652,
+              "limit": 0.03
+            }
+          },
+          "B3": {
+            "pass": false,
+            "detail": {
+              "gate_mean": [
+                0.952401451979339,
+                0.8543901456350915
+              ]
+            }
+          },
+          "B4": {
+            "pass": true,
+            "detail": {
+              "env_shares": [
+                0.49411847255704855,
+                0.5058815274429515
+              ]
+            }
+          },
+          "overall_pass": false,
+          "failures": [
+            "B3"
+          ],
+          "A3": {
+            "status": "on_demand",
+            "detail": "按需复跑同一配置，比较 AUC-Test-Education 差 ≤ 1e-9 与 backbone_sha256 一致"
+          }
+        }
+      }
+    },
+    {
+      "model_seed": 1685463909,
+      "stage1_id": "s1-096f8f16-m1685463909-e2-8b53a3bf",
+      "stage1": {
+        "stage1_id": "s1-096f8f16-m1685463909-e2-8b53a3bf",
+        "meta": {
+          "backbone_sha256": "da0458b6c2b781145aa6aaab552bdac29d73911aa90a1acfc28cd777dc39a4c2",
+          "env_ids_sha256": "de123c8f15e0205d1c1061440a68afe9648f15e53a3672f4e5caa1f38a470001",
+          "split_fingerprint_sha256": "096f8f16db081d7ad024b7aa450a40510a50e0acdbb439d973cc8fc9557d460c",
+          "config_hash": "8b53a3bf6c0216577c849e6a31a76b1819eba9f16ed5dac3014f485960d10d5f",
+          "epochs": 2,
+          "model_seed": 1685463909,
+          "env_seed": 20260929
+        },
+        "files": {
+          "backbone.pt": "41d2827a8bed9a119d8086b0db4bc5b9a1ed239f34f79703f0a87b5ccc5119fc",
+          "env_ids.pt": "9394ef91552714ef43fb8efc11c099d87c15bbc2d69967b60699de22fd29917f",
+          "meta.json": "6b22b0515541b2c8ff2e35225defb0ca355cc96088e42c73af409843ed81b6e2",
+          "stdout.log": "952d49d8623179513410ac67aa5678388198216a60877de1715d79f143372783"
+        }
+      },
+      "baseline": {
+        "run_id": "20261005-0231-s20260929-m1685463909-short-9c6cc38",
+        "commit": "9c6cc38",
+        "test_auc": 0.845256873871603,
+        "best_val_auc": 0.8476002975447581,
+        "best_epoch": 5,
+        "epoch_records": [
+          {
+            "epoch": 1,
+            "loss": 0.26316222292490493,
+            "auc_val_education": 0.8391774812336978
+          },
+          {
+            "epoch": 2,
+            "loss": 0.24654858929988666,
+            "auc_val_education": 0.8435021541204317
+          },
+          {
+            "epoch": 3,
+            "loss": 0.24395628980337045,
+            "auc_val_education": 0.8455110374786776
+          },
+          {
+            "epoch": 4,
+            "loss": 0.24234317323336235,
+            "auc_val_education": 0.8464492521209823
+          },
+          {
+            "epoch": 5,
+            "loss": 0.24113409920380666,
+            "auc_val_education": 0.8476002975447581
+          }
+        ],
+        "split_fingerprint": "096f8f16db081d7ad024b7aa450a40510a50e0acdbb439d973cc8fc9557d460c",
+        "env_ids_sha256": "de123c8f15e0205d1c1061440a68afe9648f15e53a3672f4e5caa1f38a470001",
+        "config": {
+          "run_id": "20261005-0231-s20260929-m1685463909-short-9c6cc38",
+          "stage1_id": "s1-096f8f16-m1685463909-e2-8b53a3bf",
+          "commit": "9c6cc38",
+          "tag": "short",
+          "frozen": true,
+          "null_expert": false,
+          "split_seed": 20260929,
+          "model_seed": 1685463909,
+          "env_seed": 20260929,
+          "epochs": 5,
+          "patience": 2,
+          "lr": 0.001,
+          "batch_size": 256,
+          "input_size": 123,
+          "rep_dim": 128
+        },
+        "files": {
+          "config.json": "9462ec98ca4c75384a575e6bd89be439d93c278048233e5eb6b25c997d769870",
+          "env_ids.pt": "9394ef91552714ef43fb8efc11c099d87c15bbc2d69967b60699de22fd29917f",
+          "gate_report.json": "b215a0c5f7dde2c1ca5c5c476a59d2e95164c3dce6ba0d7220ccaf2e41246d51",
+          "metrics.json": "3a5084c1955ef1a8eb7d82ba84635cf3e77c7681314468d1b51d9364d83b6297",
+          "newtask.pt": "0f00a6b6ed4a38b2a3378427b173839a1b9fe71bab8196b0a3fcee0164acc77d",
+          "split_fingerprint.json": "37a6ff553780e191a3d81a2691afc099ac23223f48b00a5e9ea34c4adac99411",
+          "stdout.log": "b0440a6ca5c9d8484fc4dbdcabd7b20de23727c8bffe011570631fe85d058a78"
+        }
+      },
+      "arm": {
+        "run_id": "20261005-0233-s20260929-m1685463909-short-5b2ca79-nullx",
+        "commit": "5b2ca79",
+        "test_auc": 0.8447283846542692,
+        "best_val_auc": 0.8473110085312799,
+        "best_epoch": 5,
+        "epoch_records": [
+          {
+            "epoch": 1,
+            "loss": 0.26250496229682213,
+            "auc_val_education": 0.8396350500593052
+          },
+          {
+            "epoch": 2,
+            "loss": 0.24627413986585078,
+            "auc_val_education": 0.8433223312457693
+          },
+          {
+            "epoch": 3,
+            "loss": 0.24362721024797512,
+            "auc_val_education": 0.8461527472662373
+          },
+          {
+            "epoch": 4,
+            "loss": 0.2420200034020803,
+            "auc_val_education": 0.8472345228973439
+          },
+          {
+            "epoch": 5,
+            "loss": 0.24089490083547738,
+            "auc_val_education": 0.8473110085312799
+          }
+        ],
+        "mechanism": {
+          "gate_mean": [
+            0.9291278140357668,
+            0.8962754976794589
+          ],
+          "cos_gen_spec": [
+            0.15940741474158415,
+            0.2695664385492674
+          ],
+          "gen_std": 2.2781715021638225,
+          "env_acc_stage1": [
+            0.4988948702812195,
+            0.3807430863380432
+          ],
+          "null_mean": 0.35102747942742163,
+          "null_top1_rate": 0.40646739239389745,
+          "null_std": 0.16234055106992418,
+          "null_var": 0.026354454521686662,
+          "route_entropy_mean": 0.9232792798994389,
+          "route_entropy_std": 0.10016073678942662,
+          "route_var_mean": 0.040049896609564914,
+          "null_q10": 0.14310020208358765,
+          "null_q25": 0.16864439845085144,
+          "null_q50": 0.35965976119041443,
+          "null_q75": 0.5079030394554138,
+          "null_q90": 0.5673049092292786,
+          "null_mean_edu_pos": 0.40797102805472124,
+          "null_mean_edu_neg": 0.34487483885778825,
+          "null_label_gap": 0.063096189196933,
+          "corr_null_pred": 0.25840181708465615,
+          "corr_null_abs_err": 0.2716707743836749,
+          "pred_std": 0.13250300374785628
+        },
+        "null_arm": {
+          "test_auc": 0.8447283846542692,
+          "null_top1_rate": 0.40646739239389745,
+          "baseline_test_auc": 0.8500685307,
+          "auc_min": 0.8521,
+          "top1_range": [
+            0.05,
+            0.95
+          ],
+          "checks": {
+            "auc": false,
+            "top1": true
+          },
+          "pass": false
+        },
+        "config": {
+          "run_id": "20261005-0233-s20260929-m1685463909-short-5b2ca79-nullx",
+          "stage1_id": "s1-096f8f16-m1685463909-e2-8b53a3bf",
+          "commit": "5b2ca79",
+          "tag": "short",
+          "frozen": true,
+          "null_expert": true,
+          "split_seed": 20260929,
+          "model_seed": 1685463909,
+          "env_seed": 20260929,
+          "epochs": 5,
+          "patience": 2,
+          "lr": 0.001,
+          "batch_size": 256,
+          "input_size": 123,
+          "rep_dim": 128
+        },
+        "files": {
+          "config.json": "00493f5371c653ec450e0ad69baea2b63a88aacdb4827b98eaf80efe78d8b629",
+          "env_ids.pt": "9394ef91552714ef43fb8efc11c099d87c15bbc2d69967b60699de22fd29917f",
+          "gate_report.json": "ecf8636e8fd05999e26e33ad705e2414f80b8ff7bed729e62bd9119a9069ffb5",
+          "metrics.json": "03cdc8864247b0e42b9f489e8879af12b16b07a3677d00dc94fa6be6a30b34c5",
+          "newtask.pt": "d73098ce4e32fd7cdc70c212c26878d06aff1b2a1a0511ac623465aacfd95b9b",
+          "split_fingerprint.json": "37a6ff553780e191a3d81a2691afc099ac23223f48b00a5e9ea34c4adac99411",
+          "stdout.log": "5a483d3b4f47a8853c27b0296e1481ff405f30093769bdb7660243192b71ff03"
+        }
+      },
+      "delta_test": -0.0005284892173337274,
+      "delta_val": -0.0002892890134781334,
+      "classification": "NO_CLEAR_IMPROVEMENT",
+      "budget": {
+        "baseline_best_epoch": 5,
+        "baseline_last_epoch": 5,
+        "arm_best_epoch": 5,
+        "arm_last_epoch": 5,
+        "baseline_right_censored": true,
+        "arm_right_censored": true,
+        "common_epochs": 5,
+        "delta_val_by_epoch": [
+          0.00045756882560732404,
+          -0.00017982287466244973,
+          0.00064170978755973,
+          0.0007852707763615907,
+          -0.0002892890134781334
+        ],
+        "delta_val_last_common": -0.0002892890134781334
+      },
+      "headroom": {
+        "mechanism_active": true,
+        "val_direction_positive": false,
+        "budget_right_censored": true,
+        "budget_last_delta_positive": false,
+        "cross_seed_consistent": true,
+        "delta_val": -0.0002892890134781334,
+        "headroom_remains": false
+      },
+      "gates": {
+        "baseline": {
+          "A1": {
+            "pass": true,
+            "detail": {
+              "backbone_sha_equal": true,
+              "grads_all_none": true
+            }
+          },
+          "A2": {
+            "pass": true,
+            "detail": {
+              "split_fingerprint_consistent": true
+            }
+          },
+          "A4": {
+            "pass": true,
+            "detail": {
+              "disjoint_and_complete": true
+            }
+          },
+          "A5": {
+            "pass": true,
+            "detail": {
+              "env_ids_sha256_matches_stage1": true
+            }
+          },
+          "B1": {
+            "pass": true,
+            "detail": {
+              "auc_val_income": 0.9359353986833019,
+              "auc_val_marital": 0.989560335016033,
+              "auc_test_education": 0.845256873871603,
+              "floor": 0.6
+            }
+          },
+          "B2": {
+            "pass": true,
+            "detail": {
+              "gap": 0.0023434236731550984,
+              "limit": 0.03
+            }
+          },
+          "B3": {
+            "pass": true,
+            "detail": {
+              "gate_mean": [
+                0.9291278140357668,
+                0.8962754976794589
+              ]
+            }
+          },
+          "B4": {
+            "pass": true,
+            "detail": {
+              "env_shares": [
+                0.5111089949529628,
+                0.4888910050470372
+              ]
+            }
+          },
+          "overall_pass": true,
+          "failures": [],
+          "A3": {
+            "status": "on_demand",
+            "detail": "按需复跑同一配置，比较 AUC-Test-Education 差 ≤ 1e-9 与 backbone_sha256 一致"
+          }
+        },
+        "arm": {
+          "A1": {
+            "pass": true,
+            "detail": {
+              "backbone_sha_equal": true,
+              "grads_all_none": true
+            }
+          },
+          "A2": {
+            "pass": true,
+            "detail": {
+              "split_fingerprint_consistent": true
+            }
+          },
+          "A4": {
+            "pass": true,
+            "detail": {
+              "disjoint_and_complete": true
+            }
+          },
+          "A5": {
+            "pass": true,
+            "detail": {
+              "env_ids_sha256_matches_stage1": true
+            }
+          },
+          "B1": {
+            "pass": true,
+            "detail": {
+              "auc_val_income": 0.9359353986833019,
+              "auc_val_marital": 0.989560335016033,
+              "auc_test_education": 0.8447283846542692,
+              "floor": 0.6
+            }
+          },
+          "B2": {
+            "pass": true,
+            "detail": {
+              "gap": 0.0025826238770106924,
+              "limit": 0.03
+            }
+          },
+          "B3": {
+            "pass": true,
+            "detail": {
+              "gate_mean": [
+                0.9291278140357668,
+                0.8962754976794589
+              ]
+            }
+          },
+          "B4": {
+            "pass": true,
+            "detail": {
+              "env_shares": [
+                0.5111089949529628,
+                0.4888910050470372
+              ]
+            }
+          },
+          "overall_pass": true,
+          "failures": [],
+          "A3": {
+            "status": "on_demand",
+            "detail": "按需复跑同一配置，比较 AUC-Test-Education 差 ≤ 1e-9 与 backbone_sha256 一致"
+          }
+        }
+      }
+    },
+    {
+      "model_seed": 1685477428,
+      "stage1_id": "s1-096f8f16-m1685477428-e2-15eabcb4",
+      "stage1": {
+        "stage1_id": "s1-096f8f16-m1685477428-e2-15eabcb4",
+        "meta": {
+          "backbone_sha256": "291c86277a59cfd69213026b5fea21e7a086ee73a64546c17a0c182f0a2c0c37",
+          "env_ids_sha256": "1c7353491360ed985153204ae9cfe43ae9c326cbc756c587adb96c4c12f213f2",
+          "split_fingerprint_sha256": "096f8f16db081d7ad024b7aa450a40510a50e0acdbb439d973cc8fc9557d460c",
+          "config_hash": "15eabcb4d63c18c471a6c689309bfbf4454f4a9d4a4c1391ce448ee3918bf40f",
+          "epochs": 2,
+          "model_seed": 1685477428,
+          "env_seed": 20260929
+        },
+        "files": {
+          "backbone.pt": "d06f18c668e8ba2787cb7d98fbf635d81084e83b015499c522dc92516a5ad802",
+          "env_ids.pt": "706ae0a93eebd5d99ffd5feddbc2d843297dacfa59bd5d39657a8ddedcd0617d",
+          "meta.json": "66305ecb9b7676b7aae7a5920ea550455f68a84f001548947197271f21a44fac",
+          "stdout.log": "002260c12d67817fa57d96b913328114a46ec270e8e1ed56b458f2ae5dd0bdc2"
+        }
+      },
+      "baseline": {
+        "run_id": "20261005-0236-s20260929-m1685477428-short-1928ee9",
+        "commit": "1928ee9",
+        "test_auc": 0.8427796966516823,
+        "best_val_auc": 0.8436747451693688,
+        "best_epoch": 5,
+        "epoch_records": [
+          {
+            "epoch": 1,
+            "loss": 0.2615942647250799,
+            "auc_val_education": 0.8333522033671783
+          },
+          {
+            "epoch": 2,
+            "loss": 0.24702133624217448,
+            "auc_val_education": 0.8389783765350926
+          },
+          {
+            "epoch": 3,
+            "loss": 0.24544563117699744,
+            "auc_val_education": 0.8411478329129756
+          },
+          {
+            "epoch": 4,
+            "loss": 0.24432240057832155,
+            "auc_val_education": 0.8424220591409619
+          },
+          {
+            "epoch": 5,
+            "loss": 0.24311685409301367,
+            "auc_val_education": 0.8436747451693688
+          }
+        ],
+        "split_fingerprint": "096f8f16db081d7ad024b7aa450a40510a50e0acdbb439d973cc8fc9557d460c",
+        "env_ids_sha256": "1c7353491360ed985153204ae9cfe43ae9c326cbc756c587adb96c4c12f213f2",
+        "config": {
+          "run_id": "20261005-0236-s20260929-m1685477428-short-1928ee9",
+          "stage1_id": "s1-096f8f16-m1685477428-e2-15eabcb4",
+          "commit": "1928ee9",
+          "tag": "short",
+          "frozen": true,
+          "null_expert": false,
+          "split_seed": 20260929,
+          "model_seed": 1685477428,
+          "env_seed": 20260929,
+          "epochs": 5,
+          "patience": 2,
+          "lr": 0.001,
+          "batch_size": 256,
+          "input_size": 123,
+          "rep_dim": 128
+        },
+        "files": {
+          "config.json": "a94fe35da46b80d47340995a9ffde20cff0f4ede98c1c14df6217102075811ce",
+          "env_ids.pt": "706ae0a93eebd5d99ffd5feddbc2d843297dacfa59bd5d39657a8ddedcd0617d",
+          "gate_report.json": "d7948925a8860102b02a47f1ea958ff7b59b5f7973788476af9b0cb1fe8f0838",
+          "metrics.json": "b58081d75ae23b0746d0ef390bc0c02e708fb7eddfa71dcf936297d62839b4a7",
+          "newtask.pt": "2c044fe893cdc4237ee761b1b57930bef59cc445c1e2c354f3e524e7f6927c98",
+          "split_fingerprint.json": "37a6ff553780e191a3d81a2691afc099ac23223f48b00a5e9ea34c4adac99411",
+          "stdout.log": "e9f4b4367512474d0b08367acb93509d2882e46ff9000eb5212efdf16dc2ffd9"
+        }
+      },
+      "arm": {
+        "run_id": "20261005-0238-s20260929-m1685477428-short-ecc2148-nullx",
+        "commit": "ecc2148",
+        "test_auc": 0.8456572919817906,
+        "best_val_auc": 0.8476304556509646,
+        "best_epoch": 5,
+        "epoch_records": [
+          {
+            "epoch": 1,
+            "loss": 0.261762318893885,
+            "auc_val_education": 0.8336840452926847
+          },
+          {
+            "epoch": 2,
+            "loss": 0.2465333551550523,
+            "auc_val_education": 0.8405859266762381
+          },
+          {
+            "epoch": 3,
+            "loss": 0.2433642935485412,
+            "auc_val_education": 0.8445237802341922
+          },
+          {
+            "epoch": 4,
+            "loss": 0.24122263288650758,
+            "auc_val_education": 0.84729854750413
+          },
+          {
+            "epoch": 5,
+            "loss": 0.23996448035423573,
+            "auc_val_education": 0.8476304556509646
+          }
+        ],
+        "mechanism": {
+          "gate_mean": [
+            0.9301209185041758,
+            0.7759503682787815
+          ],
+          "cos_gen_spec": [
+            0.28910483208069926,
+            0.2505080167355453
+          ],
+          "gen_std": 1.1098867801905614,
+          "env_acc_stage1": [
+            0.49892494082450867,
+            0.3366529047489166
+          ],
+          "null_mean": 0.4071581977192909,
+          "null_top1_rate": 0.4249112888675047,
+          "null_std": 0.251825084404169,
+          "null_var": 0.06341587313516683,
+          "route_entropy_mean": 0.8888661456865683,
+          "route_entropy_std": 0.10001276984128633,
+          "route_var_mean": 0.04761454418469528,
+          "null_q10": 0.1288706511259079,
+          "null_q25": 0.16177520155906677,
+          "null_q50": 0.33124497532844543,
+          "null_q75": 0.7327628135681152,
+          "null_q90": 0.7477656602859497,
+          "null_mean_edu_pos": 0.21218233705823017,
+          "null_mean_edu_neg": 0.42822496330241283,
+          "null_label_gap": -0.21604262624418266,
+          "corr_null_pred": -0.5705744185955136,
+          "corr_null_abs_err": -0.46425799560993697,
+          "pred_std": 0.14055045728859908
+        },
+        "null_arm": {
+          "test_auc": 0.8456572919817906,
+          "null_top1_rate": 0.4249112888675047,
+          "baseline_test_auc": 0.8500685307,
+          "auc_min": 0.8521,
+          "top1_range": [
+            0.05,
+            0.95
+          ],
+          "checks": {
+            "auc": false,
+            "top1": true
+          },
+          "pass": false
+        },
+        "config": {
+          "run_id": "20261005-0238-s20260929-m1685477428-short-ecc2148-nullx",
+          "stage1_id": "s1-096f8f16-m1685477428-e2-15eabcb4",
+          "commit": "ecc2148",
+          "tag": "short",
+          "frozen": true,
+          "null_expert": true,
+          "split_seed": 20260929,
+          "model_seed": 1685477428,
+          "env_seed": 20260929,
+          "epochs": 5,
+          "patience": 2,
+          "lr": 0.001,
+          "batch_size": 256,
+          "input_size": 123,
+          "rep_dim": 128
+        },
+        "files": {
+          "config.json": "cab8534c670cfafe55181495cc66c7913d9c529a5f766ee77405fa5b72cd05c4",
+          "env_ids.pt": "706ae0a93eebd5d99ffd5feddbc2d843297dacfa59bd5d39657a8ddedcd0617d",
+          "gate_report.json": "ab6b63f997a6d94d71914dabf834d3f8edc26d8be0d76c03afb8888f6c4ff04c",
+          "metrics.json": "e5be13be7e86d934cd4c09c1ab4a3323e5c2af928e682b482d6d2dc02d28c8b5",
+          "newtask.pt": "4ebcd2c919c24780782a268ce43ba9fc6f2f87ea051b824509cf7c7d0d453ae7",
+          "split_fingerprint.json": "37a6ff553780e191a3d81a2691afc099ac23223f48b00a5e9ea34c4adac99411",
+          "stdout.log": "4bfec06942c291381bff8e2392e28515363888d831337433c943a0aa6c1e4a32"
+        }
+      },
+      "delta_test": 0.00287759533010834,
+      "delta_val": 0.00395571048159582,
+      "classification": "POSITIVE_IMPROVEMENT",
+      "budget": {
+        "baseline_best_epoch": 5,
+        "baseline_last_epoch": 5,
+        "arm_best_epoch": 5,
+        "arm_last_epoch": 5,
+        "baseline_right_censored": true,
+        "arm_right_censored": true,
+        "common_epochs": 5,
+        "delta_val_by_epoch": [
+          0.00033184192550639313,
+          0.0016075501411455528,
+          0.003375947321216599,
+          0.004876488363168119,
+          0.00395571048159582
+        ],
+        "delta_val_last_common": 0.00395571048159582
+      },
+      "headroom": {
+        "mechanism_active": true,
+        "val_direction_positive": true,
+        "budget_right_censored": true,
+        "budget_last_delta_positive": true,
+        "cross_seed_consistent": true,
+        "delta_val": 0.00395571048159582,
+        "headroom_remains": true
+      },
+      "gates": {
+        "baseline": {
+          "A1": {
+            "pass": true,
+            "detail": {
+              "backbone_sha_equal": true,
+              "grads_all_none": true
+            }
+          },
+          "A2": {
+            "pass": true,
+            "detail": {
+              "split_fingerprint_consistent": true
+            }
+          },
+          "A4": {
+            "pass": true,
+            "detail": {
+              "disjoint_and_complete": true
+            }
+          },
+          "A5": {
+            "pass": true,
+            "detail": {
+              "env_ids_sha256_matches_stage1": true
+            }
+          },
+          "B1": {
+            "pass": true,
+            "detail": {
+              "auc_val_income": 0.9308640941564909,
+              "auc_val_marital": 0.9922620195083053,
+              "auc_test_education": 0.8427796966516823,
+              "floor": 0.6
+            }
+          },
+          "B2": {
+            "pass": true,
+            "detail": {
+              "gap": 0.0008950485176865142,
+              "limit": 0.03
+            }
+          },
+          "B3": {
+            "pass": true,
+            "detail": {
+              "gate_mean": [
+                0.9301209185041758,
+                0.7759503682787815
+              ]
+            }
+          },
+          "B4": {
+            "pass": true,
+            "detail": {
+              "env_shares": [
+                0.5466437453326183,
+                0.4533562546673817
+              ]
+            }
+          },
+          "overall_pass": true,
+          "failures": [],
+          "A3": {
+            "status": "on_demand",
+            "detail": "按需复跑同一配置，比较 AUC-Test-Education 差 ≤ 1e-9 与 backbone_sha256 一致"
+          }
+        },
+        "arm": {
+          "A1": {
+            "pass": true,
+            "detail": {
+              "backbone_sha_equal": true,
+              "grads_all_none": true
+            }
+          },
+          "A2": {
+            "pass": true,
+            "detail": {
+              "split_fingerprint_consistent": true
+            }
+          },
+          "A4": {
+            "pass": true,
+            "detail": {
+              "disjoint_and_complete": true
+            }
+          },
+          "A5": {
+            "pass": true,
+            "detail": {
+              "env_ids_sha256_matches_stage1": true
+            }
+          },
+          "B1": {
+            "pass": true,
+            "detail": {
+              "auc_val_income": 0.9308640941564909,
+              "auc_val_marital": 0.9922620195083053,
+              "auc_test_education": 0.8456572919817906,
+              "floor": 0.6
+            }
+          },
+          "B2": {
+            "pass": true,
+            "detail": {
+              "gap": 0.001973163669173994,
+              "limit": 0.03
+            }
+          },
+          "B3": {
+            "pass": true,
+            "detail": {
+              "gate_mean": [
+                0.9301209185041758,
+                0.7759503682787815
+              ]
+            }
+          },
+          "B4": {
+            "pass": true,
+            "detail": {
+              "env_shares": [
+                0.5466437453326183,
+                0.4533562546673817
+              ]
+            }
+          },
+          "overall_pass": true,
+          "failures": [],
+          "A3": {
+            "status": "on_demand",
+            "detail": "按需复跑同一配置，比较 AUC-Test-Education 差 ≤ 1e-9 与 backbone_sha256 一致"
+          }
+        }
+      }
+    }
+  ],
+  "stats": {
+    "n": 3,
+    "mean": 0.0012151342130919396,
+    "std": 0.0017044921463354903,
+    "positive_count": 2,
+    "worst_index": 1,
+    "worst_delta": -0.0005284892173337274,
+    "ci95_low": -0.0030194007518357284,
+    "ci95_high": 0.005449669178019608,
+    "ci_method": "Student t 95% CI on paired deltas, df=n-1, t=4.303 (n=3)",
+    "worst_seed": 1685463909
+  },
+  "anchor": {
+    "baseline_run_id": "20260929-1735-s20260929-m1685480945-short-904f8d0",
+    "nullx_run_id": "20260929-1802-s20260929-m1685480945-short-1eadd05-nullx",
+    "historical_baseline_test_auc": 0.8500685307175756,
+    "historical_nullx_test_auc": 0.8513648272440768,
+    "tolerance": 1e-09,
+    "historical_dirs_match_constants": true,
+    "fresh_baseline_run_id": "20261005-0225-s20260929-m1685480945-short-b4933e2",
+    "fresh_nullx_run_id": "20261005-0227-s20260929-m1685480945-short-9898f9e-nullx",
+    "fresh_baseline_test_auc": 0.8500685307175756,
+    "fresh_nullx_test_auc": 0.8513648272440768,
+    "abs_diff_baseline": 0.0,
+    "abs_diff_nullx": 0.0,
+    "status": "REPRODUCED"
+  }
+}
