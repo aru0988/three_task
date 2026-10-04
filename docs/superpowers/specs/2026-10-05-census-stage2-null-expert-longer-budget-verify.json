@@ -1,0 +1,298 @@
+{
+  "total": 58,
+  "passed": 58,
+  "all_pass": true,
+  "failed": [],
+  "checks": [
+    {
+      "name": "checkpoint verdict == NOT_PERSIST",
+      "pass": true,
+      "detail": "NOT_PERSIST"
+    },
+    {
+      "name": "checkpoint identity all_pass",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "checkpoint criteria pinned (10/3/long)",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "1685480945: delta_test recompute == checkpoint",
+      "pass": true,
+      "detail": "0.001296296526501206"
+    },
+    {
+      "name": "1685480945: delta_val recompute == checkpoint",
+      "pass": true,
+      "detail": "0.00023224048108139161"
+    },
+    {
+      "name": "1685480945: classification == mechanical reclassify",
+      "pass": true,
+      "detail": "POSITIVE_IMPROVEMENT"
+    },
+    {
+      "name": "1685480945: both arms record epochs=10/patience=3/tag=long",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "1685480945: both arms same stage1_id == pinned",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "1685480945: recorded test auc == checkpoint",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "1685480945/baseline: file hashes match checkpoint",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "1685480945/arm: file hashes match checkpoint",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "1685480945/baseline: first-5-epoch traj bit-equal to short run",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "1685480945/arm: first-5-epoch traj bit-equal to short run",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "1685480945/baseline: best<=5 test auc bit-equal to short",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "1685480945/arm: best<=5 test auc bit-equal to short",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "1685463909: delta_test recompute == checkpoint",
+      "pass": true,
+      "detail": "0.0018317538029973823"
+    },
+    {
+      "name": "1685463909: delta_val recompute == checkpoint",
+      "pass": true,
+      "detail": "0.0010033787126326743"
+    },
+    {
+      "name": "1685463909: classification == mechanical reclassify",
+      "pass": true,
+      "detail": "POSITIVE_IMPROVEMENT"
+    },
+    {
+      "name": "1685463909: both arms record epochs=10/patience=3/tag=long",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "1685463909: both arms same stage1_id == pinned",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "1685463909: recorded test auc == checkpoint",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "1685463909/baseline: file hashes match checkpoint",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "1685463909/arm: file hashes match checkpoint",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "1685463909/baseline: first-5-epoch traj bit-equal to short run",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "1685463909/arm: first-5-epoch traj bit-equal to short run",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "1685477428: delta_test recompute == checkpoint",
+      "pass": true,
+      "detail": "0.0015037888571964864"
+    },
+    {
+      "name": "1685477428: delta_val recompute == checkpoint",
+      "pass": true,
+      "detail": "0.0016655371896056037"
+    },
+    {
+      "name": "1685477428: classification == mechanical reclassify",
+      "pass": true,
+      "detail": "POSITIVE_IMPROVEMENT"
+    },
+    {
+      "name": "1685477428: both arms record epochs=10/patience=3/tag=long",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "1685477428: both arms same stage1_id == pinned",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "1685477428: recorded test auc == checkpoint",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "1685477428/baseline: file hashes match checkpoint",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "1685477428/arm: file hashes match checkpoint",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "1685477428/baseline: first-5-epoch traj bit-equal to short run",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "1685477428/arm: first-5-epoch traj bit-equal to short run",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "1685459668: delta_test recompute == checkpoint",
+      "pass": true,
+      "detail": "-0.0009452475261504389"
+    },
+    {
+      "name": "1685459668: delta_val recompute == checkpoint",
+      "pass": true,
+      "detail": "-0.0014436820395629102"
+    },
+    {
+      "name": "1685459668: classification == mechanical reclassify",
+      "pass": true,
+      "detail": "NO_CLEAR_IMPROVEMENT"
+    },
+    {
+      "name": "1685459668: both arms record epochs=10/patience=3/tag=long",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "1685459668: both arms same stage1_id == pinned",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "1685459668: recorded test auc == checkpoint",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "1685459668/baseline: file hashes match checkpoint",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "1685459668/arm: file hashes match checkpoint",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "1685459668/baseline: first-5-epoch traj bit-equal to short run",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "1685459668/arm: first-5-epoch traj bit-equal to short run",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "1685496394: delta_test recompute == checkpoint",
+      "pass": true,
+      "detail": "-0.0003256030423448575"
+    },
+    {
+      "name": "1685496394: delta_val recompute == checkpoint",
+      "pass": true,
+      "detail": "-0.00013786138759852573"
+    },
+    {
+      "name": "1685496394: classification == mechanical reclassify",
+      "pass": true,
+      "detail": "NO_CLEAR_IMPROVEMENT"
+    },
+    {
+      "name": "1685496394: both arms record epochs=10/patience=3/tag=long",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "1685496394: both arms same stage1_id == pinned",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "1685496394: recorded test auc == checkpoint",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "1685496394/baseline: file hashes match checkpoint",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "1685496394/arm: file hashes match checkpoint",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "1685496394/baseline: first-5-epoch traj bit-equal to short run",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "1685496394/arm: first-5-epoch traj bit-equal to short run",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "verdict recompute == checkpoint verdict",
+      "pass": true,
+      "detail": "NOT_PERSIST"
+    },
+    {
+      "name": "stats recompute (mean/std/positive/worst) == checkpoint",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "context source sha pinned",
+      "pass": true,
+      "detail": ""
+    }
+  ]
+}
