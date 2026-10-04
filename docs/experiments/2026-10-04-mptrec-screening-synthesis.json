@@ -4,7 +4,8 @@
     "created": "2026-10-04",
     "docs_branch": "docs/mptrec-screening-synthesis",
     "base": "master fd751986b79ab90205231aec979a3be66591b9a7",
-    "scope": "All completed screening branches of the two fair-evaluation lineages (CensusIncome: base infra/fair-stage2-benchmark @ 87afe03; AliCCP: base infra/aliccp-fair-benchmark @ 8133d32), plus the Census-side AliCCP-attenuation transfer branch. One record per branch.",
+    "scope": "All completed screening branches of the two fair-evaluation lineages (CensusIncome: base infra/fair-stage2-benchmark @ 87afe03; AliCCP: base infra/aliccp-fair-benchmark @ 8133d32), plus the Census-side AliCCP-attenuation transfer branch and the AliCCP A3 repeatability-calibration branch (infra/aliccp-a3-repeatability-calibration @ f65412f, added in the 2026-10-04 second-pass update as the 24th entry). One record per branch.",
+    "revision": "2026-10-04 second pass (same docs branch, docs-only): adds the A3 repeatability-calibration entry (24th branch; A3_PASS on the AliCCP seed-2 short Stage-2 baseline config); moves former direction D2 from recommended_directions to completed_directions (executed for AliCCP; its Census half not measured - documented, not reconciled); reframes D1 as the single researcher-led handoff (AliCCP-scoped, prior-art-aware); final recommendation: no additional automated screening experiments. No previous entry's rows, values or classification fields were altered.",
     "audit_method": "Read-only audit of committed git refs: per-branch SUMMARY.md versions (artifacts/census_stage2/SUMMARY.md, artifacts/aliccp_bench/SUMMARY.md, artifacts/census_stage1_grad/SUMMARY.md), branch-local design/experiment documents, and result commit messages. Run directories, JSONs and verifier reports are gitignored and were NOT audited; all values are as recorded in committed files. No training, no model-code changes, no merges.",
     "value_conventions": {
       "shas": "40-char commit SHAs; blobs are 40-char git blob hashes as committed at the branch tip",
@@ -14,7 +15,8 @@
     "not_audited": [
       "artifacts/*/runs/** run-level JSON/prompt_report/gate_report (gitignored, not committed)",
       "artifacts/aliccp_bench/audit/** and untracked verify_*.py scripts in worktrees (deliberately untouched)",
-      "two tooling-interrupted launch logs of the AliCCP residual-prompt-gate branch (0-byte, preserved locally, described in the design doc section 9.0)"
+      "two tooling-interrupted launch logs of the AliCCP residual-prompt-gate branch (0-byte, preserved locally, described in the design doc section 9.0)",
+      "artifacts/aliccp_bench/audit/a3-short-seed2/a3_report.json (gitignored per the A3 design section 11.2; its values are audited only as quoted in the committed A3 report document)"
     ],
     "integrity_note_refs": "See docs/experiments/2026-10-04-mptrec-screening-synthesis.md section 7 for the full provenance and conflict notes; each entry below cites its evidence files."
   },
@@ -930,37 +932,128 @@
         "artifacts/aliccp_bench/SUMMARY.md rows 20261004-0427/0431-...-long-[-rpg] @ e46e5d2 (blob b1542db6)",
         "docs/superpowers/specs/2026-10-04-aliccp-stage2-residual-prompt-longer-budget-design.md sections 5/10 @ e46e5d2 (blob af80ec97)"
       ]
+    },
+    {
+      "id": "infra-aliccp-a3-repeatability-calibration",
+      "branch": "infra/aliccp-a3-repeatability-calibration",
+      "tip_commit": "f65412f7935d1dbcdfbbe717b789f367ce095f39",
+      "lineage": "aliccp (calibrates the shared seed-2 short Stage-2 baseline config on fixed stage-1 artifact s1-5c060b9c-m1688723740-e3-4e1b5c6f; its own SUMMARY adds only the two new rows - the REF row is owned by a sibling branch)",
+      "dataset_stage": "AliCCP stage-2 short (5 epochs / patience 2, BSI); protocol A3 same-config rerun calibration (no new arm, no model change, no Stage-1 retrain)",
+      "result_commits": [
+        {"sha": "10ea6fac389854bb6891c36a0f497b7afed24b23", "role": "C1: preregistration (criteria frozen before any new run; cites this synthesis's D2 as provenance)"},
+        {"sha": "acba208b39bc240d595d7576638ed2d89dc0ebb9", "role": "C2: read-only analyzer + tests (TDD; pipeline files zero-diff vs 8133d32; HEAD at R1 run time)"},
+        {"sha": "428c76f13f858b38981b6060776deb367a08005a", "role": "C3: R1 SUMMARY row (HEAD at R2 run time)"},
+        {"sha": "f7c129265ddc52471ebaeef12c582fbf2aae63fc", "role": "C4: R2 SUMMARY row"},
+        {"sha": "f65412f7935d1dbcdfbbe717b789f367ce095f39", "role": "C5: result report (A3_PASS) - branch tip"}
+      ],
+      "hypothesis": "Protocol A3 instantiated per the prereg: re-running the seed-2 (m1688723740) short Stage-2 baseline config on the fixed stage-1 artifact must yield pairwise |delta AUC-Test-BSI| <= 1e-9 with identical backbone_sha256 (loaded==before==after); the resulting noise floor calibrates how conservative the unchanged provisional +0.0055 threshold is on the same-config run-to-run dimension only.",
+      "positioning": "infrastructure / repeatability calibration (no arm, no hyperparameter search, no performance or novelty claim; pipeline files zero-diff vs base 8133d32; +0.0055 unchanged; two new runs + one existing reference)",
+      "mechanism_verdict": "A3_PASS: pairwise |delta AUC-Test-BSI| = 0.0 (bit-equal, not merely <= 1e-9) across REF/R1/R2; backbone_sha256 e5e7e610... identical and loaded==before==after on all three; identity prerequisites hold (13-key config identity subset; A1/A2/A4/A5/A6 PASS on all three; env_ids_sha256/fingerprint_sha256 identical). Supplementary indicators at strongest form: max pairwise |delta val| = 0.0; max |delta gate_mean| = 0.0; per-epoch trajectories bit-equal; newtask.pt byte-identical (sha 90ee06da...) including the cross-code REF. Analyzer verdict and an independent recomputation bit-consistent; 56/56 tests pass (18 new A3 analyzer tests).",
+      "utility": {
+        "metric": null,
+        "arm_auc_full": null,
+        "baseline_auc_full": null,
+        "baseline_run_id": null,
+        "delta_reported": null,
+        "delta_source": null,
+        "threshold": "A3 per protocol spec section 10: pairwise |delta AUC-Test-BSI| <= 1e-9 AND backbone_sha256 equal; no arm-vs-baseline utility threshold is evaluated; PI delta >= +0.0055 unchanged and NOT re-evaluated",
+        "status": "A3_PASS",
+        "note": "runs: REF 20261003-0624-p2M-v500k-t1M-m1688723740-short-79b5e07 (existing) + R1 20261004-0622-...-acba208 + R2 20261004-0625-...-428c76f; all three: AUC-Test-BSI 0.5974422649550507, AUC-Val-BSI(best) 0.5809347091990792, gate_mean [0.789178, 0.2108221875]; noise floor F = 0.0 -> +0.0055 conservative >= 5.5e6x on the same-config run-to-run dimension only; wall 142.9/139.9/141.1 s"
+      },
+      "repeatability": {
+        "config": "seed-2 short Stage-2 baseline; tag=short; budgets p2M-v500k-t1M; model seed 1688723740; env seed 20261003 (fixed via artifact env_ids); stage1_id s1-5c060b9c-m1688723740-e3-4e1b5c6f; 5 epochs / patience 2",
+        "runs": [
+          "20261003-0624-p2M-v500k-t1M-m1688723740-short-79b5e07 (REF, existing; row owned by exp/aliccp-stage2-attenuation-seed-replication)",
+          "20261004-0622-p2M-v500k-t1M-m1688723740-short-acba208 (R1, new)",
+          "20261004-0625-p2M-v500k-t1M-m1688723740-short-428c76f (R2, new)"
+        ],
+        "criterion": "pairwise |delta AUC-Test-BSI| <= 1e-9 AND backbone_sha256 equal (protocol spec section 10-A3, prereg section 6.2)",
+        "observed": {
+          "max_pair_abs_delta_test": 0.0,
+          "max_pair_abs_delta_val": 0.0,
+          "max_abs_delta_gate_mean": 0.0,
+          "trajectories_bit_equal": true,
+          "checkpoints_byte_identical": "newtask.pt sha256 90ee06da387129b50ed7ba0b93742a02db6e87d40d60ae11dbc6b189aeecb94f on all three (incl. cross-code REF)",
+          "backbone_sha256": "e5e7e610f9dcbe9b748820079187dfbd70510dfe41fa46dd85a6baeba97d990c",
+          "wall_seconds": [142.9, 139.9, 141.1]
+        },
+        "calibration": "+0.0055 vs noise F = 0.0 -> conservative factor >= 5.5e6 on the same-config run-to-run dimension ONLY",
+        "mandatory_boundaries": [
+          "covers same-config run-to-run noise only; cross-seed variance, budget effects and machine/version differences are NOT covered",
+          "the family's observed swings of about +/-1e-4..1e-3 are cross-seed/cross-config quantities, not explained by this calibration; their noise status is unchanged",
+          "+0.0055 keeps its provisional status; its value is unchanged and is not finalized by this branch"
+        ],
+        "scope_limits": "single config (short/seed-2/single artifact), n = 3, same machine/GPU, single environment (python 3.10.11 / torch 2.6.0+cu124 / cuda 12.4)",
+        "long_config_supplementary": "the existing 10-epoch rerun pair 20261003-0724-...-bbd8a61 vs 20261004-0427-...-2b1d585 numerically satisfies A3 (delta test = 0.0, both 0.6614121223087556; checkpoints byte-identical, sha ea988a36...) but was not preregistered as A3 -> recorded as supplementary evidence; the pair was deliberately NOT rerun"
+      },
+      "replication": "n = 3 same-config runs (1 existing reference + 2 new); no other config or seed was rerun by this branch",
+      "longer_budget": "existing 10-epoch rerun pair is numerically A3-satisfying (supplementary evidence, not preregistered, not rerun)",
+      "inherited_caveats": [
+        "B4 FAIL inherited from the shared seed-2 stage-1 artifact (env_0 = 1532/2M; non-attributable; identical across all three runs)",
+        "scope: single config, n = 3, same machine/GPU, single environment version; no extrapolation",
+        "same-config run-to-run dimension only: cross-seed variance and budget effects remain uncalibrated; +0.0055 unchanged and still provisional",
+        "REF ran under attenuation-branch code (spec_attenuation hook inert at 1.0) - cross-code provenance disclosed as prereg deviation D1 and resolved empirically (byte-identical checkpoints incl. newtask.pt)",
+        "A3 status of every other config/seed (every arm config included) is unchanged: still SKIP; bit-equality observations there remain descriptive"
+      ],
+      "classification": "A3_PASS (same-config run-to-run noise floor F = 0.0; +0.0055 conservative >= 5.5e6x on this dimension only; no arm re-judged)",
+      "recommended_action": "close (completes former D2 as evidence; no further automated screening experiments)",
+      "summary_file": "artifacts/aliccp_bench/SUMMARY.md",
+      "summary_blob": "415187300407288c5740c7c52818986ac4a9583c",
+      "summary_rows": [
+        "20261004-0622-p2M-v500k-t1M-m1688723740-short-acba208",
+        "20261004-0625-p2M-v500k-t1M-m1688723740-short-428c76f"
+      ],
+      "cross_branch_rows": [
+        {"branch": "exp/aliccp-stage2-attenuation-seed-replication", "summary_file": "artifacts/aliccp_bench/SUMMARY.md", "run_id": "20261003-0624-p2M-v500k-t1M-m1688723740-short-79b5e07", "role": "REF row (owned by the seed-replication branch chain; not present in this branch's own SUMMARY)"}
+      ],
+      "spec_path": "docs/superpowers/specs/2026-10-04-aliccp-a3-repeatability-calibration-design.md",
+      "spec_blob": "bcc2b90a061fe86c0f3b12fe572f3f1906688f53",
+      "extra_docs": [
+        {"path": "docs/superpowers/specs/2026-10-04-aliccp-a3-repeatability-calibration-report.md", "blob": "f8e981b3e3e2663ba5e4b6e03268e4697e34d9bf", "role": "result report (A3_PASS record; C5)"}
+      ],
+      "evidence": [
+        "artifacts/aliccp_bench/SUMMARY.md rows 20261004-0622/0625-...-short-@ f65412f (blob 4151873)",
+        "docs/superpowers/specs/2026-10-04-aliccp-a3-repeatability-calibration-design.md sections 4/6 @ f65412f (blob bcc2b90a)",
+        "docs/superpowers/specs/2026-10-04-aliccp-a3-repeatability-calibration-report.md sections 1-8 @ f65412f (blob f8e981b3)",
+        "aliccp_benchmark/a3_repeatability.py + aliccp_benchmark/tests/test_a3_repeatability.py @ f65412f (56/56 tests; analyzer exit 0)"
+      ]
     }
   ],
 
   "recommended_directions": [
     {
       "id": "D1",
-      "title": "AliCCP residual prompt: noise floor + third canonical seed + extended-budget point (AliCCP-only)",
-      "rationale": "Only line with committed evidence for (i) full mechanism gates (M0+G1-G8, seed 1 and seed 2), (ii) unrelaxed seed-2 replication (REPLICATION_SUPPORTED), (iii) 10-epoch persistence (PERSISTS). All on AliCCP only.",
+      "title": "AliCCP residual prompt - single researcher-led handoff for broader datasets/seeds/budgets (claims stay AliCCP-scoped; prior-art-aware)",
+      "status": "RESEARCHER_LED handoff (not an automated screening agenda; the automated screening phase is closed)",
+      "rationale": "Only line with committed evidence for (i) full mechanism gates (M0+G1-G8 on both seeds), (ii) unrelaxed seed-2 replication (REPLICATION_SUPPORTED), and (iii) 10-epoch persistence (PERSISTS) - all on AliCCP only. The remaining open questions (seed count, budget, dataset breadth) need researcher-led judgement, not more pre-registered short runs.",
+      "handoff_scope_constraints": [
+        "AliCCP-scoped: every existing result is AliCCP-only; broader-dataset work is NEW research and must not be narrated as proven generality (the Census counterpart was VALID_NEGATIVE at -0.00233)",
+        "prior-art-aware: prompt/adapter/FiLM/gating families are extensively published (synthesis section 6); no novelty framing",
+        "A3 status does not transfer: the seed-2 short config is A3_PASS and the existing 10-epoch pair is numerically A3-satisfying (supplementary), but new configs inherit neither"
+      ],
       "steps": [
-        "Run the protocol-defined A3 same-seed reruns for the 10-epoch pair (currently A3 SKIP; de-facto bit-equality observed but not a formal A3).",
-        "Third canonical seed (1688738016, list position 3) using the seed-replication branch protocol verbatim (pinned mechanism, same U1/U2, pooled machinery).",
-        "One extended-budget point (e.g., 20 epochs / patience 3) under the longer-budget protocol; the ep4->ep10 monotone narrowing (+0.00892 -> +0.00484) makes this the open question."
+        "Third canonical seed (1688738016, list position 3) under the seed-replication protocol verbatim (pinned mechanism, same U1/U2, pooled machinery).",
+        "One extended-budget point (e.g., 20 epochs / patience 3) under the longer-budget protocol; the ep4->ep10 monotone narrowing (+0.00892 -> +0.00484) is the open question.",
+        "Broader datasets: only as new, researcher-owned research beyond this screening's protocol and claims."
       ],
       "explicit_non_claims": [
-        "cross-dataset generality (Census counterpart was VALID_NEGATIVE at -0.00233)",
+        "cross-dataset generality from existing runs",
         "mechanism-path stability (alpha sign flips across seeds; cos structure differs)",
-        "any novelty claim"
+        "any novelty claim",
+        "any additional automated screening runs (phase closed)"
       ]
-    },
+    }
+  ],
+
+  "completed_directions": [
     {
       "id": "D2",
-      "title": "Diagnostic-only: run-to-run noise floor (A3) for both pipelines",
-      "rationale": "Every screening classification rests on single runs with A3 SKIP. De-facto determinism was observed on the AliCCP stage-2 pipeline (bit-equal trajectories across processes/commits), but never measured for the Census pipeline. Without a noise floor, deltas of |1e-4..1e-3| (several census arms, learnable attenuation) cannot be separated from run noise.",
-      "steps": [
-        "Formal A3 reruns (same seed, same config, protocol-defined tolerance 1e-9) for one Census stage-2 pair and the AliCCP stage-2 pair already used in the longer-budget analysis.",
-        "Record results in the respective SUMMARY ledgers; use only to calibrate interpretation of existing deltas - no new arms, no method claims."
-      ],
-      "explicit_non_claims": [
-        "no new method work",
-        "does not re-judge any already-decided run"
-      ]
+      "title": "Run-to-run noise floor (A3) - completed as evidence",
+      "former_status": "recommended as future work (diagnostic-only) in the first-pass synthesis; executed afterwards by the A3 calibration branch",
+      "completed_scope": "AliCCP stage-2 pipeline: A3_PASS on the seed-2 short baseline config (n = 3 incl. a cross-code REF; F = 0.0; bit-equal trajectories and checkpoints; entry infra-aliccp-a3-repeatability-calibration @ f65412f). The existing 10-epoch pair is recorded as numerically A3-satisfying supplementary evidence (deliberately not rerun).",
+      "not_executed": "the Census pipeline A3 pair named in the original D2 text was NOT run; the Census run-to-run noise floor remains unmeasured and is deliberately not scheduled (recorded here rather than silently dropped; the screening phase is closed - no additional automated screening experiments).",
+      "boundaries": "same-config run-to-run dimension only; cross-seed variance, budget effects and machine/version differences remain uncalibrated; +0.0055 unchanged and still provisional; no already-decided run is re-judged.",
+      "evidence": ["entry infra-aliccp-a3-repeatability-calibration (tip f65412f7935d1dbcdfbbe717b789f367ce095f39; design + report docs pinned)"]
     }
   ],
 
@@ -969,6 +1062,7 @@
     "Census stage-2 head-side arm family: closed - 0/10 arms met the pre-registered utility bar; every mechanism active arm kept delta <= +0.0013.",
     "PCGrad / gradient surgery on the Census stage-1 trunk: pre-registered audit says NO_ACTION (mean cos +0.0008, gate needs <= -0.05).",
     "CGR / affinity gate lines: refuted (structural degeneracy reproduced); no reopen without a new pre-registration and a new mechanism.",
-    "Any novelty framing for gating, prompts, adapters/LoRA, MoE routing, gradient surgery or task weighting - all have extensive prior art (see synthesis section 6)."
+    "Any novelty framing for gating, prompts, adapters/LoRA, MoE routing, gradient surgery or task weighting - all have extensive prior art (see synthesis section 6).",
+    "Additional automated screening experiments (further arms, A3 reruns of already-covered configs, or the unexecuted Census A3 pair): the automated screening phase is closed; remaining questions are researcher-led (D1)."
   ]
 }

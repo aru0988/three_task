@@ -3,12 +3,15 @@
 
 Checks (all against committed git objects; no working-tree assumptions, no network):
 
-  V0  JSON parses; both deliverable files exist; entry count sanity.
+  V0  JSON parses; both deliverable files exist; entry count sanity (24).
   V1  Every branch exists; every tip SHA equals the real branch tip; every
       result-commit SHA exists in the object database.
   V2  For every entry: the branch-tip SUMMARY.md and spec document exist, their
       blob hashes equal the pinned values, and every listed run id appears in
-      the SUMMARY text.
+      the SUMMARY text. Where present, an entry's extra pinned docs
+      (extra_docs: path+blob, e.g. the A3 result report) are verified the same
+      way, and its cross-branch row citations (cross_branch_rows) are checked
+      against the owning branch's SUMMARY.md.
   V3  Delta arithmetic: recompute arm - baseline from the full-precision AUCs
       recorded in the JSON and compare with the documented delta string within
       its printed precision (tolerance = max(10^-decimals, 1e-12)).
@@ -102,7 +105,7 @@ def main() -> int:
     entries = data["entries"]
     md_text = MD_PATH.read_text(encoding="utf-8")
 
-    check("V0.entry_count", len(entries) == 23, f"entries={len(entries)} expected=23")
+    check("V0.entry_count", len(entries) == 24, f"entries={len(entries)} expected=24")
 
     branches_in_json = {e["branch"] for e in entries}
     check("V0.branch_unique", len(branches_in_json) == len(entries), f"{len(branches_in_json)} unique")
@@ -138,6 +141,16 @@ def main() -> int:
         rc, spec_blob = git("rev-parse", f"{b}:{e['spec_path']}")
         check(f"V2.spec.{b}", rc == 0 and spec_blob.strip() == e["spec_blob"],
               f"{spec_blob.strip()} vs {e['spec_blob']}")
+        for doc in e.get("extra_docs", []):
+            rc, doc_blob = git("rev-parse", f"{b}:{doc['path']}")
+            check(f"V2.extra.{b}.{doc['path'].rsplit('/', 1)[-1]}",
+                  rc == 0 and doc_blob.strip() == doc["blob"],
+                  f"{doc_blob.strip()} vs {doc['blob']}")
+        for xr in e.get("cross_branch_rows", []):
+            rc, xtext = git("show", f"{xr['branch']}:{xr['summary_file']}")
+            check(f"V2.xrow.{b}.{xr['run_id'][:16]}",
+                  rc == 0 and xr["run_id"] in xtext,
+                  f"row not found in {xr['branch']}:{xr['summary_file']}")
 
     # ---- V3: delta arithmetic ----------------------------------------------
     for e in entries:
