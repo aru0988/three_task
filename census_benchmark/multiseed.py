@@ -9,6 +9,7 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import statistics
 from datetime import datetime
@@ -104,6 +105,14 @@ def _load_json(path: Path) -> dict:
     return json.loads(Path(path).read_text(encoding="utf-8"))
 
 
+def _file_hashes(directory) -> dict | None:
+    """目录下全部文件的 sha256（按文件名排序）；目录不存在 → None（纯 JSON 干跑夹具允许缺 stage1）。"""
+    directory = Path(directory)
+    if not directory.is_dir():
+        return None
+    return {p.name: hashlib.sha256(p.read_bytes()).hexdigest() for p in sorted(directory.iterdir()) if p.is_file()}
+
+
 def _is_nullx(config: dict) -> bool:
     """处理臂判定：run_id 的 `-nullx` 后缀是协议定义；config 标记存在时必须与之一致。"""
     by_suffix = str(config.get("run_id", "")).endswith("-nullx")
@@ -179,17 +188,29 @@ def seed_record(root, model_seed: int, *, cross_consistent=None) -> dict:
                              budget_right_censored=arm_right_censored,
                              budget_last_delta_positive=bool(delta_by_epoch and delta_by_epoch[-1] > 0),
                              cross_seed_consistent=cross_consistent)
+    stage1_dir = Path(root) / "stage1" / arm["metrics"]["stage1_id"]
+    stage1_meta = None
+    meta_path = stage1_dir / "meta.json"
+    if meta_path.exists():
+        meta_full = _load_json(meta_path)
+        stage1_meta = {key: meta_full.get(key) for key in
+                       ("backbone_sha256", "env_ids_sha256", "split_fingerprint_sha256", "config_hash",
+                        "epochs", "model_seed", "env_seed")}
     return {
         "model_seed": model_seed, "stage1_id": arm["metrics"]["stage1_id"],
+        "stage1": {"stage1_id": arm["metrics"]["stage1_id"], "meta": stage1_meta,
+                   "files": _file_hashes(stage1_dir)},
         "baseline": {"run_id": baseline["metrics"]["run_id"], "commit": baseline["metrics"].get("commit"),
                      "test_auc": b2["test_auc"], "best_val_auc": b2["best_val_auc"],
                      "best_epoch": b2["best_epoch"], "epoch_records": b_records,
                      "split_fingerprint": baseline["metrics"]["split_sha256"]["fingerprint"],
-                     "env_ids_sha256": baseline["metrics"]["env_ids_sha256"]},
+                     "env_ids_sha256": baseline["metrics"]["env_ids_sha256"],
+                     "config": baseline["config"], "files": _file_hashes(baseline["run_dir"])},
         "arm": {"run_id": arm["metrics"]["run_id"], "commit": arm["metrics"].get("commit"),
                 "test_auc": a2["test_auc"], "best_val_auc": a2["best_val_auc"],
                 "best_epoch": a2["best_epoch"], "epoch_records": a_records,
-                "mechanism": mechanism, "null_arm": arm["metrics"].get("null_arm")},
+                "mechanism": mechanism, "null_arm": arm["metrics"].get("null_arm"),
+                "config": arm["config"], "files": _file_hashes(arm["run_dir"])},
         "delta_test": delta_test, "delta_val": delta_val,
         "classification": reclassify_delta(delta_test),
         "budget": {"baseline_best_epoch": b2["best_epoch"], "baseline_last_epoch": b_records[-1]["epoch"],

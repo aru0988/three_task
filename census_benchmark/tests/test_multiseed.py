@@ -225,6 +225,35 @@ class TestSeedRecord(unittest.TestCase):
             self.assertIn("headroom", rec)
             self.assertEqual(rec["arm"]["mechanism"]["null_top1_rate"], 0.37)
             self.assertFalse(rec["gates"]["arm"]["B3"]["pass"])
+            self.assertEqual(rec["baseline"]["config"]["model_seed"], 1685463909)
+            self.assertIn("null_expert", rec["arm"]["config"])
+
+    def test_file_hashes_recorded_and_stage1_absent_tolerated(self):
+        import hashlib
+        with tempfile.TemporaryDirectory() as td:
+            root = Path(td)
+            run_dir = _write_run(root, "20261005-0100-s20260929-m1685463909-short-abc1234",
+                                 model_seed=1685463909, null_expert=False, test_auc=0.85, best_val_auc=0.853,
+                                 stage1_id="s1-deadbeef-m1685463909-e2-cafe0000")
+            _write_run(root, "20261005-0110-s20260929-m1685463909-short-abc1234-nullx", model_seed=1685463909,
+                       null_expert=True, test_auc=0.8515, best_val_auc=0.8532,
+                       stage1_id="s1-deadbeef-m1685463909-e2-cafe0000")
+            rec_absent = M.seed_record(root, 1685463909)                      # stage1 目录不存在 → None，不抛错
+            self.assertIsNone(rec_absent["stage1"]["files"])
+            stage1_dir = root / "stage1" / "s1-deadbeef-m1685463909-e2-cafe0000"
+            stage1_dir.mkdir(parents=True)
+            (stage1_dir / "backbone.pt").write_bytes(b"dummy-backbone")
+            (stage1_dir / "meta.json").write_text(json.dumps({"backbone_sha256": "b" * 64,
+                                                              "env_ids_sha256": "e" * 64,
+                                                              "split_fingerprint_sha256": "f" * 64,
+                                                              "config_hash": "c" * 64}), encoding="utf-8")
+            rec = M.seed_record(root, 1685463909)
+            expected = hashlib.sha256(b"dummy-backbone").hexdigest()
+            self.assertEqual(rec["stage1"]["files"]["backbone.pt"], expected)
+            self.assertEqual(rec["stage1"]["meta"]["backbone_sha256"], "b" * 64)
+            run_files = rec["baseline"]["files"]
+            self.assertEqual(run_files["metrics.json"],
+                             hashlib.sha256((run_dir / "metrics.json").read_bytes()).hexdigest())
 
     def test_headroom_uses_injected_cross_seed_flag(self):
         with tempfile.TemporaryDirectory() as td:
