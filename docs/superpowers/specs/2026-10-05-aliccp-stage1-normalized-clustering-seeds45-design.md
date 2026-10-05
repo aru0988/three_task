@@ -372,6 +372,17 @@ Q1–Q5 独立判定；Q5 为终局标签，历史标签（§5.5）保持不变�
 
 ### 9.3 seed5 Stage-1（R1/R2；运行后填写）
 
+**P4 登记（预先；C3b——R1 捕获后、R2 运行前）**：
+
+- 捕获认证（M6 证据）：R1 `--reproduce` **10/10 all_pass**。
+- **P4 预测**（双实现逐位一致，`bitwise_agree = true`）：事件 **`diff_num = 1000576`、`env_0 = 1015460`、`env_1 = 984540`**（占比 **50.77300% / 49.22700%**）；`env_ids_sha256` = **`22d1f7d23a3dfc49069e670d59db7212e613754840fcf6b341042f3e2e5f207a`**；`env_0∩purchase1 = 565`（另 `env_0∩click1 = 4448`、≠ purchase1 集合、非子集）。
+- 登记文件：`artifacts/aliccp_bench/audit/s1-5c060b9c-m1688762746-e3-6343490f-repro/p4_prediction.json`（登记时 commit `204dad1`）。
+- R1 复现捕获（聚类时刻真值）诊断（只读工具记录）：raw 损失尺度 task0/task1 平均比 ≈ **69.1×**（尺度不可比复现）；候选对照 rank01 分配 = **1015460 / 984540**（即 P4）。
+
+**R1 记录**：`stage1_id = s1-5c060b9c-m1688762746-e3-6343490f`（== P1）；commit `204dad1` / dirty **false** / wall 174.7 s；恰 1 次聚类事件（epoch 2）：`1000466 / 568 / 1999432`（env_0 占比 **0.02840%**，B4 FAIL，P3R 方向性命中；env_0 含 566 purchase + 2 非 purchase，`env0==purchase1 集合 False`）；best_epoch = 3；test CTR `0.5469233468929906`、CVR `0.5565330994697577`；env_acc `0.99977`。
+
+（R2 与逐位核对、交叉表/探针/诊断分位数、逐 epoch 轨迹：R2 完成后补。）
+
 ### 9.4 seed5 Stage-2 与分类（R3/R4；运行后填写）
 
 ### 9.5 五 seed 汇总（终局；运行后填写）
