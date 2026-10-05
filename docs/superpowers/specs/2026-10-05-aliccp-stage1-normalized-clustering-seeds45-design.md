@@ -334,7 +334,41 @@ Q1–Q5 独立判定；Q5 为终局标签，历史标签（§5.5）保持不变�
 - **披露（R2 的 env 探针）**：seed4 归一化臂的 env_pred 探针 bal `0.5000354152434238`、acc `0.4971375` —— 接近多数类失真口径（seed1–3 的 norm 臂 bal 为 0.184/0.647/0.597）；M4b 以预注册判据（recall 双正）在 R4 verify 机械判定，如实记录。
 - **M1** 的 R4 侧子句（gate_report B4 PASS）待 R4；**M7** 待 R3/R4。
 
-### 9.2 seed4 Stage-2 与分类（R3/R4；运行后填写）
+### 9.2 seed4 Stage-2 与分类（R3/R4；实测，各运行恰一次，未改动头）
+
+| 项 | R3（raw 配对） | R4（norm 配对） |
+|---|---|---|
+| run_id | `20261006-0256-p2M-v500k-t1M-m1688749593-short-d4b1f11` | `20261006-0300-p2M-v500k-t1M-m1688749593-norm-dc6c001` |
+| commit / dirty | `d4b1f11` / **false** | `dc6c001` / **false** |
+| stage1_id | `s1-5c060b9c-m1688749593-e3-bb2b68de`（A5/A6 逐位通过） | `s1-5c060b9c-m1688749593-e3-cf810ec4`（A5/A6 逐位通过） |
+| 逐 epoch val BSI | 0.5112550352033595 / 0.5433262146118553 / 0.5777026383876814 / 0.6083279864925775 / 0.629554258588165 | 0.5097774532947495 / 0.5419644370867108 / 0.576672321842415 / 0.6067354145500581 / 0.6285180251972815 |
+| best_epoch / best val BSI | 5 / `0.629554258588165` | 5 / `0.6285180251972815`（**Δval = −0.0010362333908835453**） |
+| test BSI（单次） | `0.6799165153727622` | `0.6767369262419454`（**Δtest = −0.00317958913081684**） |
+| gate_mean（val，routing） | `[0.736833375, 0.26316678125]` | `[0.7455188125, 0.254481234375]` |
+| A 类（M7） | A1/A2/A4/A5/A6 **PASS**（A3 SKIP） | A1/A2/A4/A5/A6 **PASS**（A3 SKIP） |
+| B 类 | B1 FAIL（CTR-val 0.5475 < 0.55 活动下限）、**B2 FAIL**（\|val−test\| = 0.0503622567845972 边际超 0.05）、B3 PASS、B4 FAIL（`[(566, 1999434)]`，raw 退化，期望） | B1 FAIL（CTR-val 0.5463 < 0.55，同为活动下限；两臂 CTR-val Δ = −0.0012274）、B2 PASS（0.0482189010446639）、B3 PASS、**B4 PASS**（`[(1021493, 978507)]`；协议 machinery 确认修复） |
+| hard_pass | false（B1 活动下限 + B2 边际） | false（唯一原因 B1 活动下限） |
+| 停止/截断 | 无 early stop（5/5 epoch，best = 5，曲线仍在上升） | 无 early stop（5/5 epoch，best = 5，曲线仍在上升） |
+
+- **B2 披露（R3）**：raw 臂 B2 边际超限（0.05036 vs 0.05；R4 侧 0.04822 通过）。B 类不参与 material contradiction 判定（§5.3 仅 A 类），如实披露；不重跑。
+- **探针披露（seed4 norm 特有形态）**：R4 的 env_pred 探针 `recall(env_0) = 0.9992456208289119`、`recall(env_1) = 0.0008252096579356834`（acc 0.4971375、bal 0.5000354152434238）——与 raw 臂的多数类失真**反向**（raw 塌缩到 env_1、recall(env_0)=0；seed4 norm 塌缩到 env_0）。M4b 以预注册判据（recall 双正）**PASS**（0.000825 > 0），但探针形态与 seed1–3 不同，如实记录；聚类分配本身（M1/B4）为平衡（51.07% / 48.93%）。
+- routing 观察（描述性）：两臂 gate_mean 均偏 spec 分支（~0.74 / 0.26），无坍缩（B3 PASS 两 run）。
+
+**分类（由 `verify_seeds45_results verify` 机械计算；输出 `artifacts/aliccp_bench/audit/seed4_verification.json`）**：
+
+**机制判定：`MECHANISM_REPAIRED_SEED4` = true（14/14 逐项 PASS）**：M1（B4 双过 1021493/978507 + R4 machinery PASS）、M2a 两身份 == P1、M2b epoch 1–2 与 R1 逐位相等（14 值）、M2c 事件与 env_ids sha **== P4 逐位（bit 级预测命中）**、M3 有限性、M4 非标签恢复（564/1021493 = 0.0552% ≤ 5%）、M4b 双 recall > 0、M5 有效变化（事件 1000669；vs raw 逐位差 1020931 = 51.0466%）、M6 认证复现 10/10、M7 A 类完整、M8a 测试 82/82、M8b smoke 恒等（cuda:0 逐位、0 字段差异）。
+
+| 量 | 值 | 判定 |
+|---|---|---|
+| `Δtest_ctr`（U1） | **−0.0010178110834104803** ≥ −0.005 | **PASS** |
+| **`Δtest`（主分类量）** | **−0.00317958913081684** | **`NO_CLEAR_IMPROVEMENT`**（−0.02 < Δtest < +0.001，§5.2） |
+| `Δval` | **−0.0010362333908835453** | 报告项；同时进入 §5.3 |
+
+**material contradiction（§5.3）**：4 项旗标全部 false —— (a) Δval ≤ −0.01？否（−0.00104）；(b) M 组任一 FAIL？否（14/14）；(c) U1 FAIL？否；(d) A 类 FAIL？否。**无 material contradiction。**
+
+**headroom（§5.7，NO_CLEAR 必须）**：H1 favors（机制 14/14）、H2 **ambiguous**（−0.01 < Δval = −0.00104 < 0）、H3 **not**（当前 Δtest ≤ 0；k=4 时 count 3 ≥ 2 ∧ mean +0.00725 > 0 但当前非正）、H4 favors_longer_budget（两臂 best_epoch = 5 = 上限）→ **`HEADROOM_NOT_EVIDENT`**。
+
+**逐 seed 结论标签（§5.4）**：**`mechanism repair effective but utility unstable`**（机制复现、效用 NO_CLEAR）。按 §5.4，seed5 仍执行（canonical 固定运行，不因 seed4 结果改变）。
 
 ### 9.3 seed5 Stage-1（R1/R2；运行后填写）
 
