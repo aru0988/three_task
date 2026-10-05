@@ -47,6 +47,8 @@ WHITELIST = {
     "verify_uncond_prerun.py",
     "verify_rp_uncond.py",
     "artifacts/aliccp_bench/SUMMARY.md",
+    "artifacts/aliccp_bench/audit/rp-uncond/gemm_row_identity.py",
+    "artifacts/aliccp_bench/audit/rp-uncond/noise_floor_measure.py",
 }
 
 
