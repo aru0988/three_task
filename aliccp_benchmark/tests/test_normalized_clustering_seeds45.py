@@ -347,6 +347,9 @@ class TestPreregDocTokens(unittest.TestCase):
             "2058de8", "7ab445c", "f8ff4cf",
             "s1-550e4d92-m1688723512-e1-d069eadf",
             "freeze-p4", "aggregate",
+            # seed4 P4（C3a 登记；R1 捕获后、R2 运行前）
+            "1000669", "1021493", "978507",
+            "523e129ca132bdab2ccfaeb22593e309dd30025ca792d3d6e945593dd8eeb2ae", "51.07465",
         ):
             self.assertIn(token, text, msg=f"预注册文档缺少 token: {token}")
 

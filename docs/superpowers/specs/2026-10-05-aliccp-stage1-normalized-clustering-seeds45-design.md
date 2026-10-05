@@ -303,7 +303,16 @@ Q1–Q5 独立判定；Q5 为终局标签，历史标签（§5.5）保持不变�
 
 ### 9.1 seed4 Stage-1（R1/R2；运行后填写）
 
-（含 P4 登记值、事件/占比/交叉表/探针/诊断分位数、逐位核对、逐 epoch 轨迹。）
+**P4 登记（预先；C3a——R1 捕获后、R2 运行前）**：
+
+- 捕获认证（M6 证据）：R1 `--reproduce` **10/10 all_pass**（cluster 事件、逐 epoch、best epoch、backbone sha、test AUC、env_ids sha、捕获 argmin == 父类分配、捕获分配 sha == meta 全逐位）。
+- **P4 预测**（`per_task_rank01` 与 `ref_rank01` 双实现逐位一致，`bitwise_agree = true`）：事件 **`diff_num = 1000669`、`env_0 = 1021493`、`env_1 = 978507`**（占比 **51.07465% / 48.92535%**）；`env_ids_sha256` = **`523e129ca132bdab2ccfaeb22593e309dd30025ca792d3d6e945593dd8eeb2ae`**；`env_0∩purchase1 = 564`（另 `env_0∩click1 = 4209`、≠ purchase1 集合、非子集）。
+- 登记文件：`artifacts/aliccp_bench/audit/s1-5c060b9c-m1688749593-e3-bb2b68de-repro/p4_prediction.json`（登记时 commit `d768ebc`）。
+- R1 复现捕获（聚类时刻真值）诊断（只读工具记录）：raw 损失尺度 task0/task1 平均比 ≈ **35.4×**（尺度不可比复现）；候选对照 rank01 分配 = **1021493 / 978507**（即 P4）；raw 分配 = purchase 标签集合（env_0 == purchase1 集合 True）。
+
+**R1 记录**：`stage1_id = s1-5c060b9c-m1688749593-e3-bb2b68de`（== P1）；commit `d768ebc` / dirty **false** / wall 258.8 s；恰 1 次聚类事件（epoch 2）：`1000466 / 566 / 1999434`（env_0 占比 **0.02830%**，B4 FAIL，P3R 方向性命中）；best_epoch = 3；test CTR `0.5476216…`、CVR `0.5744…`（§9.1 完成时补全字面值）；env_acc `0.99977`。
+
+（R2 与逐位核对、交叉表/探针/诊断分位数、逐 epoch 轨迹：R2 完成后补。）
 
 ### 9.2 seed4 Stage-2 与分类（R3/R4；运行后填写）
 
