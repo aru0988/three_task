@@ -81,7 +81,7 @@
 
 ### 1.5 预注册前参照核验（只读；先于本文件提交；`verify_uncond_prerun.py`）
 
-对固定产物 `s1-5c060b9c-m1688723740-e3-4e1b5c6f` + 参照头 + 五个历史 run 链（79b5e07 基线 / 013e105-rpg 学习 correct / 9d26bc8-rpgs 学习 shuffled / 7d26918-rpp 钉死 correct【重放靶】/ 1c13841-rpps 钉死 shuffled）+ 无条件常量向量推导做只读复算（**130/130 通过**，报告 `artifacts/aliccp_bench/audit/rp-uncond/verify_uncond_prerun_result.json`，sha256 `daa9e78a000f49e6e1785d4b3cc47e4e3fbe2baa4331332c1ae47afb530c0d07`；不写任何 run/stage1 产物、不训练、不重新评测）：
+对固定产物 `s1-5c060b9c-m1688723740-e3-4e1b5c6f` + 参照头 + 五个历史 run 链（`20261003-0624-p2M-v500k-t1M-m1688723740-short-79b5e07` 基线 / `20261004-0325-p2M-v500k-t1M-m1688723740-short-013e105-rpg` 学习 correct / `20261005-0933-p2M-v500k-t1M-m1688723740-short-9d26bc8-rpgs` 学习 shuffled / `20261005-1029-p2M-v500k-t1M-m1688723740-short-7d26918-rpp` 钉死 correct【重放靶】/ `20261005-1032-p2M-v500k-t1M-m1688723740-short-1c13841-rpps` 钉死 shuffled）+ 无条件常量向量推导做只读复算（**130/130 通过**，报告 `artifacts/aliccp_bench/audit/rp-uncond/verify_uncond_prerun_result.json`，sha256 `daa9e78a000f49e6e1785d4b3cc47e4e3fbe2baa4331332c1ae47afb530c0d07`；不写任何 run/stage1 产物、不训练、不重新评测）：
 
 | 组 | 核对 | 结果 |
 |---|---|---|
@@ -214,10 +214,10 @@ CPU 极小夹具不构成任何性能证据，只验证语义与接线。
 |---|---|---|
 | **ID**（identity） | 三 run：`stage1_id` 相同且 == 钉死值；`model_seed` 相同且 == 1688723740；`epochs==5` ∧ `patience==2` ∧ `tag=="short"`；`dirty==false`（三 run 记录时）；B `variant=="baseline"` 且 run_id 无后缀；C_p `variant=="residual-prompt-pinned"` 且 run_id 以 `-rpp` 结尾；U `variant=="residual-prompt-uncond"` 且 run_id 以 `-rpu` 结尾；C_p 与 U 记录参照路径 == 钉死路径且文件 sha256 == `90ee06da…`；三 run `stage1_id` 的 backbone/env/fingerprint sha 与钉死值一致 | `rp_uncond_compare.json:identity` |
 | **REP_B**（基线复现） | B 的逐 epoch val 轨迹（×5）、best_epoch、best_val、test、gate_mean 与 `79b5e07` 记录**逐位相等** 且 B 的 `newtask.pt` sha256 == `90ee06da…`（A2/A5 确定性预期成立；失败 ⇒ 环境偏离历史链，对照组不可比） | 同上 `reproduction_b` |
-| **REP_Cp**（跨实验重放） | C_p 的逐 epoch val 轨迹（×5）、best_epoch、best_val、test、gate_mean 与 `7d26918-rpp` 记录**逐位相等** 且 C_p 的 `newtask.pt` sha256 == `264aedbb…` ∧ `prompt_report.json` 的 `alpha_final == PINNED_ALPHA`（失败 ⇒ 钉死路径相对 f08ae6e 发生实现分叉，等价性证明被证伪，全实验作废） | 同上 `replay_cp` |
+| **REP_Cp**（跨实验重放） | C_p 的逐 epoch val 轨迹（×5）、best_epoch、best_val、test、gate_mean 与 `20261005-1029-p2M-v500k-t1M-m1688723740-short-7d26918-rpp` 记录**逐位相等** 且 C_p 的 `newtask.pt` sha256 == `264aedbb…` ∧ `prompt_report.json` 的 `alpha_final == PINNED_ALPHA`（失败 ⇒ 钉死路径相对 f08ae6e 发生实现分叉，等价性证明被证伪，全实验作废） | 同上 `replay_cp` |
 | **A**（协议） | 三 run 的 A1/A2/A4/A5/A6 全 PASS（A3 SKIP 视为通过）；任一 FAIL ⇒ 该 run 比较作废 | 三 run `gate_report.json` |
 | **UA**（结构机制门禁） | U 的 `rp_arm`：**UA1–UA11 全 PASS**（§5.2）；C_p 的 `rp_arm`：**PA1–PA8 全 PASS**（f08ae6e §5.3 口径，由本分析器对记录 `observed` 值机械重算，不信任记录布尔） | 两 run `metrics.json:rp_arm` |
-| **CC**（对照链与钉死来源） | 五个历史 run（79b5e07 / 013e105-rpg / 9d26bc8-rpgs / 7d26918-rpp / 1c13841-rpps）的记录值 == §1.5 钉死常量（含 variant/classification/run_id；复核脚本执行文件 sha 核对）；**`PINNED_ALPHA == 013e105-rpg:prompt_report.json:alpha_final`（精确相等）且两处理臂 `alpha_final == PINNED_ALPHA`**；历史 Δ 重推逐位；**`G_c == −0.002677172368479308`（本实验 C_p−B 的记录值 == f08ae6e 的 G_c，逐位——REP_B∧REP_Cp 的端到端一致性核对）** | 同上 `comparator` |
+| **CC**（对照链与钉死来源） | 五个历史 run（`20261003-0624-p2M-v500k-t1M-m1688723740-short-79b5e07` / `20261004-0325-p2M-v500k-t1M-m1688723740-short-013e105-rpg` / `20261005-0933-p2M-v500k-t1M-m1688723740-short-9d26bc8-rpgs` / `20261005-1029-p2M-v500k-t1M-m1688723740-short-7d26918-rpp` / `20261005-1032-p2M-v500k-t1M-m1688723740-short-1c13841-rpps`）的记录值 == §1.5 钉死常量（含 variant/classification/run_id；复核脚本执行文件 sha 核对）；**`PINNED_ALPHA == 013e105-rpg:prompt_report.json:alpha_final`（精确相等）且两处理臂 `alpha_final == PINNED_ALPHA`**；历史 Δ 重推逐位；**`G_c == −0.002677172368479308`（本实验 C_p−B 的记录值 == f08ae6e 的 G_c，逐位——REP_B∧REP_Cp 的端到端一致性核对）** | 同上 `comparator` |
 | **CV**（常量向量完整性） | U 的 `prompt_report.json:uncond.cond_sha256 == COND_VECTOR_SHA256` ∧ `cond_regen_bit_identical == true` ∧ `cond.shape == (80,)` ∧ dtype float32；复核脚本独立重抽 c 并与 **checkpoint 内 `uncond_condition` 张量逐位比对** | 同上 `constant_vector` |
 
 ### 5.2 U 臂结构机制门禁（UA1–UA11；**替换**学习门禁——a priori 理由见 §1.4）
@@ -405,7 +405,7 @@ D:\MPT-Rec-three_task\MPT-Rec\.venv\Scripts\python.exe verify_rp_uncond.py `
 
 ## 12. 偏离披露（预声明 + 运行后补）
 
-- **预注册后澄清提交（C1b，如需要）**：若本文件在实现前需澄清（补全 blob/run id 等），以独立提交修正；判据、阈值、构造、判定树、运行规程**零改动**（同类先例：fbfff09 C1b `768ba8b`、f08ae6e C1b `0dfb11a`）。
+- **预注册后澄清提交（C1b）**：在本分支任何实现与任何 run 之前，补全 §1.5/§5.1 五个历史 run 的完整 run id（`20261003-0624-…-79b5e07` / `20261004-0325-…-013e105-rpg` / `20261005-0933-…-9d26bc8-rpgs` / `20261005-1029-…-7d26918-rpp` / `20261005-1032-…-1c13841-rpps`）；判据、阈值、构造、判定树、运行规程**零改动**（同类先例：fbfff09 C1b `768ba8b`、f08ae6e C1b `0dfb11a`）。
 - **分支工作流**：自 `infra/aliccp-fair-benchmark` @ `8133d32` 独立拉出；机制与 rp_pinned 经 §3 三层守卫钉死等价；协议不合并 `master`；push 经用户显式指示（本任务含 "commit and push"）。
 - **分支本地 SUMMARY 系谱**：本分支 `SUMMARY.md` 基线含 smoke 行与 seed1 基线行（`8133d32` 携带）；其余历史行记录在各自分支，本分支**不复制**其它分支行，只由本实验 run 追加自己的行（B + C_p + U）。
 - **产物/历史 run 只读复制**：§1.5 所列产物、参照头、五个历史 run、前缀指纹均自 alpha-pinned worktree **只读复制**入本 worktree（逐文件 sha 相等）；dataset 经 junction 复用 main tree（只读、gitignore）。
