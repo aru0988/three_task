@@ -437,9 +437,50 @@ Q1–Q5 独立判定；Q5 为终局标签，历史标签（§5.5）保持不变�
 
 **逐 seed 结论标签（§5.4）**：**`mechanism repair effective but utility unstable`**（机制复现、效用 NO_CLEAR）。seed5 完成后进入 §9.5 五 seed 汇总；本分支到此为终点。
 
-### 9.5 五 seed 汇总（终局；运行后填写）
+### 9.5 五 seed 汇总（终局；实测，`aggregate` 机械计算）
 
-### 9.6 纪律核对（运行后填写）
+**逐 seed 表（`reclassification` 为 §5.2 机械再分类字段；历史标签不覆盖、并列呈现）：**
+
+| # | seed | Δtest | Δval | `reclassification`（§5.2） | 历史标签（原样引用） | 机制 |
+|---|---|---|---|---|---|---|
+| 1 | 1688723512 | +0.00824283986406793 | +0.010059271876175169 | `POSITIVE_IMPROVEMENT` | `REPAIRED` + `NO_MATERIAL_DEGRADATION`（@ `2058de8`） | 修复（M0 复算） |
+| 2 | 1688723740 | +0.00045881952817949934 | −0.0014831644646635667 | `NO_CLEAR_IMPROVEMENT` | `NOT_SUPPORTED`（@ `7ab445c`） | 10/10 复现 |
+| 3 | 1688738016 | +0.02347892658289208 | +0.017557536803150087 | `POSITIVE_IMPROVEMENT` | `MECHANISM_REPAIRED_SEED3` + `SEED3_CONDITION_PASSED` + `POSITIVE_IMPROVEMENT`（@ `f8ff4cf`） | 14/14 |
+| 4 | 1688749593 | −0.00317958913081684 | −0.0010362333908835453 | `NO_CLEAR_IMPROVEMENT` | （本分支）`NO_CLEAR_IMPROVEMENT` + `mechanism repair effective but utility unstable` | 14/14 |
+| 5 | 1688762746 | −0.00016803096046424937 | +0.003790467938876163 | `NO_CLEAR_IMPROVEMENT` | （本分支）`NO_CLEAR_IMPROVEMENT` + `mechanism repair effective but utility unstable` | 14/14 |
+
+**统计量（§5.6 冻结公式；输出 `artifacts/aliccp_bench/audit/seeds45_aggregation.json`）：**
+
+| 量 | Δtest | Δval |
+|---|---|---|
+| mean | **+0.005766593176771684** | **+0.0057775757525308615** |
+| sample std（ddof=1） | 0.01076202763169512 | 0.008065285876162212 |
+| paired 95% CI（t = 2.7764451051977987） | **[−0.007596229081178292, +0.01912941543472166]** | [−0.004236799355121079, +0.015791950860182803] |
+| positive-improvement count（≥ +0.001） | **2/5** | 3/5 |
+| sign-positive count（> 0） | **3/5** | 3/5 |
+| worst seed | `1688749593`（−0.00317958913081684） | `1688723740`（−0.0014831644646635667） |
+
+**机制一致性（描述性）**：B4 修复 **5/5**（seed1/2 M0 复算；seed3 `f8ff4cf` 记录；seed4/5 本分支 14/14）。
+
+**耐久性终局标签（§5.6 冻结规则）**：`UTILITY_DURABLE ⇔ CI_low(Δtest) > 0 ∧ positive count ≥ 3` → CI_low = −0.007596 ≤ 0 且 positive = 2 < 3 → **`MECHANISM_REPAIR_ONLY_UNSTABLE_UTILITY`**。
+
+**终局结论陈述（对应判定问题 Q5）**：五个 canonical seed 上，归一化聚类**全部**修复环境均衡/退化（5/5；raw 臂坍缩至 ~2.8–7.7×10⁻⁴ 量级 → norm 臂 46.9–55.3% 双过），但其 Stage-2 效用**不稳定**：符号正 3/5（+0.0082 / +0.0005 / +0.0235 / −0.0032 / −0.0002），达 +0.001 提升门槛仅 2/5，配对 95% CI 跨 0（下界为负）。**判定：归一化聚类是"有效的机制修复"，但效用未达可用/耐久——`MECHANISM_REPAIR_ONLY_UNSTABLE_UTILITY`。**
+
+**headroom（§5.7；两个 NO_CLEAR seed 均 `HEADROOM_NOT_EVIDENT`）**：seed4 = H1 favors / H2 ambiguous / H3 not / H4 favors_longer_budget；seed5 = H1 favors / H2 favors / H3 not / H4 favors_longer_budget。H3 未过的共同原因 = 当前 seed `Δtest` 非正（H3 可用集合 = seed 1..k，不引入未来 seed，§5.7 冻结口径）。
+
+**本分支登记的下一个独立动作（不在本分支执行）**：CensusIncome Residual Prompt 的**独立种子复核**，自该实验线自己的分支/证据展开；本分支不合并 master、不启动该动作、不启动任何第三数据集。
+
+### 9.6 纪律核对
+
+- **运行次数**：结果 run = 每 seed R1/R2/R3/R4 各恰 1 次（共 8 次），**无重跑、无无效执行、无调参、无 epoch 挑选、test 不参与任何选择**。非结果核验：M0 前置审计 ×1（§9.0）、认证复现 ×2（每 seed R1）、P4 冻结 ×2、smoke 恒等 ×2（M8b，两 seed verify 内；temp root）、终验 ×2、汇总 ×1。
+- **清洁树**：八条 run 记录 `git.dirty = false`（R1/R2/R3/R4 × 2 seed：`d768ebc` / `c37024f` / `d4b1f11` / `dc6c001` / `204dad1` / `ad6dadf` / `8896d1a` / `010638e`）；run 间提交纪律成立（SUMMARY 行在下一 run 前提交）。
+- **commit 链**：C1 `00c0661`（预注册）→ C2 `d768ebc`（实现+守卫，TDD 红→绿 82/82）→ seed4：R1 → 复现/P4 → C3a `c37024f` → R2 → C4a `d4b1f11` → R3 → C5a `dc6c001` → R4 → C6a `204dad1` → seed5：R1 → 复现/P4 → C3b `ad6dadf` → R2 → C4b `8896d1a` → R3 → C5b `010638e` → R4 → C6b `77c487b` → **C7（本提交：§9.5/§9.6 + 汇总 JSON 引用）**。
+- **R3/R4 零代码 diff（机械证据）**：`git diff --name-only d4b1f11 dc6c001 -- aliccp_benchmark run_aliccp_benchmark.py multitaskrec config.py baseline` 与 `git diff --name-only 8896d1a 010638e -- …` 均为空；两个 commit 间全部差异 = SUMMARY.md 的 1 行追加。
+- **SUMMARY**：本分支追加 **4 行**（每 seed short/norm 各 1；append-only，未重写任何既有行；系谱 = `f8ff4cf` 的 6 行 + 本 4 行 = 10 行）。
+- **测试**：两 seed 的终验内 M8a 各复跑 **82/82 OK**；守卫（字节钉死/AST/seed3 证据不可变/白名单级联逐字节/seed4/5 身份/文档 token）全绿。
+- **验证产物**：`artifacts/aliccp_bench/audit/seed4_verification.json`、`seed5_verification.json`（各 14/14 + 分类 + headroom）、`seeds45_aggregation.json`（五 seed 汇总 + 耐久性标签）、`<R1sid>-repro/audit.json`（认证复现 10/10 × 2）、`<R1sid>-repro/p4_prediction.json`（P4 × 2）、`prior-seeds-45/audit_prior_seeds.json`（M0）。
+- **push**：`origin/exp/aliccp-stage1-normalized-clustering-seeds45` = C7（C6b `77c487b` 已 push；push 期间 github.com 连接中断两次，重试后成功——不影响任何 run 或产物；所有提交与产物均在本地完整保留）。
+- **无效尝试**：无（网络重试为传输层重试，不构成无效 run）。
 
 ---
 
