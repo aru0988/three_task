@@ -281,17 +281,66 @@ I1–I9（rank01 语义、实现==审计参考逐位、manager 仅覆写 `cluste
 
 （含 P4 登记值、事件/占比/交叉表/探针/诊断分位数、逐位核对。）
 
-### 9.2 Stage-2（R3/R4；运行后填写）
+### 9.2 Stage-2（R3/R4；实测，各运行恰一次，未改动头）
 
-（含 val/test BSI 对、Δtest/Δval、逐 epoch、gate_mean、门禁逐项、hard_pass、commit/dirty。）
+| 项 | R3（raw 配对） | R4（norm 配对） |
+|---|---|---|
+| run_id | `20261005-1341-p2M-v500k-t1M-m1688738016-short-a3a3e37` | `20261005-1345-p2M-v500k-t1M-m1688738016-norm-18a7008` |
+| commit / dirty | `a3a3e37` / **false** | `18a7008` / **false** |
+| stage1_id | `s1-5c060b9c-m1688738016-e3-47619ce0`（A5/A6 逐位通过） | `s1-5c060b9c-m1688738016-e3-5f899cad`（A5/A6 逐位通过） |
+| 逐 epoch val BSI | 0.5063601783651219 / 0.521297223263171 / 0.5416431064878608 / 0.564903230805078 / 0.5839919245306395 | 0.5198187898322179 / 0.5382744235599318 / 0.5628996505080943 / 0.584755380823985 / 0.6015494613337896 |
+| best_epoch / best val BSI | 5 / `0.5839919245306395` | 5 / `0.6015494613337896`（**Δval = +0.017557536803150087**） |
+| test BSI（单次） | `0.6169265645506535` | `0.6404054911335456`（**Δtest = +0.02347892658289208**） |
+| gate_mean（val，routing） | `[0.5505214375, 0.44947846875]` | `[0.544646375, 0.4553536875]` |
+| A 类（M7） | A1/A2/A4/A5/A6 **PASS**（A3 SKIP） | A1/A2/A4/A5/A6 **PASS**（A3 SKIP） |
+| B 类 | **B1 FAIL**（CTR-val 0.5300 < 0.55 活动下限；CVR/BSI 子句过）、B2 PASS（\|val−test\|=0.0329）、B3 PASS、**B4 FAIL**（`[(567, 1999433)]`，raw 退化，期望） | **B1 FAIL**（CTR-val 0.5443 < 0.55，同为活动下限；两臂 CTR-val Δ = +0.0143）、B2 PASS（0.0389）、B3 PASS、**B4 PASS**（`[(937876, 1062124)]`；协议 machinery 确认修复） |
+| hard_pass | false（唯一原因 B1 活动下限；B4 FAIL 为 raw 臂特性） | false（唯一原因 B1 活动下限；**该 run 的 B4 首次在 seed3 通过**） |
+| 停止/截断 | 无 early stop（5/5 epoch，best=5，曲线仍在上升） | 无 early stop（5/5 epoch，best=5，曲线仍在上升） |
 
-### 9.3 分类与收束（运行后填写）
+- **B1 披露（两臂"共享既有边界"）**：seed3 两臂的 CTR-val 均低于协议活动下限 0.55（raw 0.5300 / norm 0.5443）——与 seed1 的 B1 共享边界同型（协议活动下限非本实验的退化判据；见 §4.2/§6.3：B 类不参与 material contradiction 判定，A 类才参与）。CVR-val / BSI 子句均过。
+- **routing 观察（描述性）**：两臂 gate_mean 均在 ~0.55/0.45 附近（平衡），无坍缩（B3 PASS 两 run）。
 
-（§6.2 分类、§6.3 material contradiction、§6.4 扩展门/下一步 或 §6.5 收束 + §6.6 headroom；跨 seed 表。）
+### 9.3 分类与收束（实测；由 `verify_seed3_results.py` 机械计算，输出 `artifacts/aliccp_bench/audit/seed3_verification.json`）
 
-### 9.4 纪律核对（运行后填写）
+**机制判定：`MECHANISM_REPAIRED_SEED3` = true（14/14 逐项 PASS）**：M1 B4 修复（937876/1062124 双过 + R4 的 B4 machinery PASS）、M2a 两身份 == P1、M2b epoch 1–2 与 R1 逐位相等（14 值）、M2c 事件与 env_ids sha **== P4 逐位（bit 级预测命中）**、M3 有限性、M4 非标签恢复（562/937876 = 0.0599% ≤ 5%）、M4b 两环境 recall 均 > 0（0.223029 / 0.970956）、M5 有效变化（事件 999300；vs raw 逐位差 937317 = 46.866%）、M6 认证复现 10/10、M7 A 类完整、M8a 测试 64/64、M8b smoke 恒等（cuda:0 逐位）。
 
-（运行次数、清洁树、commit 链、SUMMARY、测试、push 状态。）
+**效用（within-seed3 配对）**：
+
+| 量 | 值 | 判定 |
+|---|---|---|
+| `Δtest_ctr`（U1） | **+0.0092117165139148** ≥ −0.005 | **PASS**（Stage-1 CTR 无退化，且大幅为正——记录） |
+| **`Δtest`（主分类量）** | **+0.02347892658289208** ≥ +0.001 | **`POSITIVE_IMPROVEMENT`**（§6.2） |
+| `Δval` | **+0.017557536803150087** | 报告项；同时进入 §6.3 |
+
+**material contradiction（§6.3，先于 run 写死）**：4 项旗标全部 false —— (a) Δval ≤ −0.01？否（+0.0176）；(b) M 组任一 FAIL？否（14/14）；(c) U1 FAIL？否；(d) A 类 FAIL？否（两 run A 类全 PASS）。**无 material contradiction。**
+
+**扩展门（§6.4）：`Δtest ≥ +0.001` ∧ 无 material contradiction ⇒ `SEED3_CONDITION_PASSED`。** 按预注册：**本分支不启动 seeds4/5**，只登记下一步独立动作（见下）；本分支到此为终点（除记录/推送外不再有 run）。
+
+**跨 seed 表（三次单 run 配对并列；不混合统计）**：
+
+| seed | 聚类事件（diff_num/env_0/env_1） | 占比 | Δtest BSI | Δval BSI | Δtest CTR（Stage-1） | 分类（同一规则） |
+|---|---|---|---|---|---|---|
+| 1688723512（@ `2058de8`） | 999966 / 959244 / 1040756 | 47.96%/52.04% | +0.0082428399 | +0.0100592719 | −0.0015226 | ≥+0.001 → 正 |
+| 1688723740（@ `7ab445c`） | 998878 / 1106286 / 893714 | 55.31%/44.69% | +0.0004588195 | −0.0014831645 | +0.0001965 | NO_CLEAR 档 |
+| **1688738016（本次）** | **999300 / 937876 / 1062124** | **46.89%/53.11%** | **+0.0234789266** | **+0.0175575368** | **+0.0092117165** | **`POSITIVE_IMPROVEMENT`** |
+
+- 三 seed 的机制修复（B4 由 ~10⁻³ 量级修复为 ~47–55%）**全部复现**；效用方向 **3/3 为正**（+0.0082 / +0.0005 / +0.0235）。seed3 的量级为三 seed 中最大。
+- **headroom 旗标（§6.6，机械记录；本分类为 POSITIVE_IMPROVEMENT，不属 NO_CLEAR 情形，旗标仅备查）**：H1 favors（机制全过）、H2 favors（Δval ≥ 0）、H3 favors（Δtest_seed3 > 0 ∧ 3/3 为正 ∧ 均值 > 0）、H4 favors_longer_budget（两臂 best_epoch = 5 = 预算上限、epoch 5 仍在上升）→ 综合 `HEADROOM_PLAUSIBLE`。
+
+**登记的下一步独立/续行动作（供自动化执行；不在本分支执行）**：
+
+> 自本分支 tip（C6）拉新分支 `exp/aliccp-stage1-normalized-clustering-seeds45`；对 canonical seed4/5 = **`1688749593`**、**`1688762746`** 各执行与本文档完全相同的 1+1+1+1 配对（R1 raw stage1 → 审计复现 + P4 冻结 → R2 norm stage1 → R3/R4 stage2；同 tag/同前缀/同门禁 M1–M8、U1–U3、§6.2 分类、§6.3 material contradiction、§6.4 扩展门、§6.6 headroom 规则）；机制文件继续保持 `2058de8` 字节钉死（守卫测试复刻本分支模式）；协议/阈值/预测登记纪律不变；不合并 master、不修改协议文件；完成两 seed 后按 §6 规则汇总（若 seed4/5 中任一 ≥ +0.001 且无 contradiction，则为"多 seed 支持"证据；若否，按 §6.5 收束）。
+
+### 9.4 纪律核对
+
+- **运行次数**：结果 run = **R1/R2/R3/R4 各恰 1 次**（日志 `20261005-132524-stage1-short`、`…-stage1-norm`、`…-1341-stage2-short`、`…-stage2-norm`）；**无重跑、无无效执行、无调参、无 epoch 挑选、test 不参与任何选择**。非结果核验：seed1/seed2 审计 ×2（C1 base + C2 capture 附加）、R1 认证复现 ×1、smoke 恒等 ×1（另有 1 次无效 CPU 试跑，工具修正后 cuda:0 复跑，见 §9.0）、P4 冻结 ×1、终验 ×1。
+- **清洁树**：四条 run 记录 `git.dirty = false`（`69ae804` / `0e98345` / `a3a3e37` / `18a7008`）；run 间提交纪律成立（SUMMARY 行在下一 run 前提交）。
+- **commit 链**：C1 `1c07c6e`（审计 + 预注册）→ C2 `69ae804`（移植 + 测试 + 验证脚本）→ **R1** → 复现/P4 → C3 `0e98345`（P4 冻结 + §9.0）→ **R2** → C4 `a3a3e37`（§9.1 + 验证脚本设备修正）→ **R3** → C5 `18a7008`（R3 SUMMARY 行）→ **R4** → C6（本提交：§9.2/§9.3/§9.4 + R4 SUMMARY 行 + 验证 JSON 引用）。
+- **R3/R4 零代码 diff**（机械证据）：`git diff a3a3e37 18a7008 -- aliccp_benchmark run_aliccp_benchmark.py multitaskrec config.py baseline` 为空；两 commit 间全部差异 = SUMMARY.md 的 1 行追加。
+- **SUMMARY**：本分支追加 **2 行**（R3 short / R4 norm；append-only，未重写任何既有行；系谱 = `8133d32` 的 2 行 + 本 2 行）。
+- **测试**：终验内 M8a 复跑 **64/64 OK**；守卫（字节钉死/AST/seed3 身份/文档 token）全绿。
+- **验证产物**：`artifacts/aliccp_bench/audit/seed3_verification.json`（机械分类）、`…/p4_prediction.json`（P4）、`…-47619ce0-repro/audit.json`（认证复现 10/10）、`…/prior-seeds/audit_prior_seeds_with_capture.json`（前置审计）。
+- **push**：按任务要求，本提交（C6）后立即 push 至 `origin/exp/aliccp-stage1-normalized-clustering-seed3`；远端 tip = C6。
 
 ---
 
