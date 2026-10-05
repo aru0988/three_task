@@ -316,9 +316,104 @@ D:\MPT-Rec-three_task\MPT-Rec\.venv\Scripts\python.exe verify_rp_shuffled.py `
 
 ## 10. 结果（运行后回填，不回写第 0–9 节）
 
-_（C4 回填）_
+### 10.0 非结果核验与执行记录
 
----
+- **§1.5 预注册前完整性核验**（只读）：59/59 通过；产物未动。
+- **执行链**：C1 `f109b0e`（预注册）→ C1b `768ba8b`（澄清，判据零改动）→ C2 `e5619a7`（移植 + 消融实现 + 守卫，141/141 测试绿、`git.dirty=false`）→ **P0 配对基线臂**前台单次 run（`20261005-0930-…-e5619a7`，wall 160.2 s）→ C3 `9d26bc8`（P0 SUMMARY 行）→ **P1 shuffled 臂**前台单次 run（`20261005-0933-…-9d26bc8-rpgs`，wall 197.9 s）→ 分析 ×1（`rp_shuffled_compare.json`）→ 复核首跑（exit 1：检查器语义缺陷，见 §10.5）→ **检查器修正（跑后，已披露）**复核重跑 ×1（80/80 ALL_PASS）→ C4（本 §10/§12 回填 + P1 SUMMARY 行 + 修正后的复核脚本）。
+- 无工具性中断、无重跑、无事后调参；两 run 均**前台**执行并等待至完成；`git diff 9d26bc8 e5619a7 -- . ':(exclude)artifacts/aliccp_bench/SUMMARY.md'` 为**空**（run 间代码逐字相同）。
+
+### 10.1 两条有效 run 与臂级身份
+
+| 项 | P0（配对基线） | P1（shuffled 臂） |
+|---|---|---|
+| run_id | `20261005-0930-p2M-v500k-t1M-m1688723740-short-e5619a7` | `20261005-0933-p2M-v500k-t1M-m1688723740-short-9d26bc8-rpgs` |
+| commit / dirty | `e5619a7`（C2）/ **false** | `9d26bc8`（C3）/ **false** |
+| stage1_id | `s1-5c060b9c-m1688723740-e3-4e1b5c6f` | 同左（A5/A6 逐位校验通过） |
+| epochs / patience / tag | 5 / 2 / `short` | 同左 |
+| best_epoch / best val | **5** / `0.5809347091990792` | **5** / `0.5819965357883198` |
+| test AUC（单次） | `0.5974422649550507` | `0.5989210260551207` |
+| early stop | 未触发（5/5 右删失） | 未触发（5/5 右删失） |
+| 墙钟 / 峰值显存 | 160.2 s / 52.0 MB | 197.9 s / 56.3 MB |
+| A 类 | A1/A2/A4/A5/A6 PASS、A3 SKIP | 同左 |
+| B 类（继承） | B1 PASS / B2 PASS / B3 PASS / **B4 FAIL**（继承） | 同左（B4 与基线逐字相同） |
+| `hard_pass` | false（仅 B4 继承失败） | false（同左） |
+| 臂级分类（in-run，class C） | — | **`MECHANISM_FAIL` / `MECHANISM_SILENT`**（G5 活性带失败，§10.3） |
+
+- **REP 逐位复现（最强形式，超出预注册最低要求）**：P0 与历史基线 `79b5e07` 的逐 epoch val、逐 epoch train_loss、best_epoch、best_val、test、gate_mean **全部逐位相等**；P0 `newtask.pt` sha256 == `90ee06da…`（== 钉死参照头）。配对链与运行环境由此独立背书。
+- run 产物哈希（sha256）：P0 `metrics.json 85a1bb83…` / `config.json 6ba8a59d…` / `gate_report.json fb6ff5d4…` / `newtask.pt 90ee06da…`；P1 `metrics.json 6f82c61c…` / `config.json b44a5044…` / `gate_report.json 0206c97d…` / `prompt_report.json 28636895…` / `newtask.pt 9e22e9dd…`；分析 `rp_shuffled_compare.json 74f3f4d7…`；复核 `verify_report.json 94ea3506…`、首跑 `verify_report_firstpass_exit1.json b55b3fcf…`。
+
+### 10.2 判定（预注册 §5 机械计算；分析器 + 独立复核逐位一致）
+
+| 组 | 结果 |
+|---|---|
+| §5.1-ID（14 项） | **全 true** |
+| §5.1-REP（6 项） | **全 true**（§10.1：逐位复现 + 参照头 sha） |
+| §5.1-A（两 run A 类） | **PASS**（A3 SKIP 视为通过） |
+| §5.1-M（M0+G1–G8） | **false** —— M0/G1/G2/G3/G4/G6/G7/G8 PASS，**G5 FAIL**（§10.3） |
+| §5.1-CC（对照链） | **全 true**（两对照 run 记录值 == §1.5 钉死常量；Δ 重推逐位） |
+| §5.2-PG1–PG6 | **全 PASS**（§10.4） |
+| **因果判定（§5.5 优先级 1）** | **`INVALID`（subreason `MECHANISM_FAIL`）** —— 前置条件 M 假；按预注册**不解读效用** |
+| 二级分类（§5.6，报告） | **`POSITIVE_IMPROVEMENT`**（`G_s = +0.0014787611000699474 ≥ +0.001`）；`NO_CLEAR` headroom **不适用** |
+| 历史 `+0.0055`（§5.7，单列保留） | **未达到**（`G_s ≥ +0.0055` 为 false；不参与主判定） |
+
+**描述性分量（§5.4 全量；因判定 INVALID 仅记录、不作因果解读）**：`G_c = +0.008103113327467715`；`G_s = +0.0014787611000699474`；`L = +0.006624352227397767`；`R = 0.1824929555233151`；`shuffled_above_baseline = true`；`shuffled_material_positive = true`；`Δval_s = +0.0010618265892405887`（`validation_agreement = true`）；`val_sign_matches_correct = true`；`shuffled_exceeds_correct = false`。
+
+### 10.3 机制门禁与诊断（唯一失败 = G5 活性带）
+
+| 门禁 | 实测 |
+|---|---|
+| M0 参照身份 | `ref_val_auc = 0.5809347091990792`、`ref_pred_std = 0.005217193225189258`（≤1e-9，逐位） |
+| G1 构造恒等 | 共享参数逐位、RNG 端点一致；新增键恰 5 键 |
+| G2 初值恒等 | `α@构造 = 0.0`；真实首 batch（train/0 真实 π）前向逐位一致（`max_abs_diff = 0.0`） |
+| G3 门控活 | 逐 epoch（α, α_grad, gen_grad）：(0, 0.05923, **0.0**) / (0.01064, 0.01969, 0.01209) / (0.01118, 0.05183, 0.01086) / (0.01124, 0.03056, 0.00857) / (0.01090, 0.00529, 0.00691)；`α_final = +0.010569889098405838`（checkpoint 独立读取逐位一致） |
+| G4 范数受控 | 三路 `ratio_max = 0.0053912188…` ≤ 0.01056989 + 1e-6 |
+| **G5 活性带** | **FAIL（band_low）**：三路 `ratio_mean = 0.003168184354…` < 0.005 |
+| G6 门控方差 | `geff` mean/std/min/max = 0.00316818435405 / 0.00068310186481 / 0.00148363061595 / 0.00539121871327 |
+| G7 无坍缩 | `pred_std = 0.00517870562558577` = 0.993 × 参照 |
+| G8 参数预算 | 恰 5 键；`new_params_total = 2385`、`head_params = 8129` |
+
+逐流读数（val，n=500000，fp64 流式），流序 `("gen","spec_0","spec_1")`：`ratio_mean = 0.003168184354`（三路 spread <1e-9）；`cos_mean = +0.06290 / +0.13314 / +0.07916`；预测离散度 `pred_mean/std = 0.9928… / 0.0051787…`；源/头门 `gate_mean = [0.7904243125, 0.2095755]`。
+
+与 correct 臂（`013e105-rpg`）对照（描述）：α_final **+0.01057 vs +0.07102**（学习到的门控显著更小 ⇒ ratio 0.00317 vs 0.02814）；G3 首步 α_grad 量级相近（0.0592 vs 0.0511）；cos 三路位于 (+0.06,+0.13,+0.08) vs (+0.013,+0.084,+0.059)；pred_std 0.00518 vs 0.00495。**该对照不构成因果结论（§5.5 INVALID）**；顺带披露：三路 ratio_mean 高度一致（spread 1e-9 级）与 correct 臂同型（三路 spread 3.3e-12），S2 跨流一致性在置换下结构性保持。
+
+### 10.4 错排完整性（PG1–PG6 全 PASS；运行期 + 独立重推）
+
+- 计数：`fixed_points_total = 0`、`bijection_failures = 0`、`regeneration_mismatches = 0`、`rng_isolation_violations = 0`、`key_conflicts = 0`、`degenerate_identity_batches = 0`；`n_perms_total = 1750`。
+- 覆盖：train 1000 批 / 2 000 000 行、val 250 批 / 500 000 行、test 500 批 / 1 000 000 行（== 预算；批数 == ceil(预算/2000)）。
+- digest：逐 split 与总 digest 由**独立复核脚本按 §2.1 规格重实现**逐位复算一致（`total_digest = dcf302c1a80ae7e802334510…`）；每 split 前 3 键的 `perm_head` 逐位核对一致（PG3/PG5 的"标签无关 + 确定性"证据）。
+- PG6：机制文件 LF sha == `b3b93b3a…`（钉死）；bench `shuffler=None` 恒等分派 + 恒等置换等价测试全绿（守卫测试）。
+
+### 10.5 独立复核（`verify_rp_shuffled.py`）
+
+- **首跑（修正前检查器）**：exit 1，80 项中仅 `mechanism.G5` 一项 FAIL —— 检查器缺陷：首版把"记录的门禁通过"当作完整性检查，而 G5 的**合法失败**（判定事实）被误报为复核不一致。首跑报告保留为 run 目录 `verify_report_firstpass_exit1.json`（sha256 `b55b3fcf…`）。
+- **检查器修正（跑后，先于本节回填；同类先例：seed-2 复现预注册 §1.5 检查器缺陷披露）**：机制门禁改为**记录一致性口径**——由记录的 `observed` 值**独立重推** pass/fail，并核对记录布尔与重推一致（不再把门禁失败本身当作复核失败）；门禁状态单列于 `recomputed.mechanism_gate_status`。修正仅涉及复核脚本与守卫测试夹具（§12）；**任何 run 产物与判定未动**。
+- **重跑 ×1（披露）**：**80/80 ALL_PASS（exit 0）**；`recomputed.mechanism_gate_status = {M0..G4,G6..G8: PASS, G5: FAIL}`（忠实记录失败）；`verdict/subreason` 独立重推 == 分析器 `INVALID/MECHANISM_FAIL`；分量逐位相等；错排 digest 全部独立复现；三处 JSON 互洽、SUMMARY 两行、文件钉死（mechanism/bench/CLI/rp_shuffled/守卫/前置核验）全部一致。
+
+### 10.6 纪律核对（§6/§7/§9 落实）
+
+- **运行次数**：P0 stage2 ×1、P1 stage2 ×1（均前台；无工具性中断；无重跑）；分析 ×1；复核 = 首跑 ×1 + **检查器修正后重跑 ×1（已披露）**。未改预算/patience/tag/阈值/构造/判定树/参照；未做任何事后调参；未重训 Stage-1；未重跑任何历史 run；未扩 seed；未启动其它消融。
+- 测试：141/141 通过（基点 37 + 移植 65 + 本分支守卫/分析器/复核夹具 39）；静态守卫：`git diff --name-only 8133d32` ⊆ 白名单、受保护文件零 diff（测试内断言）。
+- **跑后代码改动披露（仅 2 个文件，与判定无关）**：`verify_rp_shuffled.py`（检查器语义修正，§10.5）与 `aliccp_benchmark/tests/test_residual_prompt_shuffled.py`（夹具 upgrade：`_fixture_arm_full` 生成含 `observed` 块的真实形态臂判定）；机制/接线/分析模块（`residual_prompt.py`/`bench.py`/`run_aliccp_benchmark.py`/`rp_shuffled.py`）**跑后零改动**（守卫哈希钉死）。
+- `SUMMARY.md` 恰追加 2 行（P0 + P1，append-only；无重写）。
+
+### 10.7 解读（预注册口径；不越界）
+
+1. **机械结论**：因果判定 = **`INVALID`（`MECHANISM_FAIL`）**——唯一原因：shuffled 臂在预注册活性带 G5 上失败（学习到的 `|α| = 0.0106` ⇒ `ratio_mean = 0.00317 < 0.005`）。按 §5.5"不解读效用"，**不对条件对应是否承载效用作任何因果主张**；`SAMPLE_CONDITION_SUPPORTED` / `CONDITION_ALIGNMENT_NOT_SUPPORTED` 两个分支均**未触发**。
+2. **实现缺陷排查（尽调，非判定）**：未发现实现缺陷——PG1–PG6 全过（1750 个 π、零不动点/零冲突、digest 独立复现）、80/80 独立复核通过、S1/S2 结构性保持、α=0 构造与首 batch 逐位恒等、训练自 epoch 1 起即与 correct 臂不同（置换从第一步生效）、两侧 RNG 隔离探针零违规。G5-low 是**置换条件下优化动力学**的真实结果（描述），不是接线/装载错误。
+3. **描述性对照（不作因果解读）**：在冻结规则之下，`G_s = +0.0015`（≥ +0.001 二级分类 `POSITIVE_IMPROVEMENT`；未达历史 +0.0055）、`L = +0.0066`、`R = 0.182`——仅作为**若未来以新的预注册重访此问题时**的历史读数保留。
+4. **历史判定原样保留**：seed1 `VALID_NEGATIVE`、seed2 `VALID_POSITIVE`（+0.0081）、10-epoch `PERSISTS`、20-epoch `NOT_PERSIST`/`ABLATION_ELIGIBLE` 均**未改写**；本次 `INVALID` 只针对本消融自身。
+5. **后续消融口径（§9.3 落实）**：`INVALID` 情形下**先修复/理解、不启动后续消融**——本分支到此为止；下方 10.7.1 给出**下一次独立消融的精确建议**（仅登记，不在本分支执行）。
+6. **class C 读法**：in-run `rp_arm.U`（+0.00148/+0.00106 vs 5-epoch 常量）为机制诊断，非因果判定。
+7. **继承披露**：B4 两臂 FAIL（共享 stage-1 cluster 退化；臂无关）；两臂 `hard_pass=false` 如常披露。
+
+#### 10.7.1 下一次独立消融的精确建议（预声明规则下的必然下一步；本分支不执行）
+
+按 §9.3（`INVALID` ⇒ 先修复/理解），且尽调未发现实现缺陷（§10.7-2）之后，本消融暴露的**可预注册的设计问题**是：错配条件化使**学习到的干预幅度本身收缩**（`|α|` 0.0710 → 0.0106），于是"条件对应"与"干预幅度"在双臂间不可分离，且 correct 臂标定的活性带 G5 对处理臂构成"以结局为门"（gate on a learned outcome）。因此**下一次独立消融建议 = α 匹配的条件消融（全新预注册）**：
+
+- **双臂**：correct-condition 与 shuffled-condition 各一条，同 seed2/short/同 Stage-1 产物/同错排机制（`COND_PERM_SEED` 复用或另行冻死）；
+- **α 钉死**：`prompt_gate` 改为**非学习常数**，两臂同取已审计记录值 `α = +0.07101669907569885`（correct 臂 5-epoch 终值）——两臂注入相同相对幅度（ratio 由 `α·||m||/√d` 确定性给出），**唯一差异 = 样本↔条件对应**；
+- **判据（新预注册内先于 run 写死）**：机制门禁以"钉死 α 的结构式检查"替换学习活性带（并**在预注册中 a priori 说明**为何 G5（学习量门）不适用于本设计）；置换门禁 PG1–PG6 与 §5.5 判定树（含 `+0.001` 实质差异）沿用；
+- **理由**：这是唯一能把"对应关系"从"学习到的干预幅度"中干净分离的单因子设计；直接回答本消融未能回答的因果问题。
 
 ## 11. 非新颖性声明
 
@@ -333,7 +428,11 @@ _（C4 回填）_
 - **分支本地 SUMMARY 系谱**：本分支 `SUMMARY.md` 基线含 smoke 行与 seed1 基线行（`8133d32` 携带）；其余历史行记录在各自分支，本分支**不复制**其它分支行，只由本实验 run 追加自己的行（P0 + P1）。
 - **产物/对照 run 只读复制**：§1.5 所列产物、参照头、两个对照 run、前缀指纹均自 five-seed worktree 只读复制入本 worktree（逐文件 sha 相等）；dataset 经 junction 复用 main tree（只读、gitignore）。
 - **非结果文件（未跟踪）**：`artifacts/aliccp_bench/audit/rp-shuffled/` 报告 JSON、`artifacts/aliccp_bench/logs/` run 日志。
-- **执行记录（运行后补）**：_（C4 回填）_。
+- **执行记录（运行后补）**：C1 `f109b0e` → C1b `768ba8b` → C2 `e5619a7`（141/141 测试绿、`git.dirty=false`）→ P0 前台单次 run `20261005-0930-…-e5619a7`（wall 160.2 s；REP 逐位复现 `79b5e07` 含 `newtask.pt` sha）→ C3 `9d26bc8`（P0 SUMMARY 行）→ P1 前台单次 run `20261005-0933-…-9d26bc8-rpgs`（wall 197.9 s；**无工具性中断、无重跑**）→ 分析 ×1（`INVALID`/`MECHANISM_FAIL` ∧ 二级 `POSITIVE_IMPROVEMENT`；G5 活性带失败）→ 复核首跑（exit 1：检查器语义缺陷）→ 检查器修正 + 复核重跑 ×1（80/80）→ C4（本 §10/§12 回填 + P1 SUMMARY 行 + 修正后的复核脚本与夹具）。运行命令与 §6 逐字一致（cwd=本 worktree，主树 venv 解释器）；两 run `git.dirty=false`；run 间代码同一性 diff 为空。
+- **复核脚本检查器缺陷与修正（运行后补；先于 §10 回填）**：首版 `verify_rp_shuffled.py` 将"记录的门禁通过"当作完整性检查 ⇒ shuffled 臂 G5 的**合法失败**被误报为 exit 1。修正为**记录一致性口径**（由 `observed` 值独立重推 pass/fail 并核对记录布尔；门禁失败状态单列 `recomputed.mechanism_gate_status`）。首跑报告保留为 `verify_report_firstpass_exit1.json`（`b55b3fcf…`）；修正后 80/80 ALL_PASS。**run 产物与判定未动**；同类先例：seed-2 复现预注册 §1.5 检查器缺陷披露。
+- **跑后跟踪文件改动（仅 2 个，均非判定面）**：`verify_rp_shuffled.py`（上述检查器修正）、`aliccp_benchmark/tests/test_residual_prompt_shuffled.py`（夹具 upgrade：`_fixture_arm_full` 经钉死 `RP.arm_verdict` 生成含 `observed` 块的真实形态臂判定，使复核夹具端到端覆盖重推路径）；机制/接线/分析模块（`residual_prompt.py`/`bench.py`/`run_aliccp_benchmark.py`/`rp_shuffled.py`/`verify_shuffled_prerun.py`）跑后**零改动**（哈希钉死：`b3b93b3a…`/`84d631f7…`/`abedd0b4…`/`81fb9ba9…`/`871e59a5…`）。
+- **实际结果形态（运行后补）**：因果判定落入预注册 `INVALID` 分支（§5.5 优先级 1；唯一原因 = 处理臂 G5 活性带失败，`|α_final| = 0.0106`）；无任何判据/阈值/规则被事后修改；`SAMPLE_CONDITION_SUPPORTED` / `CONDITION_ALIGNMENT_NOT_SUPPORTED` 均未触发（§10.7）。
+- **下一消融登记（运行后补，§10.7.1）**：`INVALID` ⇒ 修复/理解优先（§9.3）；已给出精确的下一独立消融建议（α 钉死匹配设计 + 全新预注册）；本分支不启动。
 
 ---
 

@@ -9,12 +9,18 @@
   2. 错排独立重推：按 (COND_PERM_SEED, split, batch_index, n) 键空间重生成全部 π → 逐 split digest 与
      总 digest 逐位 == 记录（⇒ 标签无关/确定性复现）；sampled 键的 perm_head 逐位核对；
   3. 置换门禁 PG1–PG6 独立重算（不信任记录布尔）：PG1–PG5 由 report 计数 + 覆盖核对；PG6 = 机制文件哈希；
-  4. identity（14 项）/ REP（P0 vs 历史基线钉死 + newtask.pt sha）/ A 类 / M0–G8 / 对照链 独立重推；
+  4. identity（14 项）/ REP（P0 vs 历史基线钉死 + newtask.pt sha）/ A 类 / 对照链 独立重推；
+     **机制门禁 M0/G1–G8：由记录的 `observed` 值独立重推 pass/fail，并核对记录布尔与重推一致**
+     （记录一致性口径——门禁本身失败属判定事实，不使本脚本失败；失败状态在报告
+     `recomputed.mechanism_gate_status` 单列）；
   5. 效用分量与判定树独立重算（g_c/g_s/L/R/verdict/subreason/二级分类/headroom）与分析器报告逐位一致；
   6. 三处 JSON 互洽（metrics.rp_arm == gate_report.residual_prompt == prompt_report.arm）、SUMMARY 行、
      run 元数据（dirty=false、run_id 内嵌 commit）。
 
-退出码 0 = 全部一致；1 = 有不一致（逐项打印；不一致即停止，不改任何 run 产物）。
+退出码 0 = 记录全部一致（含门禁记录与独立重推一致）；1 = 有不一致（逐项打印；不一致即停止，不改任何
+run 产物）。首版检查器把"记录的门禁通过"当作完整性检查（G5 合法失败 ⇒ 误报 exit 1）；跑后修正为
+记录一致性口径（同类先例：seed-2 复现预注册 §1.5 检查器缺陷披露）；首跑报告保留为
+`verify_report_firstpass_exit1.json`。
 """
 from __future__ import annotations
 
@@ -56,12 +62,24 @@ SECONDARY_NEGATIVE_MAX = -0.02
 VARIANT_SHUFFLED = "residual-prompt-shuffled"
 RUN_ID_SUFFIX = "-rpgs"
 
+# ---- 机制门禁判据常量（与钉死 arm_verdict 语义逐字一致；供独立重推）----
+REFERENCE_AUC = 0.5809347091990792          # M0 expected_reference_auc（== 历史基线 val）
+REFERENCE_PRED_STD = 0.005217193225189258
+REFERENCE_IDENTITY_TOL = 1e-9
+RATIO_BAND = (0.005, 0.5)
+BOUND_TOL = 1e-6
+PRED_STD_MIN_RATIO = 0.5
+EXPECTED_NEW_PARAMS_TOTAL = 2385
+EXPECTED_HEAD_PARAMS = 8129
+EXTRA_PARAM_NAMES = ("prompt_gate", "prompt_generator.0.bias", "prompt_generator.0.weight",
+                     "prompt_generator.2.bias", "prompt_generator.2.weight")
+
 # ---- 文件 LF sha256 钉死（C2 时计算；与守卫测试一致）----
 MECHANISM_LF_SHA = "b3b93b3aa501277656b57e7e89e5ab38a76343f005d0b312e4dc18c8a98120cc"
 BENCH_LF_SHA = "84d631f7dfa12f50be0cfbfb94ffd23236c553c98fa949ce4a563556ee5f69dd"
 CLI_LF_SHA = "abedd0b4471098d86b21fdfea040a0de04ceccae298ef5996198dc1e1250011d"
 SHUFFLED_MODULE_LF_SHA = "81fb9ba9bec9864cfdcd71256fb44a2b10939466e3a01f39726e21b813a2e6bf"
-GUARD_TEST_LF_SHA = "681bb282fb4a933dbc842f791d6d895a6001cae263992daf5ffcff6c6ddb14e7"
+GUARD_TEST_LF_SHA = "12fb2cf4ffa2c968065470795dc1730b9ff2b5b53fa2ff3cbd5ddf9d15a2fcc1"
 PRERUN_VERIFIER_LF_SHA = "871e59a5915c1889773f14740925c49435687033f13efb783e4958f17f189b80"
 
 FILES = {
@@ -144,6 +162,44 @@ def secondary_classification(g_s: float) -> str:
     if g_s <= SECONDARY_NEGATIVE_MAX:
         return "CLEAR_DEGRADATION"
     return "NO_CLEAR_IMPROVEMENT"
+
+
+def rederive_gate_pass(gate: str, observed: dict) -> bool:
+    """由记录的 observed 值独立重推门禁通过与否（不信任记录的 pass 布尔；判据 == 钉死 arm_verdict）。"""
+    o = observed or {}
+    if gate == "M0":
+        return (o.get("ref_val_auc") is not None and o.get("ref_pred_std") is not None
+                and abs(float(o["ref_val_auc"]) - REFERENCE_AUC) <= REFERENCE_IDENTITY_TOL
+                and abs(float(o["ref_pred_std"]) - REFERENCE_PRED_STD) <= REFERENCE_IDENTITY_TOL)
+    if gate == "G1":
+        return bool(o.get("shared_params_bit_identical") and o.get("global_rng_endpoint_identical")
+                    and o.get("extra_keys") == sorted(EXTRA_PARAM_NAMES))
+    if gate == "G2":
+        return bool(o.get("alpha_at_construction") == 0.0 and o.get("init_bit_identical"))
+    if gate == "G3":
+        first, last = o.get("first") or {}, o.get("last") or {}
+        return bool(float(first.get("alpha_grad_norm") or 0.0) != 0.0
+                    and float(last.get("alpha") or 0.0) != 0.0
+                    and float(last.get("generator_grad_norm") or 0.0) > 0.0
+                    and float(o.get("alpha_final") or 0.0) != 0.0)
+    if gate == "G4":
+        return all(float(r) <= abs(float(o.get("alpha_abs") or 0.0)) + BOUND_TOL
+                   for r in (o.get("ratio_max") or [1e9]))
+    if gate == "G5":
+        return all(RATIO_BAND[0] <= float(r) <= RATIO_BAND[1]
+                   for r in (o.get("ratio_mean") or [1e9]))
+    if gate == "G6":
+        return bool(float(o.get("geff_std") or 0.0) > 0.0 and float(o.get("geff_max") or 0.0) > 0.0
+                    and float(o.get("geff_min") or 0.0) >= 0.0)
+    if gate == "G7":
+        return bool(float(o.get("pred_std") or 0.0) > 0.0 and o.get("ref_pred_std") is not None
+                    and float(o["ref_pred_std"]) > 0.0
+                    and float(o["pred_std"]) >= PRED_STD_MIN_RATIO * float(o["ref_pred_std"]))
+    if gate == "G8":
+        return bool(sorted(str(n) for n in (o.get("names") or [])) == sorted(EXTRA_PARAM_NAMES)
+                    and int(o.get("new_params_total", -1)) == EXPECTED_NEW_PARAMS_TOTAL
+                    and int(o.get("head_params", -1)) == EXPECTED_HEAD_PARAMS)
+    raise AssertionError(f"未知门禁 {gate}")
 
 
 def main(argv=None) -> int:
@@ -268,8 +324,13 @@ def main(argv=None) -> int:
     check("protocol.baseline_a_class", a_class_ok(base_gate))
     check("protocol.arm_a_class", a_class_ok(arm_gate))
     arm_arm = arm.get("rp_arm") or {}
+    gate_status = {}
     for gate in ("M0", "G1", "G2", "G3", "G4", "G5", "G6", "G7", "G8"):
-        check(f"mechanism.{gate}", bool((arm_arm.get(gate) or {}).get("pass")))
+        rec = arm_arm.get(gate) or {}
+        rederived = rederive_gate_pass(gate, rec.get("observed") or {})
+        gate_status[gate] = "PASS" if rederived else "FAIL"
+        check(f"mechanism.{gate}.record_consistent", bool(rec.get("pass")) == rederived,
+              f"recorded={rec.get('pass')} rederived={rederived}")
 
     comparator = {
         "baseline_values": (ctx_base["test_auc_bsi"] == BASELINE_RECORD["test_auc_bsi"]
@@ -301,8 +362,7 @@ def main(argv=None) -> int:
         expect_verdict, expect_sub = "INVALID", "BASELINE_REPRODUCTION_FAILED"
     elif not (a_class_ok(base_gate) and a_class_ok(arm_gate)):
         expect_verdict, expect_sub = "INVALID", "PROTOCOL_INVALID"
-    elif not all(bool((arm_arm.get(g) or {}).get("pass")) for g in
-                 ("M0", "G1", "G2", "G3", "G4", "G5", "G6", "G7", "G8")):
+    elif not all(v == "PASS" for v in gate_status.values()):   # 用独立重推的门禁状态（不信任记录布尔）
         expect_verdict, expect_sub = "INVALID", "MECHANISM_FAIL"
     elif not all(comparator.values()):
         expect_verdict, expect_sub = "INVALID", "COMPARATOR_MISMATCH"
@@ -369,7 +429,8 @@ def main(argv=None) -> int:
         "recomputed": {"g_c": g_c, "g_s": g_s, "L": L, "delta_val_s": delta_val_s,
                        "verdict": expect_verdict, "subreason": expect_sub,
                        "secondary": secondary_classification(g_s),
-                       "permutation_gates": recomputed_gates},
+                       "permutation_gates": recomputed_gates,
+                       "mechanism_gate_status": gate_status},
         "checks": checks,
         "all_pass": ok_all,
         "n_checks": len(checks),

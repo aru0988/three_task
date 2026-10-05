@@ -703,6 +703,33 @@ def _fixture_rp_arm(**overrides):
     return arm
 
 
+def _fixture_arm_full(ref_auc=RP.BASELINE_AUC_VAL, ref_std=RP.REFERENCE_PRED_STD):
+    """真实形态的臂级判定（经钉死 `RP.arm_verdict` + shuffle 段生成；含 observed 块供独立重推）。"""
+    probe = {
+        "construction": {"shared_params_bit_identical": True, "global_rng_endpoint_identical": True,
+                         "extra_keys": sorted(RP.EXTRA_PARAM_NAMES), "alpha_at_construction": 0.0},
+        "init_forward": {"bit_identical": True},
+        "grad_probe": [{"alpha_grad_norm": 0.1, "alpha": 0.0, "generator_grad_norm": 0.0},
+                       {"alpha_grad_norm": 0.1, "alpha": 0.05, "generator_grad_norm": 0.1}],
+        "alpha_final": 0.05,
+    }
+    val_stats = {"streams": {"ratio_max": [0.04, 0.04, 0.04], "ratio_mean": [0.03, 0.03, 0.03]},
+                 "gate": {"geff_std": 0.001, "geff_max": 0.04, "geff_min": 0.01},
+                 "dispersion": {"pred_std": 0.004}}
+    params = {"new_param_list": [{"name": n, "shape": [1], "numel": 1}
+                                 for n in RP.EXTRA_PARAM_NAMES],
+              "new_params_total": RP.EXPECTED_NEW_PARAMS_TOTAL,
+              "head_params": RP.EXPECTED_HEAD_PARAMS}
+    reference = {"val_auc": ref_auc, "pred_dispersion": {"pred_std": ref_std}}
+    shuffler = RPS.ConditioningShuffler()
+    for split, n_rows in (("train", 12), ("val", 6), ("test", 8)):
+        shuffler.perm(split, 0, n_rows)
+    return RPS.shuffled_arm_verdict(auc_test=RP.BASELINE_AUC_TEST + 0.01,
+                                    auc_val=RP.BASELINE_AUC_VAL + 0.01, probe=probe,
+                                    val_stats=val_stats, params=params, reference=reference,
+                                    protocol_ok=True, shuffle_report=shuffler.finalize())
+
+
 class AnalyzerFixtureBase(unittest.TestCase):
     """构造 P0/P1/对照 run 的极小夹具，并 patch 钉死常量；全部 CPU、纯 JSON。"""
 
@@ -769,7 +796,7 @@ class AnalyzerFixtureBase(unittest.TestCase):
                                          "batch_size": 16, "model_seed": 1688723740})
         (p0 / "newtask.pt").write_bytes(FIXTURE_HEAD_BYTES)
         arm = self.root / "runs" / self.arm_run
-        arm_arm = arm_rp_arm or _fixture_rp_arm()
+        arm_arm = arm_rp_arm or _fixture_arm_full()
         _write_json(arm / "metrics.json",
                     _fixture_metrics(run_id=self.arm_run, variant=RPS.VARIANT_SHUFFLED,
                                      test=self.arm_test, val=self.arm_val, per_epoch_val=arm_pe,
