@@ -19,7 +19,7 @@ from multitaskrec.dataset import AliCCPDataset
 from multitaskrec.model import MPTRec, NewTask
 from multitaskrec.train import MPTRecTrainManager
 
-from . import metrics, protocol
+from . import metrics, protocol, residual_prompt as RP, rp_shuffled as RPS
 
 
 class RecordingMPTRecTrainManager(MPTRecTrainManager):
@@ -279,15 +279,19 @@ def run_stage1(
 
 
 @torch.no_grad()
-def evaluate_newtask(newtask, model, loader, device) -> float:
-    """阶段 2 评测口径与仓库 AliCCP_NewTask.py 的 evaluation() 一致（spec 7.5）。"""
+def evaluate_newtask(newtask, model, loader, device, shuffler=None, split=None) -> float:
+    """阶段 2 评测口径与仓库 AliCCP_NewTask.py 的 evaluation() 一致（spec 7.5）。
+
+    `shuffler=None`（baseline/correct 臂）时逐字保持钉死调用；shuffled 臂经逐 batch 条件错排分派。
+    """
     newtask.eval()
     y_true, y_hat = [], []
-    for _, _, y, features in loader:
+    for step, (_, _, y, features) in enumerate(loader):
         for key in features:
             features[key] = features[key].to(device)
         dnn_input, gen_rep, spec_reps, env_embs = model.get_infos(features)
-        pred = newtask(dnn_input, gen_rep, spec_reps, env_embs)
+        pred = RPS.forward_with_conditioning(newtask, dnn_input, gen_rep, spec_reps, env_embs,
+                                             shuffler, split, step)
         y_true.append(y)
         y_hat.append(pred)
     return metrics.auc_score(torch.cat(y_true), torch.cat(y_hat))
@@ -333,11 +337,20 @@ def run_stage2(
     reg_dnn=protocol.REG_DNN,
     newtask_rep_dim=None,
     run_id=None,
+    variant=RP.BASELINE_VARIANT,
+    prompt_reference_newtask=None,
 ) -> dict:
-    """阶段 2：只从 --stage1-dir 加载 backbone，真冻结三件套，训练 NewTask 头，判定门禁（spec 7/8/10）。"""
+    """阶段 2：只从 --stage1-dir 加载 backbone，真冻结三件套，训练 NewTask 头，判定门禁（spec 7/8/10）。
+
+    `variant="residual-prompt"` 时换成范数受控残差 prompt 头（见
+    docs/superpowers/specs/2026-10-03-aliccp-stage2-residual-prompt-gate-design.md）；默认 `baseline`
+    与未启用时行为一致（基线臂除恒为 "baseline" 的 `variant` 字段外键集不变）。
+    """
     t0 = time.time()
     _reset_peak_vram(device)
     log(f"[stage2] 开始：stage1_id={stage1_id} tag={tag} model_seed={model_seed} enforce_b={enforce_b}")
+    if variant != RP.BASELINE_VARIANT and prompt_reference_newtask is None:
+        raise ValueError("处理臂必须提供 --prompt-reference-newtask（M0/G7 依赖参照身份，拒绝出数）")
     protocol.seed_model(model_seed)  # 独立进程重播种：头初始化与阶段 1 轨迹解耦（spec 6.1）
 
     datasets, loaders = _loaders(data_files, budgets, batch_size)
@@ -395,13 +408,27 @@ def run_stage2(
     rep_dim = int(newtask_rep_dim) if newtask_rep_dim is not None else int(list(expert_hidden)[-1])
     if rep_dim != int(list(expert_hidden)[-1]):
         raise AssertionError("NewTask rep_dim 必须等于 expert_dnn_hidden_units[-1]（env_embs 维度约束）")
-    newtask = NewTask(
-        input_size=input_size,
-        rep_dim=rep_dim,
-        tower_dnn_hidden_units=list(tower_hidden),
-        reg_dnn=reg_dnn,
-        device=device,
-    ).to(device)
+    rng_before = torch.get_rng_state() if variant != RP.BASELINE_VARIANT else None
+    if variant == RPS.VARIANT_SHUFFLED:                  # 条件对应消融臂：错排头 + 隔离错排器
+        newtask = RPS.build_shuffled_newtask(input_size=input_size, rep_dim=rep_dim,
+                                             tower_dnn_hidden_units=list(tower_hidden),
+                                             reg_dnn=reg_dnn, device=device).to(device)
+    else:
+        newtask = RP.build_newtask(variant, input_size=input_size, rep_dim=rep_dim,
+                                   tower_dnn_hidden_units=list(tower_hidden),
+                                   reg_dnn=reg_dnn, device=device).to(device)
+    shuffler = RPS.ConditioningShuffler() if variant == RPS.VARIANT_SHUFFLED else None
+    audit = None
+    if variant == RPS.VARIANT_SHUFFLED:                  # M0/G1/G2/G3 运行期审计（错排臂专用）
+        audit = RPS.ShuffledPromptAudit(newtask, rng_before=rng_before, rng_after=torch.get_rng_state(),
+                                        input_size=input_size, rep_dim=rep_dim,
+                                        tower_dnn_hidden_units=list(tower_hidden), reg_dnn=reg_dnn,
+                                        device=device, shuffler=shuffler)
+    elif variant != RP.BASELINE_VARIANT:                 # M0/G1/G2/G3 运行期审计（处理臂专用）
+        audit = RP.PromptAudit(newtask, rng_before=rng_before, rng_after=torch.get_rng_state(),
+                               input_size=input_size, rep_dim=rep_dim,
+                               tower_dnn_hidden_units=list(tower_hidden), reg_dnn=reg_dnn,
+                               device=device)
     optimizer = torch.optim.Adam(params=newtask.parameters(), lr=lr)
     loss_func = torch.nn.BCELoss()
 
@@ -410,19 +437,24 @@ def run_stage2(
     for epoch in range(1, epochs + 1):
         newtask.train()
         loss_sum, steps = 0.0, 0
-        for _, _, y, features in loaders["train"]:
+        for step, (_, _, y, features) in enumerate(loaders["train"]):
             for key in features:
                 features[key] = features[key].to(device)
             with torch.no_grad():  # 计算图级冻结（spec 7.3 第 3 条）；backbone 恒为 eval
                 dnn_input, gen_rep, spec_reps, env_embs = model.get_infos(features)
-            pred = newtask(dnn_input, gen_rep, spec_reps, env_embs)
+            if audit is not None and epoch == 1 and step == 0:
+                audit.init_forward_check(dnn_input, gen_rep, spec_reps, env_embs)   # G2：真实首个 batch
+            pred = RPS.forward_with_conditioning(newtask, dnn_input, gen_rep, spec_reps, env_embs,
+                                                 shuffler, "train", step)
             loss = loss_func(pred.cpu(), y.float()) + newtask.get_l2_reg()
             optimizer.zero_grad()
             loss.backward()
+            if audit is not None:
+                audit.after_backward(epoch=epoch, step=step)             # 逐 epoch 首个 batch 梯度探针
             optimizer.step()
             loss_sum += float(loss)
             steps += 1
-        val_auc = evaluate_newtask(newtask, model, loaders["val"], device)
+        val_auc = evaluate_newtask(newtask, model, loaders["val"], device, shuffler=shuffler, split="val")
         epoch_records.append({"epoch": epoch, "train_loss": loss_sum / max(1, steps), "val_auc_bsi": val_auc})
         log(f"[stage2] Epoch:{epoch} train_loss={loss_sum / max(1, steps):.4f} AUC-Val-BSI:{val_auc:.4f}")
         if val_auc > best_auc:
@@ -435,7 +467,7 @@ def run_stage2(
                 log(f"[stage2] EarlyStopping at epoch {epoch}")
                 break
     newtask.load_state_dict(best_weight)
-    test_auc = evaluate_newtask(newtask, model, loaders["test"], device)  # test 只评一次（spec 7.5）
+    test_auc = evaluate_newtask(newtask, model, loaders["test"], device, shuffler=shuffler, split="test")  # test 只评一次（spec 7.5）
     gate_mean = newtask_gate_mean(newtask, model, loaders["val"], device)
 
     # ---- A1：冻结完整性 ----
@@ -475,11 +507,43 @@ def run_stage2(
     gates = {**a_gates, **b_gates}
     passed = metrics.hard_pass(a_gates, enforce_b=enforce_b, b_gates=b_gates)
 
+    # ---- 处理臂：机制诊断与臂级判定（不并入 hard_pass；预注册第 4/5 节）----
+    arm = prompt_probe = prompt_diagnostics = prompt_params = prompt_reference = None
+    shuffle_report = None
+    if variant != RP.BASELINE_VARIANT:
+        alpha_final = float(newtask.prompt_gate.detach())
+        prompt_probe = audit.result(alpha_final)
+        if variant == RPS.VARIANT_SHUFFLED:   # 诊断遍历同样经错排分派（train/val/test 同一原则）
+            prompt_diagnostics = RPS.evaluate_prompt_diagnostics_shuffled(
+                newtask, model, loaders["val"], device, shuffler, split="val")
+        else:
+            prompt_diagnostics = RP.evaluate_prompt_diagnostics(newtask, model, loaders["val"], device)
+        prompt_params = RP.param_report(newtask)
+        prompt_reference = RP.reference_head_stats(
+            prompt_reference_newtask, model, loaders["val"], device, input_size=input_size,
+            rep_dim=rep_dim, tower_dnn_hidden_units=list(tower_hidden), reg_dnn=reg_dnn)
+        protocol_ok = all(g["verdict"] in ("PASS", "SKIP") for g in a_gates.values())
+        if variant == RPS.VARIANT_SHUFFLED:
+            shuffle_report = shuffler.finalize()          # 全部用毕后一次性定稿（digest 稳定）
+            arm = RPS.shuffled_arm_verdict(auc_test=test_auc, auc_val=best_auc, probe=prompt_probe,
+                                           val_stats=prompt_diagnostics, params=prompt_params,
+                                           reference=prompt_reference, protocol_ok=protocol_ok,
+                                           shuffle_report=shuffle_report,
+                                           budgets=budgets, batch_size=batch_size)
+        else:
+            arm = RP.arm_verdict(auc_test=test_auc, auc_val=best_auc, probe=prompt_probe,
+                                 val_stats=prompt_diagnostics, params=prompt_params,
+                                 reference=prompt_reference, protocol_ok=protocol_ok)
+        log(f"[stage2] variant={variant} classification={arm['classification']} "
+            f"subreason={arm['subreason']} alpha_final={alpha_final:.6f}")
+
     # ---- 产物与 SUMMARY（spec 11）----
     if run_id is None:
         run_id = protocol.make_run_id(
             datetime.now(), prefix_tag=prefix_tag, model_seed=model_seed, tag=tag, commit=protocol.code_commit()
         )
+        if variant != RP.BASELINE_VARIANT:
+            run_id += RPS.RUN_ID_SUFFIX if variant == RPS.VARIANT_SHUFFLED else RP.RUN_ID_SUFFIX
     run_path = protocol.run_dir(root, run_id)
     run_path.mkdir(parents=True, exist_ok=True)
     torch.save({k: v.detach().cpu() for k, v in newtask.state_dict().items()}, run_path / "newtask.pt")
@@ -494,6 +558,7 @@ def run_stage2(
         "epochs": int(epochs),
         "patience": int(patience),
         "enforce_b": bool(enforce_b),
+        "variant": variant,
         "best_epoch": best_epoch,
         "best_val_auc_bsi": float(best_auc),
         "test_auc_bsi": float(test_auc),
@@ -531,13 +596,42 @@ def run_stage2(
         "input_size": int(input_size),
         "embedding_size": int(embedding_size),
         "enforce_b": bool(enforce_b),
+        "variant": variant,
         "commit": protocol.code_commit(),
         "git": protocol.git_state(),
     }
     gate_doc = {"run_id": run_id, "tag": tag, "enforce_b": bool(enforce_b), "gates": gates, "hard_pass": bool(passed)}
+    if arm is not None:                       # 臂级判定随附落盘；不并入 hard_pass / gates 语义
+        metrics_doc["prompt_hidden"] = RP.PROMPT_HIDDEN
+        metrics_doc["rp_arm"] = arm
+        config_doc["prompt_hidden"] = RP.PROMPT_HIDDEN
+        gate_doc["residual_prompt"] = arm
     (run_path / "metrics.json").write_text(json.dumps(metrics_doc, ensure_ascii=False, indent=2), encoding="utf-8")
     (run_path / "config.json").write_text(json.dumps(config_doc, ensure_ascii=False, indent=2), encoding="utf-8")
     (run_path / "gate_report.json").write_text(json.dumps(gate_doc, ensure_ascii=False, indent=2), encoding="utf-8")
+    if arm is not None:
+        prompt_doc = {
+            "run_id": run_id, "stage1_id": stage1_id, "variant": variant,
+            "prompt_hidden": RP.PROMPT_HIDDEN,
+            "construction_identity": prompt_probe["construction"],
+            "init_forward": prompt_probe["init_forward"],
+            "grad_probe": prompt_probe["grad_probe"],
+            "alpha_final": prompt_probe["alpha_final"],
+            "gate": prompt_diagnostics["gate"],
+            "val_stats": prompt_diagnostics["streams"],
+            "dispersion": prompt_diagnostics["dispersion"],
+            "reference_dispersion": prompt_reference,
+            "source_gates": {"gate_mean": gate_mean,
+                             "cluster_events": art_meta.get("cluster_events", []),
+                             "env_acc": art_meta.get("env_acc")},
+            "params": prompt_params, "arm": arm,
+        }
+        if shuffle_report is not None:        # 错排完整性/门禁随附落盘（PG1–PG6；不并入 hard_pass）
+            prompt_doc["shuffle"] = {"report": shuffle_report, "gates": arm["shuffle"]["gates"],
+                                     "pass": arm["shuffle"]["pass"], "base_seed": RPS.COND_PERM_SEED}
+        (run_path / "prompt_report.json").write_text(
+            json.dumps(prompt_doc, ensure_ascii=False, indent=2), encoding="utf-8"
+        )
     summary_row = {
         "run_id": run_id,
         "commit": protocol.code_commit(),
