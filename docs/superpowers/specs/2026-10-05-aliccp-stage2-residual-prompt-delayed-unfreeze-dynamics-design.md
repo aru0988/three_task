@@ -59,7 +59,7 @@
 
 **canonical seed 冻结为 seed2 = `1688723740`；预算冻结为 short（5-epoch / patience 2）；延迟冻结为 `DELAY_EPOCHS = 1`、`UNFREEZE_EPOCH = 2`（§2.2 机械定界规则）。** 理由：
 
-1. **seed2 是唯一具备完整既有证据链的 seed**（A2–A5）：同 seed 的 5/10/20-epoch 配对、钉死参照头（sha `90ee06da…`）、内容寻址 Stage-1 产物 `s1-5c060b9c-m1688723740-e3-4e1b5c6f`、六条 α 轨迹证据（含 seed2 三条）齐备；其余 seed 只有 5-epoch 配对。
+1. **seed2 是唯一具备完整既有证据链的 seed**（A2–A5）：同 seed 的 5/10/20-epoch 配对、钉死参照头（sha `90ee06da387129b50ed7ba0b93742a02db6e87d40d60ae11dbc6b189aeecb94f`）、内容寻址 Stage-1 产物 `s1-5c060b9c-m1688723740-e3-4e1b5c6f`、六条 α 轨迹证据（含 seed2 三条）齐备；其余 seed 只有 5-epoch 配对。
 2. **short（5-epoch）是成本最低的完整协议点**：两臂实测墙钟 ≈150–250 s/run，总计 ≈8 min，单次前景窗口可控；预算效应不是本实验变量。
 3. **short 上学习臂效用最强且已过线**（`ΔL = +0.0081 ≥ +0.0055`，A4）：延迟 1 epoch 后若仍无实质差，`DYNAMICS_NOT_SUPPORTED` 的结论最保守（在"最容易"的判定点上延迟即失效）。
 4. **延迟界 = epoch 1（唯一机械可辩护的边界，§2.2）**：六条学习臂一致显示 α 的"离开构造值 0"发生在 epoch 1 期间（A7）；延迟恰好覆盖该 epoch、在 epoch 2 起点解冻 = 在"学习臂的 α 已离开 0 的第一个边界"恢复学习。**不扫描 k、不试多个 schedule、不事后选择**（§9）。
@@ -89,7 +89,7 @@
 | 1 产物文件字节 | `backbone.pt`/`env_ids.pt`/`meta.json` sha256 == 钉死值（`cd7b0334…` / `4660be5a…` / `61a66d81…`） | **PASS** |
 | 2 内容寻址 | `stage1_id` 重算 == 记录 == `s1-5c060b9c-m1688723740-e3-4e1b5c6f`；`backbone_sha256 == e5e7e610…`；`env_ids_sha256 == 5cd198f1…`；`fingerprint_sha256 == 5c060b9c…` | **PASS** |
 | 3 历史 run 链（五 run） | 逐文件 sha256 == §1.5 钉死（§1.2-A2/A3 所列）；记录值钉死：五 run 的 test/val/逐 epoch val/gate_mean/best_epoch/epochs/patience/seed/run_id/variant/classification；L `VALID_POSITIVE`、`alpha_final == 0.07101669907569885` | **PASS** |
-| 4 参照头 | `79b5e07/newtask.pt` sha256 == `90ee06da…`；`NewTask(80/64/[32,32])` strict 载入成功（M0 的 val 重算 `0.5809347091990792`/pred_std `0.005217193225189258` 由运行期门禁与复核脚本在真实数据上执行） | **PASS** |
+| 4 参照头 | `79b5e07/newtask.pt` sha256 == `90ee06da387129b50ed7ba0b93742a02db6e87d40d60ae11dbc6b189aeecb94f`；`NewTask(80/64/[32,32])` strict 载入成功（M0 的 val 重算 `0.5809347091990792`/pred_std `0.005217193225189258` 由运行期门禁与复核脚本在真实数据上执行） | **PASS** |
 | 5 三常量与半程门 | 由原始记录逐位重推 `ΔL == +0.008103113327467715` ∧ `ΔP == −0.002677172368479308` ∧ `GAP == +0.010780285695947023` ∧ 半程门 `+0.0027129704794942035` | **PASS** |
 | 6 基线 epoch-1 钉死（FROZEN_ID 常量） | `79b5e07` per_epoch[0]：train_loss == `0.08193688414408826` ∧ val == `0.4645711559431739` | **PASS** |
 | 7 **α 轨迹导出（六条学习臂；定界规则证据）** | 逐 run 重读 `grad_probe`；断言六条全部满足：probe(ep1).α == 0.0 ∧ probe(ep1).gen_grad == 0.0 ∧ probe(ep2).α != 0 ∧ probe(ep2).gen_grad > 0；导出全量轨迹 JSON 至 audit 目录（含 §1.2-A7 的边界比例） | **PASS** |
@@ -243,8 +243,8 @@ CPU 极小夹具不构成任何性能证据，只验证语义与接线。
 
 | 编号 | 判据 | 落盘 |
 |---|---|---|
-| **ID**（identity） | 两 run：`stage1_id` 相同且 == `s1-5c060b9c-m1688723740-e3-4e1b5c6f`；`model_seed == 1688723740`；`epochs==5` ∧ `patience==2` ∧ `tag=="short"`；`dirty==false`（两 run 记录时）；B `variant=="baseline"` 且 run_id 无后缀；D `variant=="residual-prompt-delay"` 且 run_id 以 `-rpd` 结尾；D 记录参照路径 == 钉死路径且文件 sha256 == `90ee06da…`；两 run `stage1_id` 的 backbone/env/fingerprint sha 与钉死值一致 | `rp_delay_compare.json:identity` |
-| **REP_B**（基线复现） | B 的逐 epoch val 轨迹（×5）、逐 epoch train_loss（×5）、best_epoch、best_val、test、gate_mean 与 `79b5e07` 记录**逐位相等** 且 B 的 `newtask.pt` sha256 == `90ee06da…`（A5 确定性预期成立；失败 ⇒ 环境偏离历史链，对照组不可比） | 同上 `reproduction_b` |
+| **ID**（identity） | 两 run：`stage1_id` 相同且 == `s1-5c060b9c-m1688723740-e3-4e1b5c6f`；`model_seed == 1688723740`；`epochs==5` ∧ `patience==2` ∧ `tag=="short"`；`dirty==false`（两 run 记录时）；B `variant=="baseline"` 且 run_id 无后缀；D `variant=="residual-prompt-delay"` 且 run_id 以 `-rpd` 结尾；D 记录参照路径 == 钉死路径且文件 sha256 == `90ee06da387129b50ed7ba0b93742a02db6e87d40d60ae11dbc6b189aeecb94f`；两 run `stage1_id` 的 backbone/env/fingerprint sha 与钉死值一致 | `rp_delay_compare.json:identity` |
+| **REP_B**（基线复现） | B 的逐 epoch val 轨迹（×5）、逐 epoch train_loss（×5）、best_epoch、best_val、test、gate_mean 与 `79b5e07` 记录**逐位相等** 且 B 的 `newtask.pt` sha256 == `90ee06da387129b50ed7ba0b93742a02db6e87d40d60ae11dbc6b189aeecb94f`（A5 确定性预期成立；失败 ⇒ 环境偏离历史链，对照组不可比） | 同上 `reproduction_b` |
 | **FROZEN_ID**（冻结期恒等；本实验特有） | D 的 epoch-1 `train_loss == 0.08193688414408826` 且 `val_auc_bsi == 0.4645711559431739`（**逐位**；同时与 B 的 epoch-1 逐位相等——三方恒等）；D 的 `delay` 块：`alpha_at_construction == 0.0` ∧ `alpha_at_unfreeze == 0.0`（精确）∧ `generator_sha_at_construction == generator_sha_at_unfreeze` ∧ `unfreeze_epoch == 2` ∧ `delay_epochs == 1` ∧ 解冻后 α/生成器 `requires_grad` 全 True（失败 ⇒ 延迟未被严格执行，全实验作废） | 同上 `frozen_phase_identity` |
 | **A**（协议） | 两 run 的 A1/A2/A4/A5/A6 全 PASS（A3 SKIP 视为通过）；任一 FAIL ⇒ 该 run 比较作废 | 两 run `gate_report.json` |
 | **DD**（结构机制门禁） | D 的 `rp_arm`：**DD1–DD9 全 PASS**（§5.2；由本分析器对记录 `observed` 值机械重算，不信任记录布尔） | D run `metrics.json:rp_arm` |
@@ -451,6 +451,7 @@ D:\MPT-Rec-three_task\MPT-Rec\.venv\Scripts\python.exe verify_rp_delay.py `
 ## 12. 偏离披露（预声明 + 运行后补）
 
 - **预注册纪律**：本文件先于任何实现与运行单独提交（C1）；判据、阈值、构造、延迟界（k=1）、解冻实现、判定树、运行规程在看到结果前写死。
+- **预注册后澄清提交（C1b；先于本分支任何实现与任何 run）**：把 §1.2-A3/A4、§1.3、§1.5、§5.1 中参照头的**缩写 sha `90ee06da…` 补全为完整 sha256**（`90ee06da387129b50ed7ba0b93742a02db6e87d40d60ae11dbc6b189aeecb94f`，共 4 处）；判据、阈值、构造、延迟界、判定树、运行规程**零改动**（同类先例：uncond C1b `9d5c353`、f08ae6e C1b `0dfb11a`）。
 - **分支工作流**：自 `infra/aliccp-fair-benchmark` @ `8133d32` 独立拉出；机制与 rp_pinned 经 §3 三层守卫钉死等价；协议不合并 `master`；push 经用户显式指示（本任务含 "commit and push"）。
 - **分支本地 SUMMARY 系谱**：本分支 `SUMMARY.md` 基线含 smoke 行与 seed1 基线行（`8133d32` 携带）；其余历史行记录在各自分支，本分支**不复制**其它分支行，只由本实验 run 追加自己的行（B + D）。
 - **产物/历史 run 只读复制**：§1.5 所列产物、参照头、五个历史 run 均自 uncond worktree **只读复制**入本 worktree（逐文件 sha 相等；§1.2 已复核）；dataset 经 junction 复用 main tree（只读、gitignore）。
