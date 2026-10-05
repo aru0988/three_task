@@ -3,7 +3,7 @@
 - **状态**：预注册已写死（本文件在本分支任何实现、任何 run **之前单独提交**，commit C1）。结果只在第 10/12 节以新增小节回填；第 0–9 节的判据、数字、预算与运行规程不得在看到结果后改动。
 - **日期**：2026-10-05
 - **适用分支**：`exp/aliccp-stage2-residual-prompt-20epoch`（自 `infra/aliccp-fair-benchmark` @ `8133d32` **独立拉出**；不从任何 exp 分支拉出、不继承其运行时状态；不合并 `master`、不触碰其它 worktree；`multitaskrec/*`、`config.py`、`aliccp_benchmark/protocol.py`、`aliccp_benchmark/metrics.py`、既有测试三件、master 脚本与 `baseline/*` 零修改）。
-- **被检验对象（只读引用；系谱钉死）**：残差 prompt 机制 = `exp/aliccp-stage2-residual-prompt-seed-replication` @ `013e105:aliccp_benchmark/residual_prompt.py`（blob `674213f619c5d5039811c71242a7727118348daf`，LF sha256 `b3b93b3aa501277656b57e7e89e5ab38a76343f005d0b312e4dc18c8a98120cc`；其自身为 `79ddefa` 的 A1′ 适配移植，机制系谱终点为 Census 祖本 `99b9510`，blob `107221b26382da7fd44990e167d9a61da2680d92`）。
+- **被检验对象（只读引用；系谱钉死）**：残差 prompt 机制 = `exp/aliccp-stage2-residual-prompt-seed-replication`（预注册 `e931cd7`，机制系谱文档 `docs/superpowers/specs/2026-10-04-aliccp-stage2-residual-prompt-seed-replication-design.md`）@ `013e105:aliccp_benchmark/residual_prompt.py`（blob `674213f619c5d5039811c71242a7727118348daf`，LF sha256 `b3b93b3aa501277656b57e7e89e5ab38a76343f005d0b312e4dc18c8a98120cc`；其自身为 seed1 线（预注册 `221580a` / 实现 `79ddefa`（blob `5dc7158ca999c9e7e6217a999c37869231411549`）/ 结果 `3e2f083`）的 A1′ 适配移植，机制系谱终点为 Census 祖本 `99b9510`，blob `107221b26382da7fd44990e167d9a61da2680d92`）。
 - **上游协议（只引用、不修改）**：
   1. `docs/superpowers/specs/2026-10-03-aliccp-fair-benchmark-design.md`（AliCCP 公平评测协议）——前缀预算、种子、Stage-1 产物、真冻结三件套、A/B/C 门禁、SUMMARY 台账全部沿用；
   2. `exp/aliccp-stage2-attenuation-longer-budget` @ `47ecb0c`（下称"更长预算协议"）——已建立的更长预算协议：唯一变化 = Stage2 max epochs 5→10 与 patience 2→3（tag `"long"`）、判定结构 C1/C2/C3 → `PERSISTS`/`NOT_PERSIST`/`INVALID`、`commit-between-runs` 清洁树纪律——**逐字沿用**；
@@ -19,10 +19,10 @@
 
 seed-2（`m1688723740`，Stage-1 产物 `s1-5c060b9c-m1688723740-e3-4e1b5c6f`）证据链（§1 审计）：
 
-| 判定点 | 配对 Δtest | 配对 Δval | 结果 |
-|---|---|---|---|
-| 5-epoch（canonical，`a40836e`） | +0.008103113327467715 | +0.008622497456618139 | `VALID_POSITIVE`（U1/U2 PASS）；两臂 best=ep5 **右删失** |
-| 10-epoch（更长预算，`e46e5d2`） | +0.0074396653390377265 | +0.0048363447472773435 | `PERSISTS`；两臂 best=ep10 **仍右删失**；Δval 自 ep4 峰值（+0.0089166595…）**单调收窄**至 ep10（+0.0048363447…）但始终为正 |
+| 判定点 | 配对基线 run | 处理臂 run | 配对 Δtest | 配对 Δval | 结果 |
+|---|---|---|---|---|---|
+| 5-epoch（canonical，`a40836e`） | `20261003-0624-p2M-v500k-t1M-m1688723740-short-79b5e07`（test `0.5974422649550507` / val `0.5809347091990792`） | `20261004-0325-p2M-v500k-t1M-m1688723740-short-013e105-rpg`（test `0.6055453782825184` / val `0.5895572066556973`） | +0.008103113327467715 | +0.008622497456618139 | `VALID_POSITIVE`（U1/U2 PASS）；两臂 best=ep5 **右删失** |
+| 10-epoch（更长预算，`e46e5d2`） | `20261004-0427-p2M-v500k-t1M-m1688723740-long-2b1d585`（test `0.6614121223087556` / val `0.6401127811737995`） | `20261004-0431-p2M-v500k-t1M-m1688723740-long-f2ccec2-rpg`（test `0.6688517876477933` / val `0.6449491259210769`） | +0.0074396653390377265 | +0.0048363447472773435 | `PERSISTS`；两臂 best=ep10 **仍右删失**；Δval 自 ep4 峰值（+0.008916659527500093）**单调收窄**至 ep10（+0.0048363447472773435）但始终为正 |
 
 10-epoch 判定点仍未回答"收窄趋势是否最终抹平增量"（其设计 §9.7 明确不外推）。五 seed canonical 配对（短预算）已按预注册 §6.4 满足 20-epoch 立项条件（`TWENTY_EPOCH_CONDITION_SATISFIED`，§1 审计独立重推）。
 
@@ -41,7 +41,7 @@ seed-2（`m1688723740`，Stage-1 产物 `s1-5c060b9c-m1688723740-e3-4e1b5c6f`）
 ### 1.1 审计方法与范围
 
 - **原则**：不信任任何文档转述，全部以**磁盘上的原始 run 产物**（各 worktree `artifacts/aliccp_bench/` 下的 `metrics.json` / `config.json` / `gate_report.json` / `prompt_report.json`）与 **git 对象**（blob、ls-remote tip）为准重新核对；不重跑、不修改任何历史 run。
-- 审计对象与 remote tip：five-seed `0935257`（`0935257079c769f45e6c65cd0419c7abe5bba725`）、longer-budget `e46e5d2`（`e46e5d28ea572c1d6d5ace68b8100b848fe374e7`）、gate `3e2f083`（`3e2f0833fdb8a4966d5d815b41a8cefcfb0887d6`）、seed-replication `a40836e`（`a40836e3d6a7f73c4943bada98139d414957301a`）、基点 `8133d32`。
+- 审计对象与 remote tip：five-seed `0935257`（`0935257079c769f45e6c65cd0419c7abe5bba725`；其后 tip 前进至 `28aa1fe` = 纯 provenance 提交——入库核验脚本 + whitelist 同步，结果记录零改动，本审计仍针对结果提交 `0935257`）、longer-budget `e46e5d2`（`e46e5d28ea572c1d6d5ace68b8100b848fe374e7`）、gate `3e2f083`（`3e2f0833fdb8a4966d5d815b41a8cefcfb0887d6`）、seed-replication `a40836e`（`a40836e3d6a7f73c4943bada98139d414957301a`）、基点 `8133d32`（`8133d32cfa722b084c558b334f4792d85ce95c67`）。
 - 审计脚本为一次性只读脚本（`$CLAUDE_JOB_DIR/tmp/audit_20epoch_branch.py`，未跟踪、不入库）；结果 JSON 落 job tmp。
 
 ### 1.2 审计结果（逐项）
@@ -53,7 +53,7 @@ seed-2（`m1688723740`，Stage-1 产物 `s1-5c060b9c-m1688723740-e3-4e1b5c6f`）
 | A3 | **20-epoch 立项条件独立重推（§6.4 真值表）** | 五 seed 逐 seed：M0+G1–G8 全 PASS ∧ A 类 PASS ∧ A3 SKIP ⇒ C1；二级分类 5×`POSITIVE_IMPROVEMENT` ⇒ C2；`mean_Δtest=+0.005910402347593546`（样本 std `0.0031538117454772883`，ddof=1）⇒ C3；Student-t 95% CI（df=4，`t=2.7764451051977987`，scipy 独立复核逐位一致）`[+0.0019944278461222166, +0.009826376849064875]` 下界 > 0 ⇒ C4；`n(Δtest ≥ +0.001)=5 ≥ 4` ⇒ C5；`n(Δval > 0)=5 ≥ 4` ⇒ C6 | **`TWENTY_EPOCH_CONDITION_SATISFIED`**（C1–C6 全真） |
 | A4 | 与 canonical 报告逐位对照 | 独立重推的 `mean/std/CI95_low/CI95_high/counts(5/2/5)/secondary_counts(5,0,0)/worst_seed(1688738016)` 与 `five_seed_report.json:aggregate` **逐位一致**；六项条件布尔与 `twenty_epoch_condition` 逐项一致；status 一致 | PASS |
 | A5 | seed2 10-epoch 链（直接前驱）完整核对 | 基线 `20261004-0427-…-2b1d585` / 臂 `20261004-0431-…-f2ccec2-rpg`：两 run `dirty=false`、run_id 内嵌 commit、同 `stage1_id`、`epochs=10/patience=3`；A 类 PASS ×2、`hard_pass=false`（仅 B4 继承 FAIL）；臂 M0+G1–G8 全 PASS、三份 JSON 互洽；`Δ` 重推逐位一致（`+0.0074396653390377265`/`+0.0048363447472773435`）；两臂 best=10/10 右删失；Δval 自 ep4 峰值 `+0.008916659527500093` **单调收窄**至 ep10 | PASS |
-| A6 | 跨预算确定性（描述性事实，支撑预算趋势可读性） | 10-epoch 基线前 5 epoch **逐位等于** 5-epoch 基线；10-epoch 臂前 5 epoch **逐位等于** 5-epoch 臂；10-epoch 基线轨迹/test **逐位等于** 旧衰减线 10-epoch 基线 `20261003-0724-…-bbd8a61`（test `0.6614121223087556`） | PASS |
+| A6 | 跨预算确定性（描述性事实，支撑预算趋势可读性） | 10-epoch 基线前 5 epoch **逐位等于** 5-epoch 基线；10-epoch 臂前 5 epoch **逐位等于** 5-epoch 臂；10-epoch 基线轨迹/test **逐位等于** 旧衰减线 10-epoch 基线 `20261003-0724-p2M-v500k-t1M-m1688723740-long-bbd8a61`（test `0.6614121223087556`） | PASS |
 | A7 | Stage-1 产物与参照头（§1.5 预注册前完整性核验） | 28/28 全过（见 §1.5） | PASS |
 | A8 | 跨 worktree 复制字节同等 | 复制入本 worktree 的产物/run 目录逐文件 sha256 与源目录相等；seed2 Stage-1 产物的两份 on-disk 副本（five-seed / atten-seed2 worktree）逐文件相等 | PASS |
 
@@ -71,7 +71,7 @@ seed-2（`m1688723740`，Stage-1 产物 `s1-5c060b9c-m1688723740-e3-4e1b5c6f`）
 
 | 组 | 核对 | 结果 |
 |---|---|---|
-| 产物文件字节 | `backbone.pt`/`env_ids.pt`/`meta.json` sha256 == 钉死值（`cd7b0334…`/`4660be5a…`/`61a66d81…`） | PASS |
+| 产物文件字节 | `backbone.pt`/`env_ids.pt`/`meta.json` sha256 == 钉死值（`cd7b033423499e0d36eea988835cea4ac4e2a8e26427a2aea627333822101e0b` / `4660be5aaa3c59f53dd5b4394f77114a87db69064b32c45517db049a6b9157e7` / `61a66d81ce3dcf6bae64f4c2b37cf12e722943def646336a588746aba932931d`） | PASS |
 | 产物内容寻址 | `stage1_id` 重算 == 记录 == 期望；`config_hash` 重算 == `4e1b5c6ffe9b6ff49cda34691de27390669396337e64e867f0f83b6ec4da7981`；id 分量（fp/config 前缀、seed=1688723740、epochs=3、env_seed=20261003、budgets） | PASS |
 | 前缀指纹 A2 级 | 自哈希 == `5c060b9c5c9d0e235ec815e1b488b9dec222fc37887ad2eedd2afadc82bdd0d8`；前缀字节 sha256 ×3 + 表头 + 文件大小（2473647855/274769757/2711167840）+ 原始扫描标签计数 ×3 | PASS |
 | env_ids | 张量 sha 重算 == `5cd198f1a22e829de1ac5cabfdf03fb80d95caec6775534bf00918b89acf2ac0`；形状 (2000000,)∈{0,1}；env_0=1532 / env_1=1998468 | PASS |
@@ -80,7 +80,7 @@ seed-2（`m1688723740`，Stage-1 产物 `s1-5c060b9c-m1688723740-e3-4e1b5c6f`）
 
 **产物复用决议**：按"先验证、后复用，否则确定性重生成"的规程——28/28 验证通过 ⇒ **复用**该产物（不重训 Stage-1）。产物与参照头均自 five-seed worktree（产物另与 atten-seed2 worktree 副本交叉核对）**只读复制**入本 worktree，逐文件 sha256 与源相等（A8）。
 
-**context run 只读复制（不参与判定，§5.5 对照用）**：5-epoch 基线 `20261003-0624-…-79b5e07`（含钉死参照头 `newtask.pt`）、5-epoch 臂 `20261004-0325-…-013e105-rpg`、10-epoch 基线 `20261004-0427-…-2b1d585`、10-epoch 臂 `20261004-0431-…-f2ccec2-rpg`，连同 `splits/p2M-v500k-t1M/prefix_fingerprint.json`，逐文件 sha256 校验后复制入本 worktree `artifacts/aliccp_bench/`（gitignore）。
+**context run 只读复制（不参与判定，§5.5 对照用）**：5-epoch 基线 `20261003-0624-p2M-v500k-t1M-m1688723740-short-79b5e07`（含钉死参照头 `newtask.pt`）、5-epoch 臂 `20261004-0325-p2M-v500k-t1M-m1688723740-short-013e105-rpg`、10-epoch 基线 `20261004-0427-p2M-v500k-t1M-m1688723740-long-2b1d585`、10-epoch 臂 `20261004-0431-p2M-v500k-t1M-m1688723740-long-f2ccec2-rpg`，连同 `splits/p2M-v500k-t1M/prefix_fingerprint.json`，逐文件 sha256 校验后复制入本 worktree `artifacts/aliccp_bench/`（gitignore）。
 
 ---
 
@@ -205,7 +205,7 @@ seed-2（`m1688723740`，Stage-1 产物 `s1-5c060b9c-m1688723740-e3-4e1b5c6f`）
 | A3‴ | `aliccp_benchmark/tests/test_residual_prompt.py` | `013e105:` 同名测试（blob `768a477b5c71af32c5c59ec6feb20c29f7873557`；LF sha256 `dab737a1422b88befc4c19f2bee408618061de7fd3bf0b2f83ebcdd85fd1cbc2`）**恰 4 处**适配：(a) 模块 docstring；(b) `DOC_PATH` → 本文件；(c) `WHITELIST` → 本分支 10 项白名单（逐项集合钉死）；(d) `TestPreregConstants.test_prereg_doc_tokens_and_summary_ledger` 的 token 表 → 本文件 token 表。**其余逐类/逐方法/逐模块级语句不变**（含 `TestMechanismPin` 对 Census 祖本的全套 AST 钉死与 `test_thresholds_and_baseline_reference` 的常量断言——本实验常量与 seed-2 复现相同，**无需改动**） | 守卫测试：重建等式（docstring + `DOC_PATH` 段 + `WHITELIST` 段 + 该 1 个方法段替换）+ AST 差异集合 == 恰 1 个方法 + 模块级函数逐字 + 新 LF sha 钉死 |
 | A4‴ | `aliccp_benchmark/rp_20epoch.py`（新） | 20-epoch 持久性分析器：钉死常量 + 历史判定 `persistence_verdict` + **新增层**（二级分类 / 正持久性声明 / headroom / 预算趋势 / 消融资格）+ `analyze_runs`（只读两 run 记录 → 全量判定/描述/identity/context）+ `python -m` CLI（输出 JSON）。`persistence_verdict`/`_read_json`/`_a_class_ok` 自 **`f2ccec2:aliccp_benchmark/rp_longer_budget.py`**（blob `e02da3071ded554175cfdad5d7a725dd43ed7c89`；LF sha256 `b8d62c5735715440a7e23dcbc4f206ee38ec7f6f9a6e5aac1184ceb8dcb15bb0`）移植：`_read_json`/`_a_class_ok` **逐字**；`persistence_verdict` **恰 1 类适配**（阈值常量名 `LONGER_BUDGET_DELTA_TEST_MIN` → `DELTA_TEST_MIN`，函数段内恰 2 处；签名/docstring/checks 结构与前驱逐字一致）；其余（常量块 / `_arm_description` / 新增判定函数 / `analyze_runs` / `main`）为按本实验判据新写 | 守卫测试：段级重建等式（上述 2 处替换）+ `_read_json`/`_a_class_ok` 段逐字节 + 行为测试（边界/identity/只读/fixture 端到端/claim 真值表） |
 | A5‴ | `aliccp_benchmark/tests/test_residual_prompt_20epoch.py`（新） | 本分支守卫 + 接线 + 分析器测试（§7 I2/I4/I5/I6/I7/I8） | 本文件即为守卫 |
-| A6‴ | `verify_seed2_artifact_integrity.py`（预注册前完整性核验）与 `verify_rp_20epoch.py`（运行后独立复核） | 只读脚本；**跟踪入库**（沿用更长预算分支先例）；报告 JSON 落 `artifacts/aliccp_bench/audit/20epoch-rp/` 与 run 目录（gitignore）。完整性脚本自 `e46e5d2:verify_seed2_artifact_integrity.py` 移植（仅 docstring/输出目录适配，钉死值不变；§1.5 28/28）；复核脚本为纯 JSON 重推新写 | 完整性核验结果 28/28（§1.5）；复核脚本 §10.5 |
+| A6‴ | `verify_seed2_artifact_integrity.py`（预注册前完整性核验）与 `verify_rp_20epoch.py`（运行后独立复核） | 只读脚本；**跟踪入库**（沿用更长预算分支先例；两处 WHITELIST 副本同步包含二者）；报告 JSON 落 `artifacts/aliccp_bench/audit/20epoch-rp/` 与 run 目录（gitignore）。完整性脚本自 `e46e5d2:verify_seed2_artifact_integrity.py`（blob `f2aa202c426d619cd752035e19cf8803dc5afccec0ce32f923c48a20ff1d72f3`）移植（仅 docstring/输出目录适配，钉死值不变；§1.5 28/28）；复核脚本为纯 JSON 重推新写 | 完整性核验结果 28/28（§1.5）；复核脚本 §10.5 |
 
 **被禁止的适配**：机制公式/初始化/门控语义/注入点/活性带/`BOUND_TOL`/G7 比值/U1 阈值/分类规则/claim 规则/headroom 规则/消融资格规则；`protocol.py`/`metrics.py`/`multitaskrec/*`/`config.py` —— 零改动（静态守卫：`git diff --name-only 8133d32` ⊆ 白名单）。
 
@@ -288,6 +288,7 @@ D:\MPT-Rec-three_task\MPT-Rec\.venv\Scripts\python.exe verify_rp_20epoch.py `
 
 ## 12. 偏离披露（预声明 + 运行后补）
 
+- **预注册前澄清提交**（先于任何实现与 run；判据、预算、阈值、分类/claim/headroom/消融资格规则**零改动**；仅把 §0/§1/§1.5/§6 中已按"…"省略的内容寻址哈希与 run id 写全，并注明 five-seed tip 前进至 `28aa1fe` 为纯 provenance 提交）：与更长预算协议 `296e03a` 先例同类。
 - **分支工作流**：自 `infra/aliccp-fair-benchmark` @ `8133d32` 独立拉出；机制经 §6 三层守卫钉死等价；协议不合并 `master`；**push 经用户显式指示**（本任务含"commit and push"）。
 - **分支本地 SUMMARY 系谱**：本分支 `SUMMARY.md` 基线含 smoke 行与 seed1 基线行（`8133d32` 携带）；其余历史行记录在各自分支，本分支**不复制**其它分支行，只由本次运行追加自己的行（2 行：基线 + 臂）。
 - **产物/context run 只读复制**：§1.5 所列产物/run/指纹均自 five-seed / atten-seed2 worktree 只读复制入本 worktree（逐文件 sha 相等；仅分析/参照用，不修改）。
