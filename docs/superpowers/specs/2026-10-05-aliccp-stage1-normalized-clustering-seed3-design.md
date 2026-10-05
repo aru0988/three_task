@@ -35,7 +35,7 @@ Q1/Q2/Q3 独立判定；组合规则见 §6。
 | `aliccp_benchmark/audit_cluster_losses.py` | `335383aa3da1ffb88fd4d50bcb7013dc5e95dce18bfb403e134db0fdc17e03f3` | `de65b2c6a817a139f6ac58fd77b7f95b94a879e9` | 只读审计工具（`ref_rank01` 被测试逐位对照引用；P4 捕获与重分析用） |
 
 - **归一化规则与阈值零改动**：`average_rank → q = (rank − 1)/(N − 1)`、全并列 0.5、N=1 → 0、argmin 取先索引、有限性断言；容差 `0.005`/`0.01`/环境占比 `5%` 全部沿用（§4）。
-- **`test_normalized_clustering.py`（@ `2058de8` sha256 = `652fed5a70c66c548cb886e6bc9b17fa8089234acd8a5f3e9377335ef9a76817`）**：随机制一并移植，**仅 2 处**分支适配（§8.2 由 AST 守卫逐项钉死为恰此 2 处）：(a) 模块级 `DOC_PATH` → 本文件；(b) `TestStaticGuards.test_tracked_changes_subset_of_whitelist` 白名单 += 本分支 5 个新文件。其余逐字保留：seed1 的默认协议身份钉死（`BASELINE_CFG_HASH`/`TREATMENT_CFG_HASH`/`PREDICTED_STAGE1_ID`）与文档 token 断言（`s1-5c060b9c-m1688723512-e3-ad3b353f`、`4b983fc9f485d7cba853b8d5f0846b292e85344fc5b6f3725845dbba5ea0d52b`、`999966`/`959244`/`1040756`、基线值 `0.5481837665250074`/`0.5988392178311113`/`0.5781533414372665`、标签 `REPAIRED`/`NOT_REPAIRED`/`NO_MATERIAL_DEGRADATION`）对本文档继续成立（§2 引用这些钉死值）。
+- **`test_normalized_clustering.py`（@ `2058de8` sha256 = `652fed5a70c66c548cb886e6bc9b17fa8089234acd8a5f3e9377335ef9a76817`）**：随机制一并移植，**仅 2 处**分支适配（§8.2 由 AST 守卫逐项钉死为恰此 2 处）：(a) 模块级 `DOC_PATH` → 本文件；(b) `TestStaticGuards.test_tracked_changes_subset_of_whitelist` 白名单 += 本分支 5 个新文件。其余逐字保留：seed1 的默认协议身份钉死（`BASELINE_CFG_HASH` = `3a30e2c0b1e8a2b4e9fecaa4d76893b775f6ee9e597922dce7303ac3b77b08c4`、`TREATMENT_CFG_HASH` = `ad3b353f6d436ac95c26703e504a318e3441933a4e00e3f3d6c5e22a05bfe96e`、`PREDICTED_STAGE1_ID` = `s1-5c060b9c-m1688723512-e3-ad3b353f`）与文档 token 断言（`s1-5c060b9c-m1688723512-e3-ad3b353f`、`4b983fc9f485d7cba853b8d5f0846b292e85344fc5b6f3725845dbba5ea0d52b`、`999966`/`959244`/`1040756`、基线值 `0.5481837665250074`/`0.5988392178311113`/`0.5781533414372665`、标签 `REPAIRED`/`NOT_REPAIRED`/`NO_MATERIAL_DEGRADATION`）对本文档继续成立（§2 引用这些钉死值）。
 - **禁止**：`multitaskrec/*`、`config.py`、`AliCCP_*.py`、`baseline/*`、`protocol.py` 相对 `8133d32` 零 diff（静态守卫，§8）。
 
 ### 1.2 seed 与配置（固定，先于 run）
@@ -226,7 +226,7 @@ Q1/Q2/Q3 独立判定；组合规则见 §6。
 
 ### 8.1 字节钉死（守卫测试）
 
-对 §1.1 五机制文件 + 移植测试文件逐一断言 `sha256(工作树文件) == 2058de8 钉死值`（LF 归一化；含 git blob 对照）。任一文件与 seed1 修复不等价即红。
+对 §1.1 的**五个机制文件**逐一断言 `sha256(工作树文件) == 2058de8 钉死值`（LF 归一化；含 git blob 对照）。任一文件与 seed1 修复不等价即红。**移植的测试文件**因含 §1.1 声明的 2 处适配、不可能等于 seed1 字节，改由 §8.2 的 AST 守卫 + "≠ seed1 原版 sha256"记录覆盖（守卫测试内非钉死断言）。
 
 ### 8.2 AST 守卫（移植测试文件 == seed1 版 + 恰 2 处适配）
 
@@ -284,3 +284,4 @@ I1–I9（rank01 语义、实现==审计参考逐位、manager 仅覆写 `cluste
 - **两阶段 run 的提交差**：R3（commit = C4）与 R4（commit = C5）的差异仅为文档/SUMMARY（零代码 diff，§9.4 记录）；系 SUMMARY 追加纪律（run 间提交）所致。
 - **`artifacts/aliccp_bench/audit/` 忽略规则**：与两既有分支同型。
 - **P4 的登记时点**：P4 在 R1 捕获后、R2 运行前登记提交（C3）——晚于本预注册文件、早于被预测的 run；机制依赖（环境逐位可复现）与捕获程序已在本文件写死。
+- **预运行澄清（2026-10-05，先于任何 run；预测与门禁不变）**：(a) §1.1 补上 `BASELINE_CFG_HASH`/`TREATMENT_CFG_HASH` 的字面值（原仅引用常量名，token 钉死需要字面值）；(b) §8.1 澄清字节钉死的对象为五个机制文件（移植测试文件因 2 处声明适配由 AST 守卫 + 非钉死 sha 断言覆盖）。两项均为守卫测试 red 阶段发现的登记完备性问题，澄清时无任何 seed3 run 存在。

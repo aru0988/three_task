@@ -64,6 +64,10 @@
 
 **结论 A3（退化修复，跨 seed 稳定）**：raw 臂 balanced_acc = 0.5 且 recall(env_0) = 0（acc 完全由多数类贡献）；归一化臂 balanced_acc 与 acc 同量级、两环境 recall 均 > 0。注：归一化臂 env 头的绝对精度不高（seed1 仅 0.18）——聚类结果与 env 头拟合是两件事，探针只证明塌缩签名消失，不主张 env 头质量。
 
+### 2.4 seed1 认证捕获的 bit 级复核（本次独立复算；审计工具 `--seed1-capture`）
+
+在 seed1 的 `--reproduce` 认证捕获（`cluster_losses.pt` = 独立复现进程在聚类时刻捕获的 2,000,000 行逐样本损失向量；捕获时 10/10 逐位复现已通过）上，用移植实现 `normalized_clustering.per_task_rank01` 与审计参考 `audit_cluster_losses.ref_rank01` **分别**做 argmin（两者输出先断言逐位相等）：分配 `env_0 = 959244 / env_1 = 1040756`，`env_ids_sha256 = 4b983fc9f485d7cba853b8d5f0846b292e85344fc5b6f3725845dbba5ea0d52b` —— 与 seed1 归一化臂的**实测事件三元组与 env_ids 逐位相等**（ALL PASS）。用途：把"移植实现 == 审计参考 == 跨 worktree 认证捕获"的证据链在本分支再次闭环（wall 78.7 s；输出 `audit_prior_seeds_with_capture.json`）。
+
 ---
 
 ## 3. 下游 Stage-2 证据（配对 Δ；复算自 run 记录）
