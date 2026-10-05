@@ -123,17 +123,23 @@ def _run_tests(log) -> dict:
     return {"ok": bool(ok), "ran": ran, "returncode": proc.returncode}
 
 
-def _smoke_identity(root_hint: Path, reference_meta: Path, log) -> dict:
-    """M8b：temp root 上跑 smoke 规模默认路径；与既有记录产物 meta 科学字段逐位比对。"""
+def _smoke_identity(root_hint: Path, reference_meta: Path, device, log) -> dict:
+    """M8b：temp root 上跑 smoke 规模默认路径；与既有记录产物 meta 科学字段逐位比对。
+
+    注意：必须在与记录产物相同的设备上运行（记录产物为 cuda:0；CPU 与 GPU 的浮点/随机
+    路径不同，跨设备比较不是"逐位"口径——2026-10-05 首次 CPU 试跑已证差异 ~1e-4 量级）。
+    """
     from . import bench
     ref = _jload(reference_meta)
+    if str(device) != str(ref.get("device")):
+        raise AssertionError(f"M8b 设备口径不符：smoke device={device} != 记录产物 device={ref.get('device')}")
     with tempfile.TemporaryDirectory() as td:
         meta = bench.run_stage1(
             root=Path(td) / "artifacts", data_files=protocol.DATA_FILES,
             budgets={"train": protocol.SMOKE_TRAIN_BUDGET, "val": protocol.SMOKE_VAL_BUDGET,
                      "test": protocol.SMOKE_TEST_BUDGET},
             prefix_tag="p20000-v5000-t10000", model_seed=protocol.MODEL_SEED, env_seed=protocol.ENV_SEED,
-            epochs=1, patience=1, device=torch.device("cpu"), log=lambda *a, **k: None,
+            epochs=1, patience=1, device=device, log=lambda *a, **k: None,
         )
     diffs = {}
     for key, ref_val in ref.items():
@@ -255,7 +261,7 @@ def verify(root: Path, out_path: Path, *, raw_sid=RAW_STAGE1_ID, norm_sid=NORM_S
     checks["M8a_tests"] = _run_tests(log)["ok"] if run_tests else None
     # ---- M8b: smoke 恒等 ----
     if smoke_reference_meta and Path(smoke_reference_meta).is_file():
-        checks["M8b_smoke_identity"] = _smoke_identity(root, Path(smoke_reference_meta), log)["pass"]
+        checks["M8b_smoke_identity"] = _smoke_identity(root, Path(smoke_reference_meta), device, log)["pass"]
     else:
         checks["M8b_smoke_identity"] = None
 
