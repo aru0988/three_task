@@ -116,8 +116,8 @@ class TestPortGuards(unittest.TestCase):
     def test_mechanism_and_pinned_byte_pins(self):
         for rel, blob in PINNED_BLOBS.items():
             self.assertEqual(_git_hash_object(rel), blob, rel)
-            lf_sha = hashlib.sha256((REPO / rel).read_bytes()).hexdigest()
-            self.assertEqual(lf_sha, PINNED_LF_SHA[rel], rel)
+            raw = (REPO / rel).read_bytes().replace(b"\r\n", b"\n")   # 行尾归一（autocrlf 稳健）
+            self.assertEqual(hashlib.sha256(raw).hexdigest(), PINNED_LF_SHA[rel], rel)
 
     def test_ported_test_file_reconstruction(self):
         """工作树 test_residual_prompt.py == 钉死文本（blob 2b86d39d）+ 恰好 4 处适配。"""

@@ -84,7 +84,7 @@ FROZEN_LF_SHA = {
     "aliccp_benchmark/bench.py": "983ced60e9660bf3be337414b88d7925c66f6fed7f4c61962967dd4631da4bbc",
     "run_aliccp_benchmark.py": "dcdfed464de74ce8d485326bd3aecf17c18cd1f3a2c84f4831ed1165488f02db",
     "aliccp_benchmark/tests/test_residual_prompt.py": "b294f071bb8e508cdf46aa562579e793dc3891605edb6820c5c332b978fe2cc3",
-    "aliccp_benchmark/tests/test_residual_prompt_delay.py": "b883d1d35eb884bf566d193df0968a699f7273064f32f4f7b7a27afbda4b5d37",
+    "aliccp_benchmark/tests/test_residual_prompt_delay.py": "d2bb4da504b79f5110844360a8e5e032b40c500919b476b633dff455d2604bd2",
     "verify_delay_prerun.py": "3c34ae48f7dccb3ec1df989b0469c35230d80e3a6a5b3fe8e2328faa44d47166",
 }
 
@@ -94,7 +94,7 @@ def sha256_file(path: Path) -> str:
 
 
 def lf_sha(rel: str) -> str:
-    return hashlib.sha256((REPO / rel).read_bytes()).hexdigest()
+    return hashlib.sha256((REPO / rel).read_bytes().replace(b"\r\n", b"\n")).hexdigest()
 
 
 def load_json(path: Path) -> dict:
