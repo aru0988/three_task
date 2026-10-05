@@ -20,6 +20,7 @@ from pathlib import Path
 import torch
 
 from aliccp_benchmark import bench, protocol
+from aliccp_benchmark import residual_prompt as RP, rp_pinned as RPP, rp_uncond as RPU
 
 
 class _Tee:
@@ -72,6 +73,12 @@ def build_parser() -> argparse.ArgumentParser:
     p2.add_argument("--epochs", type=int, default=protocol.STAGE2_EPOCHS)
     p2.add_argument("--patience", type=int, default=protocol.STAGE2_PATIENCE)
     p2.add_argument("--no-enforce-b", action="store_true", help="只记录 B 类门禁（smoke 默认如此）")
+    p2.add_argument("--variant", choices=list(RPU.CLI_VARIANTS), default=RP.BASELINE_VARIANT,
+                    help="新任务头变体：baseline=基线 NewTask（默认，逐位同协议路径）；"
+                         "residual-prompt=范数受控残差 prompt（spec 2026-10-03）")
+    p2.add_argument("--prompt-reference-newtask", type=Path, default=None,
+                    help="处理臂必需：参照 NewTask checkpoint（只读、零训练；M0/G7 依赖其身份，"
+                         "缺失即拒绝出数）")
     return parser
 
 
@@ -86,11 +93,14 @@ def main(argv=None) -> int:
 
     log_dir = root / "logs"
     log_dir.mkdir(parents=True, exist_ok=True)
-    log_path = log_dir / f"{now:%Y%m%d-%H%M%S}-{args.command}-{args.tag}.log"
+    variant = getattr(args, "variant", RP.BASELINE_VARIANT)
+    arm_suffix = RPU.arm_suffix_for(variant)
+    log_path = log_dir / f"{now:%Y%m%d-%H%M%S}-{args.command}-{args.tag}{arm_suffix}.log"
 
     run_id = None
     if args.command == "stage2":
         run_id = protocol.make_run_id(now, prefix_tag=prefix_tag, model_seed=args.model_seed, tag=args.tag, commit=commit)
+        run_id += arm_suffix                       # 处理臂后缀：与基线 run 天然可区分
         run_path = protocol.run_dir(root, run_id)
         if run_path.exists():
             raise SystemExit(f"run 目录已存在，禁止覆盖（换一分钟重跑或清理旧 run）：{run_path}")
@@ -114,10 +124,15 @@ def main(argv=None) -> int:
                 prefix_tag=prefix_tag, model_seed=args.model_seed,
                 epochs=args.epochs, patience=args.patience, tag=args.tag, device=device,
                 enforce_b=(args.tag != "smoke") and not args.no_enforce_b, run_id=run_id,
+                variant=variant, prompt_reference_newtask=args.prompt_reference_newtask,
             )
             verdicts = {gate: value["verdict"] for gate, value in result["gates"].items()}
             print(f"gates: {json.dumps(verdicts, ensure_ascii=False)}")
             print(f"run_id={result['run_id']} hard_pass={result['hard_pass']}")
+            if variant != RP.BASELINE_VARIANT:
+                arm = result["metrics"]["rp_arm"]
+                print(f"variant={variant} classification={arm['classification']} subreason={arm['subreason']} "
+                      f"U1={arm['U']['U1']['pass']} U2={arm['U']['U2']['pass']}")
     print(f"日志已写入: {log_path}")
     return 0
 
