@@ -48,6 +48,7 @@
 | A3 | 跨进程/跨 commit 确定性（支撑"新跑基线可与历史记录逐位对账"） | five-seed 记录：seed3–5 的两次 pass 重跑 **逐位相等**（含 `newtask.pt` 字节；仅 run_id/路径字符串不同）；20-epoch 记录：20-epoch 基线前 10 epoch 逐位等于 10-epoch 基线、前 5 epoch 逐位等于 5-epoch 基线（两臂同理）⇒ 同 seed 的 stage2 训练在本环境确定性可复现 | PASS |
 | A4 | 参照头身份 | `79b5e07/newtask.pt` sha256 = `90ee06da387129b50ed7ba0b93742a02db6e87d40d60ae11dbc6b189aeecb94f`（与 20-epoch 钉死值一致） | PASS |
 | A5 | 机制实现的输入使用面（消融靶点定位） | `NewTask.forward`（`8133d32:multitaskrec/model.py`，零改动）在 3 处使用 `dnn_input`：`projection_network`、`gate_network`；`ResidualPromptNewTask.forward` 追加第 4 处：`prompt_generator(dnn_input)`（经 `prompt_deltas`）。本消融**只动第 4 处的对应关系**（§2）；前三处保持正确样本输入 | PASS |
+| A6 | 五 seed 立项条件（只读引用，不重推） | five-seed 分支（结果 `0935257` / provenance tip `28aa1fe`）：5 个 canonical seed 短预算配对逐 seed M0+G1–G8 全 PASS ∧ A 类 PASS，二级分类 5×`POSITIVE_IMPROVEMENT`，`mean_Δtest = +0.005910402347593546`（样本 std 0.0031538117454772883，Student-t 95% CI `[+0.0019944278461222166, +0.009826376849064875]` 下界 > 0）⇒ 其预注册 §6.4 立项条件 `TWENTY_EPOCH_CONDITION_SATISFIED`（20-epoch 分支 `10e86dc` 已独立重推） | PASS |
 
 ### 1.3 seed 与预算选择冻结（**先于任何本实验指标**）
 
@@ -327,6 +328,7 @@ _（C4 回填）_
 
 ## 12. 偏离披露（预声明 + 运行后补）
 
+- **预注册前澄清提交（C1b）**：在实现与运行之前，向 §1.2 增补 A6 行（five-seed 立项条件的**只读引用**——`mean_Δtest = +0.005910402347593546`、CI95、5×二级分类等，均为已审计记录值）；判据、阈值、分类/判定树、运行规程**零改动**（与 20-epoch 分支 `b6e5ed5` 先例同类）。
 - **分支工作流**：自 `infra/aliccp-fair-benchmark` @ `8133d32` 独立拉出；机制经 §3 三层守卫钉死等价；协议不合并 `master`；push 经用户显式指示（本任务含 "commit and push"）。
 - **分支本地 SUMMARY 系谱**：本分支 `SUMMARY.md` 基线含 smoke 行与 seed1 基线行（`8133d32` 携带）；其余历史行记录在各自分支，本分支**不复制**其它分支行，只由本实验 run 追加自己的行（P0 + P1）。
 - **产物/对照 run 只读复制**：§1.5 所列产物、参照头、两个对照 run、前缀指纹均自 five-seed worktree 只读复制入本 worktree（逐文件 sha 相等）；dataset 经 junction 复用 main tree（只读、gitignore）。
