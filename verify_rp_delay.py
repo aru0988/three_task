@@ -316,8 +316,12 @@ def main(argv=None) -> int:
     chk.eq(g, "stage1_ids", (d["stage1_id"], d_report["stage1_id"]), (STAGE1_ID, STAGE1_ID))
     chk.eq(g, "arm_class", (gate_doc.get("residual_prompt") or {}).get("classification"),
            recorded.get("classification"))
-    chk.eq(g, "variant_gate_report", (gate_doc.get("residual_prompt") or {}).get("variant"),
-           "residual-prompt-delay")
+    # 臂块形状（DD 门禁集；variant 身份由 identity/metrics/config 独立校验，臂块本身不含 variant）
+    chk.eq(g, "arm_block_keys", sorted((gate_doc.get("residual_prompt") or {}).keys()),
+           sorted(["M0"] + [f"DD{i}" for i in range(1, 10)]
+                  + ["U", "protocol_10_1", "classification", "subreason", "pass"]))
+    chk.eq(g, "arm_block_subreason", (gate_doc.get("residual_prompt") or {}).get("subreason"),
+           recorded.get("subreason"))
     chk.eq(g, "variant_config", config_doc.get("variant"), "residual-prompt-delay")
     summary = (REPO / "artifacts" / "aliccp_bench" / "SUMMARY.md").read_text(encoding="utf-8")
     rows = [line for line in summary.splitlines() if args.baseline_run in line or args.delay_run in line]

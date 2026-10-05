@@ -410,35 +410,105 @@ D:\MPT-Rec-three_task\MPT-Rec\.venv\Scripts\python.exe verify_rp_delay.py `
 
 ### 10.0 非结果核验与执行记录
 
-§1.5 预核验 **153/153 通过**（报告 sha256 `7e35d9e7…`，§1.5）。执行链：C1（本文件）→ C2（实现+测试）→ B 臂前台单次 → C3（B SUMMARY 行）→ D 臂前台单次 → C4（D SUMMARY 行）→ 分析 ×1 → 独立复核 ×1 → C5（§10 回填）。
+- **§1.5 预注册前完整性核验**（只读）：**153/153 通过**；C1 时点报告 sha256 `7e35d9e77e1b23c4cbeb16dcf91c63964f397a433dc07c9556b5cfc2c663b28b`（该时点 `rp_delay` 尚不存在；C2 后以"临时移出 `rp_delay` 复跑"方式逐字节复现同 sha，副本 `verify_delay_prerun_result_pre_c2.json`）；C2 后复跑报告 sha256 `59ba5b8acd9f378be190f3cc770ab85b8a079420a539256d0e17e6b8f3856cb5`（唯一差异 = 导入存在性探针布尔 `rp_delay_present_at_prerun` False→True）。
+- **执行链**：C1 `f55331b`（预注册）→ C1b `7a30f5f`（参照头缩写 sha 补全，判据零改动）→ C2 `966a07c`（移植 + 消融实现 + 守卫 + 前置核验/复核脚本，**116/116** 测试绿）→ C2b `1c488c4`（行尾稳健 LF-sha 守卫修正 + 重钉）→ **B 臂**前台单次 run（`20261005-1236-…-1c488c4`，wall 279.7 s）→ C3 `8435eec`（B SUMMARY 行）→ **D 臂**前台单次 run（`20261005-1241-…-8435eec-rpd`，wall 300.9 s）→ C4 `dc46084`（D SUMMARY 行）→ 分析 ×1（`rp_delay_compare.json`）→ 独立复核 ×1（首跑 79/80，checker-semantics 修正（§10.5 披露，同 fbfff09/uncond 先例）后 **81/81 ALL_PASS**；首跑报告保留 `verify_report_firstpass_exit1.json`）→ C5（本 §10/§12 回填）。
+- 无工具性中断、无重跑（两臂各恰一次）；两 run 均**前台**执行并等待至完成；`git diff dc46084 1c488c4 -- . ':(exclude)artifacts/aliccp_bench/SUMMARY.md'` 为**空**（run 间代码逐字相同；B 记录 commit=C2b `1c488c4`、D 记录 commit=C3 `8435eec`，两 run `git.dirty=false`）。
 
 ### 10.1 两条 run 与臂级身份
 
-（待回填：run_id/commit/dirty/stage1_id/epochs/patience/best_epoch/best val/test/early-stop/墙钟/峰值显存/A 类/B 类/hard_pass/臂级分类；REP_B 逐位复现；FROZEN_ID 三方逐位；产物 sha256。）
+| 项 | B（配对基线） | D（延迟解冻） |
+|---|---|---|
+| run_id | `20261005-1236-p2M-v500k-t1M-m1688723740-short-1c488c4` | `20261005-1241-p2M-v500k-t1M-m1688723740-short-8435eec-rpd` |
+| commit / dirty | `1c488c4`（C2b）/ **false** | `8435eec`（C3）/ **false** |
+| stage1_id | `s1-5c060b9c-m1688723740-e3-4e1b5c6f` | 同左 |
+| epochs / patience / tag | 5 / 2 / `short` | 同左 |
+| best_epoch / best val | **5** / `0.5809347091990792` | **5** / `0.5837095982751508` |
+| test AUC（单次） | `0.5974422649550507` | `0.6000367443327737` |
+| early stop | 未触发（5/5 右删失） | 未触发（5/5 右删失） |
+| 墙钟 / 峰值显存 | 279.7 s / 52.0 MB | 300.9 s / 55.7 MB |
+| A 类 | A1/A2/A4/A5/A6 PASS、A3 SKIP | 同左 |
+| B 类（继承） | B1/B2/B3 PASS / **B4 FAIL**（继承） | 同左 |
+| `hard_pass` | false（仅 B4 继承失败） | false（同左） |
+| 臂级分类（in-run，class C） | — | **`VALID_NEGATIVE`**（U1 `ΔD≥+0.0055` 不过；U2 过） |
+| gate_mean | `[0.789178, 0.2108221875]` | `[0.787030625, 0.21296940625]` |
+
+- **REP_B 逐位复现（最强形式）**：B 与历史基线 `79b5e07` 的逐 epoch val（×5）、逐 epoch train_loss（×5）、best_epoch、best_val、test、gate_mean **全部逐位相等**；B `newtask.pt` sha256 == `90ee06da387129b50ed7ba0b93742a02db6e87d40d60ae11dbc6b189aeecb94f`（== 钉死参照头）。配对链与运行环境由此独立背书。
+- **FROZEN_ID 三方逐位（本实验特有）**：D 的 epoch-1 `train_loss == 0.08193688414408826` ∧ `val_auc_bsi == 0.4645711559431739`，且与 B 的 epoch-1 逐位相等（三方恒等；冻结期与配对基线逐位同流的结构论证由运行端到端证实）；D 的 `delay` 块全字段（§10.4）。
+- run 产物哈希（sha256）：B `metrics.json 3c6adb302d09ca9407ba37faa789845cbcd59687121edf7e0851bc9694563b05` / `config.json 92af1bed86e26303120c5f7c1d9a01338bd229438314ea52371206cdbe195066` / `gate_report.json 374c8bf54c96bf3c73eed36f07a4c1ec329754696dff8e878dc09bef7d496d00` / `newtask.pt 90ee06da387129b50ed7ba0b93742a02db6e87d40d60ae11dbc6b189aeecb94f`；D `metrics.json 9b81c31309a2fdd049b52113c400fa42bebb53f67036d31e0eb42d6d7cbf30e9` / `config.json cd9126fe4e9f053e9078827bd91829c8bf6ec475bcb1650643f5335f4cd69e15` / `gate_report.json 4f7629798c9f2b91b3de521892b29bfd40011ed02a4cda0df4354a10319d9291` / `prompt_report.json 5806dd68407d0385c6a0d3d4c2a5cb5c544618d835f13249ba3ddf05b3de6229` / `newtask.pt d986ebce1a784907675650b87f93c53ec5ee0f897b34a101cb9a3cf89d05e9ee`；分析 `rp_delay_compare.json f8bbf352fe029ed2c4d313dc30655ff8852289099e1c0c97e5f7fc5c3d67affb`；复核 `verify_report.json b29abb73536081a5bccad6df5ea872299bb238b59b31a8ec76272a9bc8b064b0`（首跑 `verify_report_firstpass_exit1.json 02f6f7e7055ad1ce0a38ef87d581e5c5e4d85424d6b67943e495820784522642`）。
 
 ### 10.2 判定（预注册 §5 机械计算；分析器 + 独立复核逐位一致）
 
-（待回填：前置条件各组；因果判定；二级分类；历史 `+0.0055` 单列；全量分量 `ΔD`/`Δval_D`/`gap_closure`/`half_gap_met`/`recovery_ratio`；headroom（若适用）；有效幅度披露。）
+| 组 | 结果 |
+|---|---|
+| §5.1-ID | **全 true** |
+| §5.1-REP_B | **全 true**（§10.1：逐位复现 7 项 + 参照头 sha） |
+| §5.1-FROZEN_ID | **全 true**（epoch-1 三方逐位 + delay 块 8 项；§10.4） |
+| §5.1-A（两 run A 类） | **PASS**（A3 SKIP 视为通过） |
+| §5.1-DD（DD1–DD9 + M0） | **全 PASS**（由记录 observed 值机械重推；记录布尔与重推一致 `recorded_consistent=true`） |
+| §5.1-CC（对照链 + ΔL/ΔP 重推 + 六轨迹） | **全 true**（`ΔL == +0.008103113327467715` ∧ `ΔP == −0.002677172368479308` ∧ `GAP == +0.010780285695947023` 逐位重推） |
+| **因果判定（§5.4）** | **`DYNAMICS_SUPPORTED`**（`ΔD = +0.002594479377722947 ≥ +0.001` ∧ `Δval_D = +0.002774889076071596 > 0`） |
+| 二级分类（§5.5，报告） | **`POSITIVE_IMPROVEMENT`**（`ΔD ≥ +0.001`）；非 `NO_CLEAR` ⇒ headroom 不适用（null，结构性） |
+| 历史 `+0.0055`（§5.6，单列保留） | **未达到**（`ΔD ≥ +0.0055` 为 false；不参与主判定） |
+
+**全量分量（§5.3）**：`ΔD = +0.002594479377722947`；`Δval_D = +0.002774889076071596`；`gap_closure = 0.48900853788913917`（**< 0.5**）；`half_gap_met = false`（半程门 `ΔD ≥ +0.0027129704794942035`，差 `1.184911017712568e-04`；注：`0.0027129704794942035` 与 JSON 记录 `0.0027129704794942033` 为**同一 double** 的最短 repr 两种写法，逐位相等）；`recovery_ratio = ΔD/ΔL = 0.3201830300124584`；`retention_vs_five_seed_mean = 0.438968318084014`；`ΔD_vs_U = +0.00521347087555224`（对 uncond U 臂钉死值 `−0.0026189914978292927`）；test `B 0.5974422649550507 → D 0.6000367443327737`；val `B 0.5809347091990792 → D 0.5837095982751508`；stopping：`best_epoch == epochs_run == epochs_recorded == 5`（**RIGHT_CENSORED_STILL_IMPROVING**，未早停）。
+
+**有效幅度披露（描述性；预注册 §5.3 触发规则）**：D 的逐流 `ratio_mean = 0.0086484527576…`（三流一致），显著小于学习臂 L 的 `0.028139385824218544` 与钉死 C_p 的 `0.025832515889843137`——D 是在**明显更小的有效扰动幅度**下取得 `+0.0026` 的（与 4-vs-5 个学习 epoch + 解冻重启的 α 轨迹慢升一致；§10.7-3）。
 
 ### 10.3 结构机制门禁与诊断（DD1–DD9 关键读数）
 
-（待回填。）
+| 门禁 | D 臂读数 |
+|---|---|
+| M0 参照身份 | `ref_val_auc = 0.5809347091990792`、`ref_pred_std = 0.005217193225189258`（逐位） |
+| DD1 构造身份 | 共享参数逐位、RNG 端点一致、新增键恰 5（与学习臂同集） |
+| DD2 保守初值 | `alpha_at_construction == 0.0` 精确；首 batch 前向与参照头逐位（`bit_identical = true`，`max_abs_diff = 0.0`） |
+| DD3 延迟完整性 | delay 块全字段逐项（§10.4）；epoch-1 探针冻结签名（α `0.0`、`alpha_grad_norm = null`、`generator_grad_norm = 0.0`） |
+| DD4 学习期重启活性 | epoch-2 探针 `alpha_grad_norm = 0.22238482534885406 ≠ 0`（解冻即接上学梯度）∧ 同探针 `generator_grad_norm = 0.0`（α=0 步）；epoch-5 探针 `alpha = 0.018645746633410454 ≠ 0` ∧ `generator_grad_norm = 0.02229110972438875 > 0`；`alpha_final = 0.027242058888077736 ≠ 0` |
+| DD5 范数界 | 三流 `ratio_max = [0.0146782527…, 0.0146782524…, 0.0146782521…]` ≤ `|α_final| + 1e-6` |
+| DD6 活性带 | 三流 `ratio_mean = [0.008648452757567987, 0.008648452758100635, 0.008648452757844455]` ∈ `[0.005, 0.5]` |
+| DD7 门控非退化 | `geff_std = 0.0015580848316955889 > 0` ∧ `geff_min = 0.0038360592757687635 ≥ 0` ∧ `geff_max = 0.01467825263425446 > 0` |
+| DD8 无坍缩 | `pred_std = 0.005168845890222744`（0.9908 × 参照） |
+| DD9 参数预算 | 5 键；`new_params_total = 2385`、`head_params = 8129`（**与学习臂逐项相同**） |
+
+**逐 epoch α 与梯度探针（D）**：
+
+| epoch | α（探针时点） | α_grad_norm | generator_grad_norm |
+|---|---|---|---|
+| 1 | 0.0（冻结） | null（无梯度路径） | 0.0（结构惰性） |
+| 2（解冻） | 0.0（未及更新） | 0.22238482534885406 | 0.0（α=0 步） |
+| 3 | 0.004398348741233349 | 0.13099049031734467 | 0.006139315341171747 |
+| 4 | 0.011026081629097462 | 0.10469368100166321 | 0.0135745334961953 |
+| 5 | 0.018645746633410454 | 0.08208954334259033 | 0.02229110972438875 |
+
+（α_final = `0.027242058888077736`；对照：学习臂 L 5-epoch 轨迹 `[0, 0.0164, 0.0375, 0.0509, 0.0616]`→0.0710——D 的解冻重启学习**慢于** L 的首轮（描述性；D vs L 的多因子差异见 §2.5-1）。）
+
+**逐流读数（val，n=500000，fp64 流式）**：`cos_mean = +0.01693 / +0.07580 / +0.02677`；`delta_norm_mean = [1.494955848729683, 0.20744614563007974, 0.1921914794707084]`；`ratio_std = [0.00155808…]×3`；`n_zero_rep = [0, 0, 0]`。
 
 ### 10.4（保留节位）延迟/解冻完整性核对
 
-（待回填。）
+`delay` 块（prompt_report.json）逐字段：`delay_epochs = 1` ∧ `unfreeze_epoch = 2` ∧ `alpha_at_construction = 0.0` ∧ `alpha_requires_grad_at_construction = false` ∧ `generator_requires_grad_at_construction = [false×4]` ∧ `generator_sha_at_construction = "bde4ca4d151dc9e4c286a989b765f58142472ad2c1d676ab4d7e8bd09185a2e5"` ∧ `alpha_at_unfreeze = 0.0` ∧ `generator_sha_at_unfreeze ==` 构造值（生成器在冻结期**逐位未动**）∧ `unfrozen_once = true` ∧ `requires_grad_after_unfreeze = {alpha: true, generator: [true×4]}` ∧ `optimizer_covers_named_parameters = true` ∧ `optimizer_params_total = 17`（12 头部 + α + 生成器 4；α 保持参数身份）∧ `unfreeze_rng_endpoint_unchanged = true`。FROZEN_ID：epoch-1 `train_loss/val` 三方逐位恒等（§10.1）。⇒"延迟恰 1 epoch、解冻恰一次、冻结期与配对基线逐位同流"由运行记录端到端证实。
 
-### 10.5 独立复核
+### 10.5 独立复核（`verify_rp_delay.py`；首跑 79/80 后按披露的 checker 语义修正，复跑 81/81 ALL_PASS）
 
-（待回填：`verify_rp_delay.py` 计数、重推一致性、checkpoint 独立读取。）
+- **首跑（保留 `verify_report_firstpass_exit1.json`，sha256 `02f6f7e7…`）79/80**：唯一 FAIL 为**核验脚本自身的 checker 语义缺陷**（`docs_consistency.variant_gate_report` 误假设 `gate_report.residual_prompt` 臂块含 `variant` 键；DD 臂块按预注册 §5.2 不含该键，`variant` 身份由 identity/metrics/config 三项独立校验且当次全 PASS）——判定面（verdict/分量/门禁/重放）当次已全 PASS；按 fbfff09/uncond「披露的 checker-semantics refinement」先例修正后复跑。
+- **复跑 81/81 ALL_PASS**（报告 sha256 `b29abb73536081a5bccad6df5ea872299bb238b59b31a8ec76272a9bc8b064b0`）：DD1–DD9 + M0 由记录 observed 独立重推全 PASS 且与记录布尔一致；verdict/subreason/分量/half_gap/secondary 独立重实现逐位一致；FROZEN_ID/delay 块重推一致；REP_B/对照链/六轨迹重推一致；**checkpoint 独立读取**：`newtask.pt` 内 `prompt_gate == 0.027242058888077736`（== 记录 `alpha_final` 逐位）、相对 B 的键差集恰 5 个 prompt 键、结构可载入；实现文件 LF sha 漂移钉死（8 项）全一致；SUMMARY 恰含 B/D 两行。
 
 ### 10.6 纪律核对
 
-（待回填：运行次数 ×2、分析 ×1、复核 ×1；测试计数；静态守卫；run 间 diff；SUMMARY 行数；跑后代码改动披露。）
+- **运行次数**：B stage2 ×1、D stage2 ×1（均前台；无工具性中断；**无重跑**）；分析 ×1；独立复核 ×1 +（披露修正后）复跑 ×1（同 fbfff09/uncond 先例）。未改预算/patience/tag/阈值/延迟界/解冻实现/参照/判定树；未做任何事后调参；未重训 Stage-1；未重跑任何历史 run；未扩 seed；未启动其它消融。
+- 测试：**116/116** 通过（基点 75 + 本分支新增 41）；静态守卫：`git diff --name-only 8133d32` ⊆ 白名单、受保护文件零 diff（测试内断言）。
+- run 间代码同一性：`git diff dc46084 1c488c4 -- . ':(exclude)artifacts/aliccp_bench/SUMMARY.md'` 为**空**。
+- `SUMMARY.md` 恰追加 **2 行**（B + D，append-only）。
+- **跑后代码改动**：仅 `verify_rp_delay.py`（§10.5 的 checker 修正；不触及任何 run 路径/机制/接线/分析器）；判定面零改动。
 
 ### 10.7 解读（预注册口径；不越界）
 
-（待回填：机械结论；与 L/C_p 的关系与 gap 回收读数；机制指向；历史判定原样保留声明；继承披露。）
+1. **机械结论**：因果判定 = **`DYNAMICS_SUPPORTED`**——实验有效（前置条件全真、DD1–DD9 全 PASS、FROZEN_ID 三方逐位、独立复核 81/81），在**同一构造、同一初始化路径、同一优化器语义**之下，把 prompt 模块（α + 生成器）的学习**恰好延迟 1 个 epoch**（冻结期与配对基线逐位同流）后，仍相对配对基线取得**实质正增量** `ΔD = +0.002594479377722947 ≥ +0.001` 且验证方向一致（`Δval_D = +0.002774889076071596 > 0`）。⇒"学习动态/共适应承载增量"的机械解释获得**因果支持**（D vs B 单干预配对；钉死 α 的最终取值在 f08ae6e/uncond 中已被两度证否）。
+2. **半程回收（Q2，描述统计）**：`gap_closure = 0.48900853788913917 < 0.5` ⇒ `half_gap_met = false`（差 `1.18e-4`）；按预注册 §5.4 读法为 SUPPORTED 的**部分形态**（非强形态）：D 回收了"固定 α ↔ 学习 α"差距的 48.90%，`recovery_ratio = ΔD/ΔL = 0.320`，五 seed 均值保留 43.9%，低于历史 `+0.0055`。该统计含 §2.5-1 的全部混杂（D vs L 非单因子），仅描述。
+3. **有效幅度读数（必读披露）**：D 是在**更小的有效扰动幅度**下取得 `+0.0026` 的（`ratio_mean = 0.00865` vs L `0.02814`/C_p `0.02583`；α_final `0.0272` vs L `0.0710`）——延迟 1 epoch 使学习期缩短为 4 epoch 且 α 从 0 重启，其慢升轨迹（§10.3）本身即干预的一部分；"更小幅度仍为正"与"固定-钉死更大有效幅度为负"（C_p `0.0258 → −0.00268`）并读，**不支持**"更大幅度 ⇒ 更高分"的单调读法（描述性）。
+4. **与既有链的关系**：`ΔD` 位于 `ΔP`（−0.00268）与 `ΔL`（+0.00810）之间且显著高于 uncond U 臂（`ΔD − G_u = +0.00521`）；结合 f08ae6e（条件对应无贡献）与 uncond（条件性/无条件皆无贡献）——固定注入族三臂全 `NO_CLEAR` 而**延迟重启的学习注入为正**，机制证据链闭合于"学习过程本身"。（该推断为预注册 §5.4 的判定语义，不越界为"任意调度"的泛化。）
+5. **历史判定原样保留**：seed1 `VALID_NEGATIVE`、seed2 `VALID_POSITIVE`（+0.0081）、10-epoch `PERSISTS`、20-epoch `NOT_PERSIST`/`ABLATION_ELIGIBLE`、五 seed 均值、学习 shuffled `INVALID/MECHANISM_FAIL`、f08ae6e `CONDITION_ALIGNMENT_NOT_SUPPORTED`、uncond `SAMPLE_CONDITIONING_NOT_SUPPORTED` 均**未改写**；本实验结论只针对本设计（延迟 k=1、short、seed2、钉死参照头）。
+6. **class C 读法**：in-run `rp_arm` 分类 `VALID_NEGATIVE`（U1 `ΔD≥+0.0055` 不过）为臂级诊断，非因果判定（因果判定 = §10.2 `DYNAMICS_SUPPORTED`）。
+7. **继承披露**：B4 两臂 FAIL（共享 stage-1 cluster 退化；臂无关）；两臂 `hard_pass=false` 如常披露。
 
 ---
 
@@ -457,8 +527,10 @@ D:\MPT-Rec-three_task\MPT-Rec\.venv\Scripts\python.exe verify_rp_delay.py `
 - **产物/历史 run 只读复制**：§1.5 所列产物、参照头、五个历史 run 均自 uncond worktree **只读复制**入本 worktree（逐文件 sha 相等；§1.2 已复核）；dataset 经 junction 复用 main tree（只读、gitignore）。
 - **非结果文件（未跟踪）**：`artifacts/aliccp_bench/audit/rp-delay/` 报告 JSON 与 α 轨迹导出、`artifacts/aliccp_bench/logs/` run 日志、D run 目录内 `rp_delay_compare.json` / `verify_report*.json`。
 - **与前置分支的关系**：`rp_pinned.py` 的 shuffled 类/错排器为逐字节移植带来的休眠代码（CLI 不暴露 delay 相关接线以外的变化；本实验不运行 pinned-shuffled）。
-- **执行记录（运行后补）**：（待回填。）
-- **实际结果形态（运行后补）**：（待回填。）
+- **执行记录（运行后补）**：C1 `f55331b` → C1b `7a30f5f` → C2 `966a07c`（116/116 测试绿、`git.dirty=false`）→ C2b `1c488c4` → B 前台单次 run `20261005-1236-…-1c488c4`（wall 279.7 s；**REP_B 逐位复现 `79b5e07` 含逐 epoch val/loss ×5 与 `newtask.pt` sha**）→ C3 `8435eec`（B SUMMARY 行）→ D 前台单次 run `20261005-1241-…-8435eec-rpd`（wall 300.9 s；**FROZEN_ID 三方逐位**、DD1–DD9 全 PASS、delay 块全字段；**无工具性中断、无臂重跑**）→ C4 `dc46084`（D SUMMARY 行）→ 分析 ×1（`DYNAMICS_SUPPORTED`；`ΔD = +0.002594479377722947`；`half_gap_met = false`；二级 `POSITIVE_IMPROVEMENT`）→ 独立复核 ×1（首跑 79/80，checker 修正后复跑 **81/81 ALL_PASS**）→ C5（本 §10/§12 回填）。运行命令与 §6 逐字一致（cwd=本 worktree，主树 venv 解释器）；两 run `git.dirty=false`；run 间代码同一性 diff 为空。
+- **跑后代码改动披露（运行后补）**：**仅 1 处**——`verify_rp_delay.py` 的 checker-semantics 修正（`docs_consistency.variant_gate_report` 改为臂块键集/子因一致性核对；§10.5；同 fbfff09/uncond 先例，首跑报告保留）。**运行路径/机制/接线/分析器/守卫测试零改动**（LF sha 钉死：机制 `b3b93b3a…`、rp_pinned `ba23bf47…`、rp_delay `a3ef45d7…`、bench `983ced60…`、CLI `dcdfed46…`、移植守卫 `b294f071…`、延迟守卫 `d2bb4da5…`、前置核验 `3c34ae48…`——复核脚本逐项核对）。
+- **实际结果形态（运行后补）**：因果判定落入预注册 `DYNAMICS_SUPPORTED` 分支（§5.4 优先级 2）；预声明的半程回收描述统计**未达成**（`gap_closure = 0.4890 < 0.5`，差 `1.18e-4`）⇒ 部分形态；`DYNAMICS_NOT_SUPPORTED` 与 `INVALID` 均未触发；无任何判据/阈值/规则被事后修改。
+- **下一消融登记（运行后补，§9.3 机械规则）**：`DYNAMICS_SUPPORTED` ⇒ 按 §9.3：机制线继续价值有限；登记下一步候选 = **延迟扫描最小扩展（k=2 单点）** 或 **warm-start 变体**（均需全新预注册）；norm-control 移除与 matched-parameter adapter 的机械触发条件（uncond `G_u ≥ +0.001`）从未满足，维持更低优先、**不启动**；本分支不启动任何后续消融。
 
 ---
 
