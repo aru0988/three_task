@@ -379,7 +379,115 @@ D:\MPT-Rec-three_task\MPT-Rec\.venv\Scripts\python.exe verify_rp_pinned.py `
 
 ## 10. 结果（运行后回填，不回写第 0–9 节）
 
-（待运行后回填：§10.0 非结果核验与执行记录；§10.1 三条 run 与臂级身份；§10.2 判定；§10.3 门禁与诊断；§10.4 错排完整性；§10.5 独立复核；§10.6 纪律核对；§10.7 解读与下一消融建议。）
+### 10.0 非结果核验与执行记录
+
+- **§1.5 预注册前完整性核验**（只读）：**89/89 通过**（报告 `artifacts/aliccp_bench/audit/rp-pinned/verify_pinned_prerun_result.json`，sha256 `56a574dd2c42ab528ca1d1b73a2493dfb31617e4411faafa347906f37d77e5cc`）；产物、deck、α 钉死来源未动。
+- **执行链**：C1 `580426a`（预注册）→ C1b `0dfb11a`（澄清，判据零改动）→ C2 `bf322df`（移植 + 消融实现 + 守卫，**149/149** 测试绿、`git.dirty=false`）→ **B 臂**前台单次 run（`20261005-1026-…-bf322df`，wall 160.3 s）→ C3 `7d26918`（B SUMMARY 行）→ **F_c 臂**前台单次 run（`20261005-1029-…-7d26918-rpp`，wall 181.3 s）→ C4 `1c13841`（F_c SUMMARY 行）→ **F_s 臂**前台单次 run（`20261005-1032-…-1c13841-rpps`，wall 193.7 s）→ 分析 ×1（`rp_pinned_compare.json`）→ 独立复核 ×1（**101/101 ALL_PASS**）→ C5（本 §10/§12 回填 + F_s SUMMARY 行）。
+- 无工具性中断、无重跑、无事后调参；三 run 均**前台**执行并等待至完成；`git diff 1c13841 bf322df -- . ':(exclude)artifacts/aliccp_bench/SUMMARY.md'` 为**空**（run 间代码逐字相同）。
+
+### 10.1 三条 run 与臂级身份
+
+| 项 | B（配对基线） | F_c（钉死 α correct） | F_s（钉死 α shuffled） |
+|---|---|---|---|
+| run_id | `20261005-1026-p2M-v500k-t1M-m1688723740-short-bf322df` | `20261005-1029-p2M-v500k-t1M-m1688723740-short-7d26918-rpp` | `20261005-1032-p2M-v500k-t1M-m1688723740-short-1c13841-rpps` |
+| commit / dirty | `bf322df`（C2）/ **false** | `7d26918`（C3）/ **false** | `1c13841`（C4）/ **false** |
+| stage1_id | `s1-5c060b9c-m1688723740-e3-4e1b5c6f` | 同左 | 同左 |
+| epochs / patience / tag | 5 / 2 / `short` | 同左 | 同左 |
+| best_epoch / best val | **5** / `0.5809347091990792` | **5** / `0.5798886656441761` | **5** / `0.5817369266195509` |
+| test AUC（单次） | `0.5974422649550507` | `0.5947650925865714` | `0.5966263705980125` |
+| early stop | 未触发（5/5 右删失） | 未触发（5/5 右删失） | 未触发（5/5 右删失） |
+| 墙钟 / 峰值显存 | 160.3 s / 52.0 MB | 181.3 s / 55.7 MB | 193.7 s / 56.3 MB |
+| A 类 | A1/A2/A4/A5/A6 PASS、A3 SKIP | 同左 | 同左 |
+| B 类（继承） | B1/B2/B3 PASS / **B4 FAIL**（继承） | 同左 | 同左 |
+| `hard_pass` | false（仅 B4 继承失败） | false（同左） | false（同左） |
+| 臂级分类（in-run，class C） | — | **`VALID_NEGATIVE`**（U1/U2 均不过） | **`VALID_NEGATIVE`**（U1 不过、U2 过） |
+
+- **REP 逐位复现（最强形式）**：B 与历史基线 `79b5e07` 的逐 epoch val、best_epoch、best_val、test、gate_mean **全部逐位相等**；B `newtask.pt` sha256 == `90ee06da…`（== 钉死参照头）。配对链与运行环境由此独立背书。
+- **α 钉死证明（两处理臂）**：`alpha_final == 0.07101669907569885`（精确）；buffer 非参数、`requires_grad=False`、不在 `named_parameters()`；优化器覆盖全部 16 个参数张量且**不含** α（对象同一性）；逐 epoch 探针 `alpha_grad_norm = None` 且 `alpha` 恒为钉死值；三处（构造/训练后/checkpoint 独立读取）逐位相等。
+- run 产物哈希（sha256）：B `metrics.json f4ea2cb38812…` / `config.json 9b5bd3ffd78e…` / `gate_report.json 071a776d6992…` / `newtask.pt 90ee06da…`；F_c `metrics.json f0a884ce6c59…` / `config.json baec4bbc5c22…` / `gate_report.json 573ebaf36338…` / `prompt_report.json 77f028993e8b…` / `newtask.pt 264aedbb9f3f…`；F_s `metrics.json b1d6925edc25…` / `config.json b6139d74a700…` / `gate_report.json 5f47cbeaec34…` / `prompt_report.json a24b66a7befa…` / `newtask.pt 03d14ec4fcb9…`；分析 `rp_pinned_compare.json 01322a72a20f…`；复核 `verify_report.json d1893916d264…`。
+
+### 10.2 判定（预注册 §5 机械计算；分析器 + 独立复核逐位一致）
+
+| 组 | 结果 |
+|---|---|
+| §5.1-ID（16 项） | **全 true** |
+| §5.1-REP（6 项） | **全 true**（§10.1：逐位复现 + 参照头 sha） |
+| §5.1-A（三 run A 类） | **PASS**（A3 SKIP 视为通过） |
+| §5.1-PA（两处理臂 M0+PA1–PA8） | **全 PASS**（§10.3） |
+| §5.1-PG（F_s PG1–PG7） | **全 PASS**（§10.4） |
+| §5.1-CC（对照链 + α 来源） | **全 true**（三历史 run 记录值 == 钉死；`pin_source_alpha`、`pinned_arms_alpha_equal_pin`、两侧 Δ 重推逐位） |
+| §5.1-DD（deck 钉死） | **true**（PG7 逐位重放） |
+| **因果判定（§5.5）** | **`CONDITION_ALIGNMENT_NOT_SUPPORTED`（subreason `GAP_BELOW_MATERIALITY`）** |
+| 二级分类（§5.6，报告） | F_c：**`NO_CLEAR_IMPROVEMENT`**（`G_c = −0.002677172368479308`）；F_s：**`NO_CLEAR_IMPROVEMENT`**（`G_s = −0.000815894357038216`） |
+| 历史 `+0.0055`（§5.7，单列保留） | 两臂 **均未达到**（`G_c/G_s ≥ +0.0055` 均为 false；不参与主判定） |
+
+**全量分量（§5.4）**：`GAP = −0.001861278011441092`；`Δval_gap = −0.001848260975374827`（`validation_agreement = false`；`shuffled_matches_or_exceeds_correct = true`——shuffled 臂在 test 与 val 两侧**略优于** correct 臂）；`G_c = −0.002677172368479308`；`G_s = −0.000815894357038216`；`R = NA`（`G_c ≤ 0`）；`retention_correct_vs_hist = −0.3303881187745828`；`retention_shuffled_vs_hist_correct = −0.10068899743417377`；`shuffled_pinned_vs_learnable = −0.551741831050075`；`Δval_c = −0.00104604355490312`；`Δval_s = +0.000802217420471707`。
+
+**NO_CLEAR headroom（§5.6 机械评估，两臂均适用）**：F_c：`PIN_ACTIVE` / `NON_POSITIVE` / `RIGHT_CENSORED_STILL_IMPROVING` / `gap_to_positive_threshold = +0.003677172368479308` / `retained_ratio_vs_historical_correct = −0.3303881187745828`；F_s：`PIN_ACTIVE` / `POSITIVE` / `RIGHT_CENSORED_STILL_IMPROVING` / `gap_to_positive_threshold = +0.001815894357038216` / `retained_ratio_vs_historical_correct = −0.10068899743417377`。
+
+### 10.3 结构机制门禁与诊断（两处理臂全 PASS）
+
+| 门禁 | F_c | F_s |
+|---|---|---|
+| M0 参照身份 | `ref_val_auc = 0.5809347091990792`、`ref_pred_std = 0.005217193225189258`（逐位） | 同左 |
+| PA1 钉死身份 | buffer/非参数/`requires_grad=False`/不在 `named_parameters`；构造==训练后==checkpoint == `0.07101669907569885`（精确） | 同左 |
+| PA2 优化器排除 | `optimizer_excludes_prompt_gate = true`、`optimizer_covers_named_parameters = true`（16 张量）、5×`alpha_grad_norm = None`、α 逐 epoch 恒为钉死值 | 同左 |
+| PA3 头身份 | 共享参数逐位、RNG 端点一致、新增键恰 5（4 生成器参数 + α buffer） | 同左 |
+| PA4 注入纯度/激活 | 零 α 逐位恒等（`max_abs_diff = 0.0`）；钉死 α 下与参照 `max_abs_diff = 0.012149155139923096 > 0`；恢复逐位 | 零 α 逐位恒等；钉死 α 下 `max_abs_diff = 0.009407132863998413`（真实 train/0 π） |
+| PA5 范数界 | 三路 `ratio_max = 0.0465444768…` ≤ 0.0710167 + 1e-6 | 三路 `ratio_max = 0.0305225991…` ≤ 界 |
+| PA6 跨流一致 | 三流 `ratio_mean` spread < 1e-9 | spread < 1.5e-9 |
+| PA7 无坍缩 | `pred_std = 0.004449241489324557`（0.853 × 参照） | `pred_std = 0.005024841364544473`（0.963 × 参照） |
+| PA8 预算核算 | 4 键生成器；`new_params_total = 2384`、`head_params = 8129` | 同左 |
+
+**逐流读数**（val，n=500000，fp64 流式；流序 `("gen","spec_0","spec_1")`）：
+- F_c：`ratio_mean = 0.02583251589`（三路 spread ~2e-12）；`cos_mean = −0.03315 / +0.06856 / −0.00197`；`geff` mean/std/min/max = `0.025832515889 / 0.006211574795 / 0.009998828967 / 0.046544481171`；`gate_mean = [0.775494625, 0.224505265625]`。
+- F_s：`ratio_mean = 0.01738519006`；`cos_mean = +0.03770 / +0.11399 / +0.04212`；`geff` mean/std/min/max = `0.017385190062 / 0.003128603454 / 0.009893358575 / 0.030522598977`；`gate_mean = [0.7925029375, 0.207497140625]`。
+- **α 钉死 ≠ 有效幅度钉死（预注册 §8-5 的披露实际触发）**：两臂 α 逐位相同（`0.07101669907569885`），但逐样本有效幅度 `|α|·||m||/√d` 仍由**学习到的生成器**决定：`ratio_mean` F_c `0.0258325` vs F_s `0.0173852`，**相对差 32.7%**（> 预声明 5% 阈值）⇒ 两臂的**有效**干预幅度存在一个已量化的残留差异（方向：shuffled 臂的生成器学到了更小的 `||m||/√d`）。该量按预注册仅作**描述性披露**、不作门禁；解读时必须与主判定并读（§10.7-3）。
+- 生成器梯度（逐 epoch 首 batch）：F_c `0.03812 / 0.13946 / 0.16355 / 0.14867 / 0.12701`；F_s `0.03172 / 0.08484 / 0.08546 / 0.06517 / 0.05176`——**首 epoch 即 > 0**（钉死 α≠0 的设计后果，与学习臂首步 0.0 对照为描述差异；§8-6）。
+
+### 10.4 错排完整性（PG1–PG7 全 PASS；运行期 + 独立重推 + deck 重放）
+
+- 计数：`fixed_points_total = 0`、`bijection_failures = 0`、`regeneration_mismatches = 0`、`rng_isolation_violations = 0`、`key_conflicts = 0`、`degenerate_identity_batches = 0`；`n_perms_total = 1750`。
+- 覆盖：train 1000 批 / 2 000 000 行、val 250 批 / 500 000 行、test 500 批 / 1 000 000 行（== 预算；批数 == ceil(预算/2000)）。
+- **PG7/DD（deck 重放）**：逐 split digest ×3 + `total_digest = dcf302c1a80ae7e8023345105e559d7a6daaa1ad492b016c39c22705886599d8` 与历史 shuffled 臂（`9d26bc8-rpgs`，§1.2-A7）**逐位相等**——F_s 使用的正是 fbfff09 的**同一张错排 deck**（结构性预期，实测成立）；独立复核脚本按 §2.2 规格重实现并逐位复算全部 digest。
+- PG6：机制文件 LF sha == `b3b93b3a…`（钉死）；`shuffler=None` 恒等分派 + 等价测试全绿（守卫测试）。
+
+### 10.5 独立复核（`verify_rp_pinned.py`；恰一次；exit 0）
+
+- **101/101 ALL_PASS**；`recomputed.mechanism_gate_status`：两臂 M0/PA1–PA8 **全 PASS**（由记录的 `observed` 值独立重推，并核对记录布尔一致）；`verdict/subreason` 独立重推 == 分析器 `CONDITION_ALIGNMENT_NOT_SUPPORTED / GAP_BELOW_MATERIALITY`；分量逐位相等（`components.bit_equal`）；两臂 headroom 独立重推一致；错排 digest 全部独立复现；PG1–PG7 独立重算一致 + 记录布尔一致；checkpoint 独立读取 `prompt_gate == 钉死 α`（两臂）；三处 JSON 互洽、SUMMARY 三行、文件钉死（mechanism/bench/CLI/rp_pinned/守卫/前置核验）全部一致。
+
+### 10.6 纪律核对（§6/§7/§9 落实）
+
+- **运行次数**：B stage2 ×1、F_c stage2 ×1、F_s stage2 ×1（均前台；无工具性中断；无重跑）；分析 ×1；独立复核 ×1。未改预算/patience/tag/阈值/构造/判定树/参照/钉死 α；未做任何事后调参；未重训 Stage-1；未重跑任何历史 run；未扩 seed；未启动其它消融（学习 shuffled 变体未接线、未运行）。
+- 测试：**149/149** 通过（基点 37 + 移植 65 + 本分支守卫 47）；静态守卫：`git diff --name-only 8133d32` ⊆ 白名单、受保护文件零 diff（测试内断言）。
+- run 间代码同一性：`git diff 1c13841 bf322df -- . ':(exclude)artifacts/aliccp_bench/SUMMARY.md'` 为**空**。
+- `SUMMARY.md` 恰追加 3 行（B + F_c + F_s，append-only）。
+- **跑后代码改动**：无（判定面与实现面全部零改动；C5 仅含本文件 §10/§12 回填与 F_s SUMMARY 行）。
+
+### 10.7 解读（预注册口径；不越界）
+
+1. **机械结论**：因果判定 = **`CONDITION_ALIGNMENT_NOT_SUPPORTED`（`GAP_BELOW_MATERIALITY`）**——实验有效（前置条件全真、两处理臂结构门禁全 PASS、deck 逐位重放、独立复核 101/101），在**标量门控幅度匹配**（同钉死 α）之下，correct-condition 相对 shuffled-condition 的 test 效用差 `GAP = −0.001861278011441092`：**未达 +0.001 实质门**，方向为**负**（shuffled 略优），val 侧同向（`Δval_gap = −0.001848`）。
+2. **与 fbfff09 的关系**：fbfff09 的 `INVALID`（学习幅度坍缩混淆）由本实验的钉死设计**解除**；解除之后，条件对应在（近）匹配幅度下**不再显示实质贡献**。历史学习臂的 `G_c^hist = +0.0081` 由此**不能归因于**样本级条件对齐本身。
+3. **残留幅度披露（必读）**：两臂**有效**幅度（`ratio_mean`）仍有 32.7% 相对差（§10.3）——"幅度匹配"在**门控标量**层面成立、在**有效逐样本幅度**层面部分成立（`||m||/√d` 由学习决定）。按 §8-5 预声明口径：该残留差异与"对齐"在 F_c/F_s 对比中共存，二者不能由本实验完全分离；但注意其方向——有效幅度更大的 arm（F_c，0.0258 vs 0.0174）反而 test 更低，与"更大幅度 ⇒ 更高分"的单调解释不符（该观察仅描述、不构成结论）。
+4. **两臂相对基线均为负**（`G_c = −0.00268`、`G_s = −0.00082`，均 `NO_CLEAR_IMPROVEMENT`）：即在本协议下，**从首步即以固定 α = 0.0710 注入**（而非学习臂的 α: 0→0.0710 渐进）没有复现学习臂的正增量。学习臂增量的主要来源因此更可能在**学习动态/幅度调度/生成器共适应**一侧，而非"固定条件化的残差注入"本身（描述性推断，检验需另立消融，§10.7.2）。
+5. **历史判定原样保留**：seed1 `VALID_NEGATIVE`、seed2 `VALID_POSITIVE`（+0.0081）、10-epoch `PERSISTS`、20-epoch `NOT_PERSIST`/`ABLATION_ELIGIBLE`、学习 shuffled `INVALID/MECHANISM_FAIL` 均**未改写**；本实验结论只针对本设计（钉死 α、short、seed2）。
+6. **class C 读法**：in-run `rp_arm.U`（F_c U1/U2 均 false；F_s U1 false/U2 true vs 历史 5-epoch 常量）为机制诊断，非因果判定。
+7. **继承披露**：B4 三臂 FAIL（共享 stage-1 cluster 退化；臂无关）；三臂 `hard_pass=false` 如常披露。
+
+#### 10.7.1 下一次独立消融的精确建议（预声明规则下的必然下一步；本分支不执行）
+
+按 §9.3（`CONDITION_ALIGNMENT_NOT_SUPPORTED` 分支）与 §10.7-4 的描述性线索，**下一步最优先 = 无条件固定条件对照**：
+
+- **设计**：把逐样本 `P(x_i)` 换成**与样本无关的常量方向**（可学习或冻结的单一向量 `P*`），钉死 α 相同（`0.07101669907569885`）、范数标定/注入流/协议逐字沿用；对照 = 本实验 F_c（逐样本条件化）与 B。
+- **问题**：固定条件下的增量与"逐样本条件化"的增量是否可分离——即"额外参数 / 全局扰动 / 范数-门控效应"通道是否承载了可观测效用。
+- **配套（可选二元）**：α 调度消融（把钉死 α 换成学习臂实测的**逐 epoch 轨迹近似**：0 → 0.0710 渐进），检验 §10.7-4 的"学习动态承载增量"假说。
+- 两者均需**全新预注册**；本分支不启动。
+
+#### 10.7.2 本实验对"学习门控 vs 钉死门控"问题的可用性评估（预注册 §8-6 口径的落实）
+
+- **不可作因果证据**：F_c（钉死）与学习臂 C（`013e105-rpg`）的对照差异**不止** α 的学习性——学习臂中生成器首步梯度为 0（∂loss/∂m ∝ α=0）、钉死臂中生成器**首步即得梯度**（§10.3 实测 `0.03812 > 0`）⇒ 生成器训练轨迹不同（生成方向 m 也不同：`cos_mean` 与 `ratio_mean` 均出现差异）。该对照被训练动态混淆，**只能作描述性参考**（如：钉死臂 −0.0027 vs 学习臂 +0.0081，仅记录，不归因）。
+- **可用性结论**：本实验**不**提供"学习 vs 钉死门控"的因果证据；如需该结论，须另立预注册（如 α 冻结 k 步后解冻、或 α 轨迹回放设计），见 §9.3。
+- **附带可用的结构证据**：本实验确证了钉死机制的可实现性与稳定性（α 恒常、优化器排除、零 α 恒等、界/跨流/无坍缩全过），可被后续任何钉死类设计直接复用。
 
 ---
 
@@ -397,9 +505,10 @@ D:\MPT-Rec-three_task\MPT-Rec\.venv\Scripts\python.exe verify_rp_pinned.py `
 - **产物/历史 run 只读复制**：§1.5 所列产物、参照头、三个历史 run（79b5e07 / 013e105-rpg / 9d26bc8-rpgs）、前缀指纹均自 shuffled worktree **只读复制**入本 worktree（逐文件 sha 相等）；dataset 经 junction 复用 main tree（只读、gitignore）。
 - **非结果文件（未跟踪）**：`artifacts/aliccp_bench/audit/rp-pinned/` 报告 JSON、`artifacts/aliccp_bench/logs/` run 日志、run 目录内 `rp_pinned_compare.json` / `verify_report*.json`。
 - **与本分支前置分支的关系**：学习 shuffled 消融（fbfff09）不移植入本分支运行时（无 `VARIANT_SHUFFLED` 接线）；错排机制作为 F_s 的组成部分移植入 `rp_pinned.py`（同一规格、同一 deck）。
-- **执行记录（运行后补）**。
-- **跑后代码改动披露（运行后补）**。
-- **下一消融登记（运行后补）**。
+- **执行记录（运行后补）**：C1 `580426a` → C1b `0dfb11a` → C2 `bf322df`（149/149 测试绿、`git.dirty=false`）→ B 前台单次 run `20261005-1026-…-bf322df`（wall 160.3 s；REP 逐位复现 `79b5e07` 含 `newtask.pt` sha）→ C3 `7d26918`（B SUMMARY 行）→ F_c 前台单次 run `20261005-1029-…-7d26918-rpp`（wall 181.3 s；α 钉死逐位、PA1–PA8 全 PASS）→ C4 `1c13841`（F_c SUMMARY 行）→ F_s 前台单次 run `20261005-1032-…-1c13841-rpps`（wall 193.7 s；PG1–PG7 全 PASS、deck 逐位重放；**无工具性中断、无重跑**）→ 分析 ×1（`CONDITION_ALIGNMENT_NOT_SUPPORTED`/`GAP_BELOW_MATERIALITY`；两臂二级 `NO_CLEAR_IMPROVEMENT`）→ 独立复核 ×1（**101/101 ALL_PASS**）→ C5（本 §10/§12 回填 + F_s SUMMARY 行）。运行命令与 §6 逐字一致（cwd=本 worktree，主树 venv 解释器）；三 run `git.dirty=false`；run 间代码同一性 diff 为空。
+- **跑后代码改动披露（运行后补）**：**无**——机制/接线/分析模块/复核脚本/守卫测试在 C2 之后**零改动**（哈希钉死：机制 `b3b93b3a…`、bench `a02b8ea6…`、CLI `98c0e5d3…`、rp_pinned `ba23bf47…`、守卫 `a0ffe303…`、前置核验 `13371ca4…`）；C5 仅含预注册文档 §10/§12 回填与 `SUMMARY.md` 追加行。
+- **实际结果形态（运行后补）**：因果判定落入预注册 `CONDITION_ALIGNMENT_NOT_SUPPORTED` 分支（§5.5 优先级 3；`GAP = −0.00186` 未达 `+0.001` 实质门且方向为负）；无任何判据/阈值/规则被事后修改；`SAMPLE_CONDITION_SUPPORTED` 与 `INVALID` 均未触发；预注册 §8-5 的"有效幅度残留差异"披露**实际触发**（32.7%，§10.3）。
+- **下一消融登记（运行后补，§10.7.1）**：`CONDITION_ALIGNMENT_NOT_SUPPORTED` ⇒ **无条件固定条件对照**（首选）与 α 调度消融（可选二元）；学习-vs-钉死问题按 §10.7.2 **不**由本实验供给因果证据。本分支不启动。
 
 ---
 
