@@ -56,6 +56,8 @@ WHITELIST = {
     "run_aliccp_benchmark.py",
     "aliccp_benchmark/bench.py",
     "artifacts/aliccp_bench/SUMMARY.md",
+    "verify_reference_residual_prompt_five_seed.py",
+    "verify_residual_prompt_five_seed.py",
 }
 
 

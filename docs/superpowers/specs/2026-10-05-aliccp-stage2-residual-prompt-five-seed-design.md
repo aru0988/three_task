@@ -361,13 +361,14 @@ $env:RP_REFERENCE_PRED_STD = "<pin.reference_pred_std>"
 
 ## 11. 独立复核（运行后回填）
 
-- `verify_residual_prompt_five_seed.py`（未跟踪脚本，worktree 根；**不 import 机制模块与汇总模块**，Student-t 分位用 `scipy.stats.t.ppf` 独立取得）：
+- `verify_residual_prompt_five_seed.py`（worktree 根；**不 import 机制模块与汇总模块**，Student-t 分位用 `scipy.stats.t.ppf` 独立取得；2026-10-05 provenance 提交入库，sha256 `ad8a84d8…`）：
   1. **逐臂复核**（写入各新 arm run 目录 `verify_report.json`）：配对身份、变体、pin 闭合（pin ↔ 配对基线 `metrics.json` ↔ arm 记录 U observed，逐位）、A 类链（freeze sha 前后/加载一致、env_ids、backbone、指纹、stage1 身份）、M0/G1–G8 与 U1/U2 与三标签分类**独立重推**、`protocol_10_1`、cross-JSON 一致、B1/B4 从产物 meta 重推、`hard_pass=false`、SUMMARY 行、`git.dirty=false`（canonical）；
   2. **遗留 seed1/seed2 复核**：同一重推核心对其只读复制 run JSON 重算，数值/分类/门禁与 §1 审计记录逐位一致；
   3. **重跑位等性**（§10.4 五对）逐位断言；
   4. **五 seed 汇总独立重算**（均值/样本 std/Student-t CI/计数/最差 seed/符号一致性/二级分类/20-epoch 条件）与 `five_seed_report.json` 逐位对照；
   5. **文档对照**：§10 记录的逐 seed 数值与汇总数值 token 在本文档中逐项存在。
 - 结果：**151/151 ALL_PASS（exit 0）**——五 seed 逐臂 26/26（seed1、seed2）与 28/28（seed3–5，含 pin 闭合与 `dirty=false` 断言）；根级 15 项（5 对重跑位等性 + 汇总 8 项逐位对照 + 文档对照 + 汇总状态）全过；独立重算 `mean_Δtest/CI95/计数/最差 seed/20-epoch 状态` 与 `five_seed_report.json` 逐位一致。三个新 arm 的 `verify_report.json` 已落盘各自 run 目录；总报告 `artifacts/aliccp_bench/audit/five-seed/verify_five_seed.json`。
+- **provenance 补记（2026-10-05，脚本入库前自证）**：两个核验脚本此前未跟踪；入库前以现有产物原样重跑（零重训；canonical 产物零改写）：`verify_residual_prompt_five_seed.py` 得 **151/151 ALL_PASS（exit 0）**，重生成的 `verify_five_seed.json` 与三份 arm `verify_report.json` 与上条 canonical 报告**逐字节相同**（sha256 `e561e863…` / `802b92a5…` / `0bac9d72…` / `899515ac…`）；`verify_reference_residual_prompt_five_seed.py` 逐 seed（3/3）重跑 pin 手续（`--out-dir` 暂存目录；canonical pin 未改写、sha256 不变），5/5 checks true ×3，重生成 pin 除 `created_at` 外与 canonical pin 逐位相同，脚本 sha256 `608c47ea…` 与三份 pin 的 `script_sha256` 逐位一致。入库改动：两脚本加入静态守卫 `WHITELIST`（白名单表 + 移植测试钉死块同步，§13）；全量测试 106/106 通过。
 
 ---
 
@@ -382,11 +383,11 @@ $env:RP_REFERENCE_PRED_STD = "<pin.reference_pred_std>"
 - **分支工作流**：自 `infra/aliccp-fair-benchmark` @ `8133d32` 独立拉出；机制经 §3 三层守卫钉死等价；协议不合并 `master`。
 - **分支本地 SUMMARY 系谱**：本分支 `SUMMARY.md` 基线含 smoke 行与 seed1 基线行（`8133d32` 携带）；seed1/seed2 的 arm 行与其 seed2 基线行记录在各自分支，本分支**不复制**其它分支行，只由本次运行追加自己的行（6 行：3 基线 + 3 臂）。
 - **文档转述偏差披露**：§1.3-1（verify 计数 26/28 vs "27/27"）为对历史文档转述的更正性披露，不改历史结论。
-- **非结果文件（未跟踪，同 seed1/seed2 先例）**：`artifacts/aliccp_bench/audit/five-seed/`（三份 pin、`pairs.json`、`five_seed_report.json`、`verify_five_seed.json`）、worktree 根的核验/分析脚本（`verify_reference_residual_prompt_five_seed.py` 参照核验 + pin、`verify_residual_prompt_five_seed.py` 运行后独立复核、一次性只读审计脚本）。
+- **非结果文件与脚本入库状态**：`artifacts/aliccp_bench/audit/five-seed/`（三份 pin、`pairs.json`、`five_seed_report.json`、`verify_five_seed.json`）不入库（`*.json` 忽略，spec 11.2；同 seed1/seed2 先例）；worktree 根的两个核验脚本（`verify_reference_residual_prompt_five_seed.py` 参照核验 + pin、`verify_residual_prompt_five_seed.py` 运行后独立复核）由 2026-10-05 provenance 提交入库、并同步加入静态守卫 `WHITELIST`（§11 补记）；一次性只读审计脚本未入库。
 - **预注册前参照值不可预置**：seed3–5 的配对基线与参照值只能在各自基线 run 完成后取得（§4.3 机械规程），本预注册因此把"pin 手续与闭合校验"写死为流程判据，而非假设运行前已知数值。
 - **运行后补（§10.0/§10.4）**：首跑批次 5 个 stage2 run 因台账行未提交而记录 `dirty=true`；按 §4.2 记为程序性无效（非结果原因）、全部留痕、对**全部受影响 run 不加区分地**各 clean 重跑一次；重跑与首跑逐位相同（独立复核 §11 断言）。
 - **pin 引用细节（运行后补）**：seed4/5 的 pin 由**首跑**基线导出（`baseline_run_id` 字段指向首跑 id）；canonical 配对改用 clean 重跑基线，二者逐位相同（§10.4），pin 数值与两代基线 `metrics.json` 均逐位闭合（§11）。seed3 的基线首跑即 clean（canonical）。
-- **A4″ 替换清单细化（运行后补，无判据/阈值改动）**：移植测试文件的适配由 §3.2 表中"4 处"细化为**5 组**替换——docstring、导入机制模块前的 run-reference 示例 env 块（`TestArmVerdict` 判定构造与 tiny 端到端经逐字节 pin 的 bench 接线依赖模块常量，须在导入前固定示例值；"未设 env ⇒ None ⇒ 响亮失败"的运行期语义改由 `test_residual_prompt_five_seed.py` 的 subprocess 守卫覆盖）、`DOC_PATH`、`WHITELIST`（9 项）、`TestPreregConstants` 整类；重建等式守卫按此 5 组钉死。
+- **A4″ 替换清单细化（运行后补，无判据/阈值改动）**：移植测试文件的适配由 §3.2 表中"4 处"细化为**5 组**替换——docstring、导入机制模块前的 run-reference 示例 env 块（`TestArmVerdict` 判定构造与 tiny 端到端经逐字节 pin 的 bench 接线依赖模块常量，须在导入前固定示例值；"未设 env ⇒ None ⇒ 响亮失败"的运行期语义改由 `test_residual_prompt_five_seed.py` 的 subprocess 守卫覆盖）、`DOC_PATH`、`WHITELIST`（9 项；2026-10-05 provenance 提交追加 2 核验脚本项 → 11 项，§11 补记）、`TestPreregConstants` 整类；重建等式守卫按此 5 组钉死。
 - **seed1/seed2 run 目录与 stage1 产物只读复制（运行后补）**：为以单一 root 运行汇总与复核（`five_seed` CLI 与 verifier 只读 `root/runs/`、`root/stage1/`），seed1/seed2 的 4 个 run 目录与 2 个 stage1 产物目录自其分支 worktree **只读复制**至本 worktree `artifacts/aliccp_bench/`（复制后逐文件 sha256 与源相等；汇总与复核仅读）；本分支 `SUMMARY.md` **仍不复制**其它分支的行。
 
 ---
@@ -403,5 +404,7 @@ $env:RP_REFERENCE_PRED_STD = "<pin.reference_pred_std>"
 | `aliccp_benchmark/tests/test_five_seed.py` | 新增（上者单测） |
 | `run_aliccp_benchmark.py` | 逐字节移植（pin `2966ec39…`） |
 | `aliccp_benchmark/bench.py` | 逐字节移植（pin `b063a366…`） |
+| `verify_reference_residual_prompt_five_seed.py` | 新增（provenance 参照核验 + pin 脚本；§11 补记） |
+| `verify_residual_prompt_five_seed.py` | 新增（provenance 运行后独立复核脚本；§11 补记） |
 | `artifacts/aliccp_bench/SUMMARY.md` | 只追加 6 行（runner 自动） |
 | 其余全部（`multitaskrec/*`、`config.py`、`aliccp_benchmark/protocol.py`、`metrics.py`、既有测试三件、`AliCCP_*.py`、`CensusIncome_*.py`、`baseline/*`、`mask/*`、`analysis/*`） | **零改动**（静态守卫断言 `git diff --name-only 8133d32` ⊆ 白名单） |
