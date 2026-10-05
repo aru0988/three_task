@@ -71,8 +71,10 @@ def seed_row(seed: int, baseline_run, treatment_run) -> dict:
     base, treat = report["baseline"], report["treatment"]
     _check_run_id_seed(base, seed)
     _check_run_id_seed(treat, seed)
-    if base["variant"] != VARIANT_BASELINE:
-        raise ValueError(f"基线臂 variant 应为 {VARIANT_BASELINE!r}: {base['variant']!r}")
+    # 基线臂 variant：历史 run（variant 字段引入之前，如 seed 1685480945 的 904f8d0）缺字段 ⇒ None，
+    # 语义上即 baseline（paired_verdict._load_run 同样用 .get 读取）；处理臂必须显式 residual-prompt。
+    if base["variant"] not in (None, VARIANT_BASELINE):
+        raise ValueError(f"基线臂 variant 应为 {VARIANT_BASELINE!r} 或历史缺省 None: {base['variant']!r}")
     if treat["variant"] != VARIANT_TREATMENT:
         raise ValueError(f"处理臂 variant 应为 {VARIANT_TREATMENT!r}: {treat['variant']!r}")
 

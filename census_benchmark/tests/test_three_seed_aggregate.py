@@ -180,6 +180,19 @@ class TestIntegrityChecks(unittest.TestCase):
             with self.assertRaises(ValueError):
                 A.three_seed_report(pairs)
 
+    def test_legacy_baseline_without_variant_field_is_accepted(self):
+        """历史基线 run（variant 字段引入前，如 904f8d0）无 variant 键 ⇒ None 视为 baseline。"""
+        with tempfile.TemporaryDirectory() as td:
+            pairs = build_pairs(Path(td), DELTAS_A)
+            base, treat = pairs[1685480945]
+            metrics = json.loads((base / "metrics.json").read_text(encoding="utf-8"))
+            del metrics["variant"]                                   # 模拟历史 run
+            (base / "metrics.json").write_text(json.dumps(metrics, ensure_ascii=False), encoding="utf-8")
+            report = A.three_seed_report(pairs)
+        row = {r["seed"]: r for r in report["seeds"]}[1685480945]
+        self.assertIsNone(row["baseline"]["variant"])
+        self.assertEqual(row["treatment"]["variant"], "residual-prompt")
+
     def test_swapped_arms_raise(self):
         with tempfile.TemporaryDirectory() as td:
             pairs = build_pairs(Path(td), DELTAS_A)
