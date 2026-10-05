@@ -84,7 +84,7 @@ Q1/Q2/Q3 独立判定；组合规则见 §6。
 | P2 | R3/R4 的 run 记录 `stage1_id` 分别 == P1 的两值；两者 A5/A6 逐位通过 | 内容寻址 + 冻结校验 |
 | P3 | (a) R1 与 R2 的 epoch 1–2 逐 epoch 记录（7 值 × 2）**逐位相等**；(b) R1、R2 各恰 1 次聚类事件、记录 epoch = 2 | 首个 `cluster_2` 调用在 epoch 2 训练后、其 val 评估前；此前两臂代码路径一致（arm manager 仅覆写 `cluster_2`，不消耗 RNG、不改权重） |
 | P3R | （方向性期望，非 bit 断言，不作门禁）R1 的 raw 聚类事件延续既有形态：`env_0` 占比 ≪ 5%（标签主导、B4 FAIL） | 机制审计（§前置审计 2.1/2.2）；seed3 为未知量，如实记录 |
-| **P4** | （**在 R1 的认证捕获后、R2 运行前**登记，§3.1）R2 的聚类事件三元组 `diff_num/env_0/env_1` 与最终 `env_ids_sha256`、环境占比、`env_0∩purchase1` | R1 `--reproduce` 认证捕获的聚类时刻损失向量上，移植实现的确定性输出 |
+| **P4** | （**在 R1 的认证捕获后、R2 运行前**登记，§3.1；已于 2026-10-05 冻结，派生 commit `69ae804`）R2 聚类事件 = **`diff_num = 999300`、`env_0 = 937876`、`env_1 = 1062124`**；`env_ids_sha256` = **`b60757be2e85ff8e621ac4093b30227099ed925fd5e126b08d7b8df0398ba978`**；环境占比 **46.8938% / 53.1062%**；`env_0∩purchase1 = 562`（另 `env_0∩click1 = 4219`、≠ purchase1 集合、非子集） | R1 `--reproduce` 认证捕获（10/10）的聚类时刻损失向量上，`per_task_rank01` 与 `ref_rank01` 两实现逐位一致的 argmin（谓词 `bitwise_agree=true`；登记文件 `artifacts/aliccp_bench/audit/s1-5c060b9c-m1688738016-e3-47619ce0-repro/p4_prediction.json`） |
 
 ### 3.1 P4 的登记程序（写死；无 bit 捕获则按 §4.3 降级）
 
@@ -247,7 +247,11 @@ I1–I9（rank01 语义、实现==审计参考逐位、manager 仅覆写 `cluste
 ### 9.0 预运行核验（实测）
 
 - **前置审计（C1）**：`audit_prior_seeds` 四臂 `all_pins_pass = true`（wall 79.3 s）；详见审计文档与 `artifacts/aliccp_bench/audit/prior-seeds/audit_prior_seeds.json`。
-- （运行后补：移植后 `--seed1-capture` bit 复核、smoke 恒等、测试计数。）
+- **移植后审计复核（C2，`--seed1-capture`）**：seed1 认证捕获上 rank01 两实现逐位一致，复算分配 `959244/1040756`、`env_ids_sha256 = 4b983fc9…d52b` 与 seed1 归一化臂实测**逐位相等**（wall 78.7 s；`audit_prior_seeds_with_capture.json`）。
+- **测试**：移植后全测试套件 **64/64 通过**（37 基线 + 19 移植 + 8 seed3 守卫；TDD 先红（8 tests, 2 failures + 4 errors）后绿）。
+- **R1 的认证复现（§3.1 第 1–2 步；非结果 run）**：`all_pass=True (10/10)`（cluster 事件、逐 epoch、best epoch、backbone sha、test AUC、env_ids sha、捕获 argmin 与父类一致、捕获分配 sha == meta 全逐位）；捕获损失向量为聚类时刻真值。
+- **P4 冻结（C3）**：见 §3；派生时两独立实现逐位一致（`bitwise_agree=true`）。
+- （R2 完成后补：M8b smoke 恒等、测试计数复跑。）
 
 ### 9.1 Stage-1（R1/R2；运行后填写）
 
