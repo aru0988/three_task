@@ -228,10 +228,10 @@ CPU 极小夹具不构成任何性能证据，只验证语义与接线。
 | **UA2 优化器排除** | α 不在 `named_parameters()`；训练 optimizer 的 `param_groups` 覆盖全部 `named_parameters()` 且**不含** α（对象同一性）；逐 epoch 首 batch 探针 `alpha_grad_norm is None` 且 `alpha == PINNED_ALPHA`；训练前后 α 逐位不变 | 运行期 + 单元测试（I4） |
 | **UA3 头身份（M0/G1 等价）** | 从构造前 RNG 现场重建 baseline `NewTask`：共享参数与 buffer 逐位一致 ∧ RNG 端点一致 ∧ 新增 `state_dict` 键恰 = `{prompt_gate, uncond_condition, prompt_generator.0.bias, prompt_generator.0.weight, prompt_generator.2.bias, prompt_generator.2.weight}`（6 键） | 运行期（`UncondPromptAudit` 继承构造审计）+ 单元测试 |
 | **UA4 注入纯度与激活** | (i) α 临时置 0（探针内；恢复后逐位校验 `alpha_restored_exact`）⇒ 与同共享权重参照头在真实首 batch 上**逐位相等**（`zero_alpha_bit_identical`，`max_abs_diff == 0.0`）；(ii) α 钉死值下与参照头 `max_abs_diff > 0`（干预自首步即激活） | 运行期首 batch 探针 |
-| **UA5 样本不变性（结构核心）** | (a) 真实首 train batch：`m` 行间逐位相同（`m` vs `m[0:1].expand` 逐位，`direction_max_abs_diff_across_rows == 0.0`）；(b) `zeros_like(dnn_input)` 输入下的方向与真实 batch 方向**逐位相同**（`direction_max_abs_diff_zero_input == 0.0`）；(c) c 以全新 generator 重抽与 buffer **逐位相同**（`cond_regen_bit_identical`）；(d) 记录 `cond_sha256`。另记录真实 batch 上逐行 ratio 的 max−min（须 ≤ 1e-9） | 运行期探针 + 单元测试（I6） |
+| **UA5 样本不变性（结构核心）** | (a) 真实首 train batch：`m` 行间逐位相同（`m` vs `m[0:1].expand` 逐位，`direction_max_abs_diff_across_rows == 0.0`）；(b) `zeros_like(dnn_input)` 输入下的方向与真实 batch 方向**逐位相同**（`direction_max_abs_diff_zero_input == 0.0`）；(c) c 以全新 generator 重抽与 buffer **逐位相同**（`cond_regen_bit_identical`）；(d) 记录 `cond_sha256`。另记录真实 batch 上逐行 ratio 的 max−min（须 ≤ 1e-6；预运行数值噪声底校正见 §12） | 运行期探针 + 单元测试（I6） |
 | **UA6 范数界（S1）** | 逐流 `ratio_max ≤ |PINNED_ALPHA| + 1e-6` | val 诊断（fp64 流式） |
 | **UA7 跨流一致（S2）** | 三流 `ratio_mean` 两两 spread ≤ 1e-6 | val 诊断 |
-| **UA8 逐样本有效门控恒定（真无条件性实测）** | `geff_std ≤ 1e-9` ∧ `geff_min > 0` ∧ 逐流 `ratio_std ≤ 1e-9`（500k val 行；对照 f08ae6e C_p：geff_std `0.006211574794529912`） | val 诊断 |
+| **UA8 逐样本有效门控恒定（真无条件性实测）** | `geff_std ≤ 1e-6` ∧ `geff_min > 0` ∧ 逐流 `ratio_std ≤ 1e-6`（500k val 行；预运行数值噪声底校正见 §12：原 1e-9 低于 fp32→fp64 统计管线实测噪声底 ~2e-9；语义不变，对照钉死 correct 臂 `geff_std = 0.006211574794529912` 判定裕度仍 ≥6000×） | val 诊断 |
 | **UA9 无坍缩** | `pred_std > 0` ∧ `pred_std ≥ 0.5 × ref_pred_std` | val 诊断 + 参照头 |
 | **UA10 参数预算/核算** | 可训练 prompt 键恰 4（generator；`new_params_total == 2384`）；`head_params == 8129`；α buffer numel == 1；c buffer numel == 80；state_dict 新增键 == 6（UA3 同集） | `param_report` + checkpoint 读取 |
 | **UA11 梯度有效** | 逐 epoch 首 batch 记录齐全；每个 epoch 的 `generator_grad_norm` 均为有限且 > 0（常数方向可训练、非结构性死路） | 运行期梯度探针 |
@@ -350,7 +350,7 @@ D:\MPT-Rec-three_task\MPT-Rec\.venv\Scripts\python.exe verify_rp_uncond.py `
 | 梯度探针 | `grad_probe`（逐 epoch 首 batch：`alpha`、`alpha_grad_norm`(=None)、`generator_grad_norm`） | UA2/UA11 + 描述 |
 | 残差/基范数比 | 逐流 `ratio_mean/std/max`、`delta_norm_mean`、`h_norm_mean` | UA6/UA7 + 有效幅度披露 |
 | 余弦方向 | 逐流 `cos_mean` | 描述（对照历史：学习 correct +0.01287/+0.08432/+0.05899；钉死 correct −0.03315/+0.06856/−0.00197） |
-| 逐样本门控 | `gate.geff_mean/std/min/max` | UA8 + headroom（对照：钉死 correct `geff_std = 0.006211574794529912`；U 预期 ≤1e-9） |
+| 逐样本门控 | `gate.geff_mean/std/min/max` | UA8 + headroom（对照：钉死 correct `geff_std = 0.006211574794529912`；U 预期 ≤1e-6，噪声底校正后） |
 | 预测离散度 | `dispersion` + `reference_dispersion`（M0 口径） | UA9 + 描述 |
 | 源/头门 | `gate_mean` + Stage-1 环境上下文（`cluster_events`、`env_acc`） | 落盘；B4 原样披露 |
 | 参数清单 | `params`：4 键 generator、`new_params_total=2384`、`head_params=8129`；α buffer numel=1；c buffer numel=80 | UA10 |
@@ -406,6 +406,7 @@ D:\MPT-Rec-three_task\MPT-Rec\.venv\Scripts\python.exe verify_rp_uncond.py `
 ## 12. 偏离披露（预声明 + 运行后补）
 
 - **预注册后澄清提交（C1b）**：在本分支任何实现与任何 run 之前，补全 §1.5/§5.1 五个历史 run 的完整 run id（`20261003-0624-…-79b5e07` / `20261004-0325-…-013e105-rpg` / `20261005-0933-…-9d26bc8-rpgs` / `20261005-1029-…-7d26918-rpp` / `20261005-1032-…-1c13841-rpps`）；判据、阈值、构造、判定树、运行规程**零改动**（同类先例：fbfff09 C1b `768ba8b`、f08ae6e C1b `0dfb11a`）。
+- **预运行数值容差校正（C1b-2；先于任何实现 run 与任何指标）**：C1 写死的三个等值性数值界（UA5(d) `ratio_rows_max_minus_min ≤ 1e-9`、UA8 `geff_std ≤ 1e-9`、UA8 逐流 `ratio_std ≤ 1e-9`）经**预运行**纯数值测量（不涉及任何本实验 run/指标；脚本 `artifacts/aliccp_bench/audit/rp-uncond/noise_floor_measure.py`，输出 `noise_floor_measure.out.txt`）证实**低于该统计管线的 fp32→fp64 噪声底**：500k 行 `ratio_std` 实测 `1.3170890159654386e-09 / 1.862645149230957e-09 / 0.0`（三流）、`geff_std` 实测 `2.1339280972982942e-09`（恒值序列的累加伪影）、2000 行批次逐行 ratio max−min 实测最坏 `1.0693227477098777e-08`（8 批）——原界在任何实现下**结构性不可达**，继续沿用将把实验无条件判为 INVALID。**校正：三处 1e-9 → 1e-6**（与既有 `RATIO_SPREAD_TOL` 同值；语义不变——对照钉死 correct 臂 `geff_std = 0.006211574794529912`，判定裕度仍 ≥6000×；任何真实的逐样本条件化泄漏（std ~1e-3 量级）仍会被 UA8 捕获）。**未看到任何本实验 run 或指标；未改动任何其它判据/阈值/构造/判定树/运行规程。**
 - **分支工作流**：自 `infra/aliccp-fair-benchmark` @ `8133d32` 独立拉出；机制与 rp_pinned 经 §3 三层守卫钉死等价；协议不合并 `master`；push 经用户显式指示（本任务含 "commit and push"）。
 - **分支本地 SUMMARY 系谱**：本分支 `SUMMARY.md` 基线含 smoke 行与 seed1 基线行（`8133d32` 携带）；其余历史行记录在各自分支，本分支**不复制**其它分支行，只由本实验 run 追加自己的行（B + C_p + U）。
 - **产物/历史 run 只读复制**：§1.5 所列产物、参照头、五个历史 run、前缀指纹均自 alpha-pinned worktree **只读复制**入本 worktree（逐文件 sha 相等）；dataset 经 junction 复用 main tree（只读、gitignore）。
