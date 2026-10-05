@@ -185,10 +185,10 @@ Q1–Q5 独立判定；Q5 为终局标签，历史标签（§5.5）保持不变�
 在 `Δtest ≥ +0.001` 的前提下，称存在 **material contradiction** 当且仅当任一项成立：
 (a) `Δval ≤ −0.01`；或 (b) 该 seed 任一 M 组门禁 FAIL；或 (c) 该 seed U1 FAIL；或 (d) 该 seed R3 或 R4 的任一 A 类门禁 FAIL（A3 除外）。
 
-### 5.4 续行规则
+### 5.4 续行规则与逐 seed 结论标签
 
-- seed4：`Δtest ≥ +0.001` 且无 material contradiction ⇒ 登记"seed4 条件通过"，下一步 = seed5（同协议，本分支内继续）；否则按 §5.5 收束记录后**仍执行 seed5**（seed5 是 canonical 列表的一部分，不属于"因结果而启动"，其执行不取决于 seed4 结果——本分支对 seed4/5 的必要运行在预注册时即已固定）。
-- seed5：完成后进入 §5.6 五 seed 汇总；**本分支到此为终点**（不再启动任何后续 seed；不启动 Census residual prompt、不启动第三数据集、不合并 master）。
+- **seed4**：`Δtest ≥ +0.001` 且无 material contradiction ⇒ 登记 **`SEED4_CONDITION_PASSED`**，下一步 = seed5（同协议，本分支内继续）；若机制未复现 ⇒ **`MECHANISM_NOT_REPAIRED_ON_SEED4`**；若机制复现但 `Δtest < +0.001`（或存在 material contradiction）⇒ **`mechanism repair effective but utility unstable`** + §5.7 headroom。**无论 seed4 结果如何仍执行 seed5**（seed5 是 canonical 列表的一部分，其执行不取决于 seed4 结果——本分支对 seed4/5 的必要运行在预注册时即已固定）。
+- **seed5**：完成后进入 §5.6 五 seed 汇总，seed5 的逐 seed 结论标签 = **`SEED5_CONDITION_PASSED`** / **`MECHANISM_NOT_REPAIRED_ON_SEED5`** / **`mechanism repair effective but utility unstable`**（同规则）；**本分支到此为终点**（不再启动任何后续 seed；不启动 Census residual prompt、不启动第三数据集、不合并 master）。
 
 ### 5.5 历史标签冻结表（不可变、不覆盖）
 
@@ -286,6 +286,7 @@ Q1–Q5 独立判定；Q5 为终局标签，历史标签（§5.5）保持不变�
 5. **P4 的登记时点（逐 seed）**：在 R1 捕获后、R2 运行前登记提交（C3a/C3b）——晚于本预注册、早于被预测的 run；程序依赖与捕获程序已在本文件写死。
 6. **SUMMARY 系谱**：本分支起点 `f8ff4cf` 的 `SUMMARY.md` 为 6 行（smoke + seed1 short + seed3 short + seed3 norm）；本分支只追加自己的 4 行（每 seed R3/R4），不复制其他分支行。
 7. **seed3 守卫文件的一处字面值修改**：§7.3（seed3 tip 上的原版保持不变、可查；本分支对该文件的唯一差异由新守卫测试逐字节锁定）。
+8. **预运行澄清（2026-10-05，先于任何 run；预测与门禁不变）**：§5.4 补上逐 seed 结论标签字面值（`SEED4_CONDITION_PASSED` / `MECHANISM_NOT_REPAIRED_ON_SEED4` / `SEED5_CONDITION_PASSED` / `MECHANISM_NOT_REPAIRED_ON_SEED5` / `mechanism repair effective but utility unstable`）——原 §5.4 仅以中文描述，守卫测试 token 钉死需要字面值；澄清时无任何 seed4/5 run 存在。
 
 ---
 

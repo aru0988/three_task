@@ -56,6 +56,9 @@ NEW_WHITELIST_ENTRIES = {
     "aliccp_benchmark/audit_prior_seeds.py",
     "aliccp_benchmark/tests/test_normalized_clustering_seed3.py",
     "aliccp_benchmark/verify_seed3_results.py",
+    "docs/superpowers/specs/2026-10-05-aliccp-stage1-normalized-clustering-seeds45-design.md",
+    "aliccp_benchmark/tests/test_normalized_clustering_seeds45.py",
+    "aliccp_benchmark/verify_seeds45_results.py",
 }
 
 FINGERPRINT_SHA = "5c060b9c5c9d0e235ec815e1b488b9dec222fc37887ad2eedd2afadc82bdd0d8"
@@ -169,7 +172,7 @@ class TestPortedTestAstGuard(unittest.TestCase):
         new_cls = {n.name: n for n in new.body if isinstance(n, ast.ClassDef)}["TestStaticGuards"]
         old_wl = _method_whitelist_literal(_members(old_cls)[("def", "test_tracked_changes_subset_of_whitelist")])
         new_wl = _method_whitelist_literal(_members(new_cls)[("def", "test_tracked_changes_subset_of_whitelist")])
-        self.assertEqual(new_wl, old_wl | NEW_WHITELIST_ENTRIES, msg="白名单差异必须恰为本分支 5 个新文件")
+        self.assertEqual(new_wl, old_wl | NEW_WHITELIST_ENTRIES, msg="白名单差异必须恰为本分支及其 canonical 续行（seeds45）新增文件")
 
     def test_ported_file_normalized_sha_differs_from_seed1(self):
         """非钉死断言：移植后测试文件含恰 2 处适配 ⇒ LF 归一化 sha256 必须 ≠ seed1 原版。"""

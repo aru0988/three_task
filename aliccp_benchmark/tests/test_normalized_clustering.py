@@ -348,6 +348,9 @@ class TestStaticGuards(unittest.TestCase):
             "aliccp_benchmark/verify_seed3_results.py",
             "docs/superpowers/specs/2026-10-05-aliccp-stage1-normalized-clustering-mechanism-audit.md",
             "docs/superpowers/specs/2026-10-05-aliccp-stage1-normalized-clustering-seed3-design.md",
+            "docs/superpowers/specs/2026-10-05-aliccp-stage1-normalized-clustering-seeds45-design.md",
+            "aliccp_benchmark/tests/test_normalized_clustering_seeds45.py",
+            "aliccp_benchmark/verify_seeds45_results.py",
         }
         changed = self._git_diff_names(".")
         self.assertTrue(changed <= whitelist, msg=f"白名单外改动: {sorted(changed - whitelist)}")
