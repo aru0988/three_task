@@ -372,18 +372,21 @@ def main(argv=None) -> int:
                   f"recorded={rec.get('pass')} rederived={rederived}")
 
     # ---------------- 4. checkpoint 独立读取 + 常量向量独立推导 ----------------
+    ref_state = torch.load(root / "runs" / BASELINE_RUN_ID / "newtask.pt", map_location="cpu")
     cp_state = torch.load(cp_dir / "newtask.pt", map_location="cpu")
     up_state = torch.load(up_dir / "newtask.pt", map_location="cpu")
     check("checkpoint.cond.prompt_gate_pinned",
           "prompt_gate" in cp_state and float(cp_state["prompt_gate"]) == PINNED_ALPHA,
           repr(cp_state.get("prompt_gate")))
     check("checkpoint.cond.key_set_pinned",
-          sorted(cp_state) == sorted(EXPECTED_PINNED_STATE_KEYS), sorted(cp_state))
+          sorted(set(cp_state) - set(ref_state)) == sorted(EXPECTED_PINNED_STATE_KEYS),
+          sorted(set(cp_state) - set(ref_state)))
     check("checkpoint.uncond.prompt_gate_pinned",
           "prompt_gate" in up_state and float(up_state["prompt_gate"]) == PINNED_ALPHA,
           repr(up_state.get("prompt_gate")))
     check("checkpoint.uncond.key_set_pinned",
-          sorted(up_state) == sorted(EXPECTED_UNCOND_STATE_KEYS), sorted(up_state))
+          sorted(set(up_state) - set(ref_state)) == sorted(EXPECTED_UNCOND_STATE_KEYS),
+          sorted(set(up_state) - set(ref_state)))
     redraw = draw_constant(EXPECTED_COND_NUMEL, UNCOND_CONST_SEED)
     check("constant_vector.redraw_sha", sha256_tensor(redraw) == COND_VECTOR_SHA256,
           sha256_tensor(redraw))
