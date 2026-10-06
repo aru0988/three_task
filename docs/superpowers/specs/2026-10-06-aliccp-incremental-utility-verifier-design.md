@@ -84,6 +84,7 @@
 ### 4.1 推理特征（8 维，钉死；无标签、无标签依赖统计）
 `[p_B, p_P, p_P−p_B, ‖dnn_input‖, ‖gen_rep‖, ‖spec_0‖, ‖spec_1‖, ‖env_emb‖]`
 - 全部为两臂 logits 与冻结 backbone 表示（`get_infos`，no_grad）的逐样本函数；构造函数签名不接受标签参数（静态守卫）。
+- **C1c 澄清（`env_embs` 类型，先于任何正式数据）**：`get_infos` 的 `env_embs` 为**逐 env 的常量嵌入**（`num_tasks=2` 个 `(1, rep_dim)` 张量，batch 无关），故 `‖env_emb‖` 实现取"对各 env 嵌入拼接后的 L2 范数"并广播为逐样本常量列——标准化后恒为 0，仅保留 8 维完整性，不携带样本信息。
 - 标准化统计（均值/标准差）**仅取 B**。
 
 ### 4.2 verifier（固定，无调参）
