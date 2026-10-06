@@ -9,6 +9,7 @@ import json
 import tempfile
 import unittest
 from pathlib import Path
+from unittest import mock
 
 import numpy as np
 import torch
@@ -299,12 +300,16 @@ class TestEndToEndTiny(unittest.TestCase):
             epochs=1, patience=1, device=torch.device("cpu"), log=lambda *a, **k: None,
             batch_size=200,
         )
-        cls.result = RUV.run_router(
-            root=root, stage1_id=cls.meta["stage1_id"], data_files=files,
-            budgets={"train": 2000, "val": 200, "test": 300}, prefix_tag="p2000-v200-t300",
-            model_seed=1688723512, epochs=2, patience=2, tag="smoke",
-            device=torch.device("cpu"), log=lambda *a, **k: None, batch_size=200, enforce_b=False,
-        )
+        # fixture 明确模拟 clean：临时 repo 场景下 git_state 指向真实工作树，
+        # 正式 run 的 git_dirty=false 断言保持严格（verifier 不放宽），此处仅显式模拟干净状态。
+        with mock.patch("aliccp_benchmark.protocol.git_state",
+                        return_value={"commit": "TESTFIXTURE", "dirty": False}):
+            cls.result = RUV.run_router(
+                root=root, stage1_id=cls.meta["stage1_id"], data_files=files,
+                budgets={"train": 2000, "val": 200, "test": 300}, prefix_tag="p2000-v200-t300",
+                model_seed=1688723512, epochs=2, patience=2, tag="smoke",
+                device=torch.device("cpu"), log=lambda *a, **k: None, batch_size=200, enforce_b=False,
+            )
         cls.run_dir = Path(cls.result["run_dir"])
 
     @classmethod

@@ -38,6 +38,8 @@ def auc(y, p):
 
 
 def classify(delta):
+    if delta is None:
+        return "UNDEFINED"
     if delta >= 0.001:
         return "POSITIVE_IMPROVEMENT"
     if delta <= -0.02:
@@ -207,7 +209,11 @@ def main(argv=None) -> int:
     seed = model_seed ^ ROUTER_RANDOM_SALT
     check("random_seed_recorded", int(rep["router"]["random_seed"]) == seed)
     mask = np.random.default_rng(seed).random(len(yT)) < pi_rec
-    check("random_rate_matches_pi", abs(float(mask.mean()) - pi_rec) <= 1e-6, f"rate={mask.mean():.6f} pi={pi_rec:.6f}")
+    rate = float(mask.mean())
+    # 经验路由率对 π̂ 的偏差用 5σ 采样容差（精确一致性由"同一 seed 重放掩码→逐位同 AUC"保证）
+    tol = 5.0 * float(np.sqrt(max(pi_rec * (1.0 - pi_rec), 1e-12) / max(len(yT), 1))) + 1e-9
+    check("random_rate_matches_pi", abs(rate - pi_rec) <= tol,
+          f"rate={rate:.6f} pi={pi_rec:.6f} tol={tol:.6f}")
     uT = bce(pTb, yT) - bce(pTp, yT)
     preds = {
         "always_baseline": pTb,
@@ -232,7 +238,7 @@ def main(argv=None) -> int:
     for name, ref in (("base", d_base), ("prompt", d_prompt), ("mix", d_mix)):
         check(f"delta_{name}", close(ref, mtx["deltas_test"][name]),
               f"ref={ref} rec={mtx['deltas_test'][name]}")
-    if d_base is None:
+    if d_base is None or d_prompt is None or d_mix is None:
         cls_ref, rv_ref = "UNDEFINED", False
     else:
         cls_ref = classify(d_base)

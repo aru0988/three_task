@@ -190,8 +190,14 @@ def expand_eligible(router_value: bool, all_gates_ok: bool, git_dirty: bool) -> 
 
 
 def auc(y, p) -> float:
-    """严格 AUC：y 单类或含 NaN 时**响亮失败**（正式运行禁止退化输入）。"""
-    return float(roc_auc_score(_f64(y), _f64(p)))
+    """严格 AUC：y 单类或结果非有限 ⇒ **响亮失败**（不依赖 sklearn 版本行为；sklearn 1.7.2 对单类返回 nan）。"""
+    yy = np.asarray(y).astype(np.int64).ravel()
+    if yy.size == 0 or len(np.unique(yy)) < 2:
+        raise ValueError("y 为单类：AUC 未定义（严格路径禁止；请用 auc_or_none）")
+    value = float(roc_auc_score(yy, _f64(p).ravel()))
+    if np.isnan(value):
+        raise ValueError("AUC 为 NaN（严格路径禁止；请用 auc_or_none）")
+    return value
 
 
 def auc_or_none(y, p):

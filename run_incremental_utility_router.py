@@ -578,7 +578,8 @@ def main(argv=None) -> int:
         d = result["metrics"]["deltas_test"]
         print(f"classification={v['classification_by_delta_base']} router_value={v['router_value']} "
               f"expand_eligible={result['metrics']['expand_eligible']} "
-              f"d_base={d['base']:+.6f} d_prompt={d['prompt']:+.6f} d_mix={d['mix']:+.6f}")
+              f"d_base={_fmt(d['base'], signed=True)} d_prompt={_fmt(d['prompt'], signed=True)} "
+              f"d_mix={_fmt(d['mix'], signed=True)}")
     print(f"日志已写入: {log_path}")
     return 0
 
