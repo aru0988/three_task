@@ -104,6 +104,11 @@ NEW_WHITELIST_BLOCK = '''WHITELIST = {
     "artifacts/aliccp_bench/SUMMARY.md",
     "verify_reference_residual_prompt_five_seed.py",
     "verify_residual_prompt_five_seed.py",
+    "aliccp_benchmark/incremental_utility_router.py",
+    "aliccp_benchmark/tests/test_incremental_utility_router.py",
+    "run_incremental_utility_router.py",
+    "verify_incremental_utility_router.py",
+    "docs/superpowers/specs/2026-10-06-aliccp-incremental-utility-verifier-design.md",
 }
 '''
 
