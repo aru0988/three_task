@@ -208,7 +208,40 @@ $PY = D:\MPT-Rec-three_task\MPT-Rec\.venv\Scripts\python.exe
 
 ## 11. 结果（运行后回填，不回写第 0–10 节）
 
-（待运行）
+### 11.1 筛查 run（canonical seed #1）与工具性 smoke（C3 回填，2026-10-06）
+
+- **run_id**：`20261006-1341-p2M-v500k-t1M-m1688723512-short-f81289d-iuv`（commit `f81289d`，`git.dirty=false`；wall 252.5s；峰值显存 53.7 MB；status.json running 13:41:30 → completed 13:45:43；`STARTED run_id=…` 为首行，见 `logs/20261006-134130-iuv-short.log`）。
+- **产物（原始证据全部保留，未删除/未覆盖）**：`runs/<run_id>/`：`predictions.npz`（val/B/C/test 逐样本 `y/p_B/p_P/X/s` + `u_B/u_C`）、`routing_report.json`、`metrics.json`、`config.json`、`gate_report.json`、`arms/{base,prompt}.pt`、`status.json`。
+- **独立复核**：`verify_incremental_utility_router.py`（不 import 实现模块；从 npz 独立重推 u、Ridge(lstsq)、阈值/混合网格与 UNDEFINED 回退、随机掩码、六配置 AUC、Δ、分类、SUMMARY 单元格）→ **65/65 ALL_PASS**（`verify_report.json` 落盘 run 目录）；**原始产物与独立验证一致后**方进入本节总结。
+- **工具性 smoke**（不入任何性能陈述）：`20261006-1340-p20000-v5000-t10000-m1688723512-smoke-264068e-iuv`，独立复核 65/65；单类 C ⇒ UNDEFINED 保守回退（`thr=+inf/α=0/π̂=0`）正确触发。
+
+### 11.2 主结果（同 seed、同 A-臂、同 `stage1_id`；A/B/C=1.4M/300k/300k）
+
+| 量 | 值 |
+|---|---|
+| verifier AUROC（C，vs `1[u>0]`，out-of-sample） | **0.279006**（< 0.5，反序） |
+| verifier Spearman（C） | **−0.368599** |
+| 有益占比（`u>0`）：B / C | 0.58236 / 0.59683 |
+| 阈值校准（仅 C） | `thr = −inf`（全体路由到 P）、`π̂ = 1.0`、`DEFINED`、`n_undefined_candidates = 0` |
+| 固定混合（仅 C） | `α̂ = 1.0`（纯 P）、`DEFINED` |
+| AUC val（官方 500k，仅评估） | base 0.520822 / prompt 0.516508 / mix 0.516508 / **routed 0.516508** / rand 0.516508 / oracle-diag 0.641883 |
+| AUC test（官方 1M，单次） | base 0.539074 / prompt 0.555992 / mix 0.555992 / **routed 0.555992** / rand 0.555992 / oracle-diag 0.666793 |
+| `Δ_base = routed − base` | **+0.016918** |
+| `Δ_prompt = routed − prompt` | **0.000000** |
+| `Δ_mix = routed − fixed_mix` | **0.000000** |
+| 分类（按 `Δ_base`） | `POSITIVE_IMPROVEMENT` |
+| **三比较 router 价值（§0）** | **`router_value = False`**（`Δ_prompt`、`Δ_mix` 均非 >0） |
+| 扩 seed（§6，机械） | **`expand_eligible = False`** |
+| 门禁 | A1–A6 PASS（A3 SKIP）；R1–R5 PASS；B1 FAIL / B2 PASS / B3 PASS / B4 FAIL（B1/B4 为 Stage-1 继承事实）；`hard_pass=false`（仅由继承 B 类决定） |
+
+### 11.3 读法（不构成改进主张）
+
+- **路由退化到角点，router 无增量价值**：`thr=−inf` 使 routed ≡ always-prompt（`π̂=1.0` 使 random 亦同）；`α̂=1.0` 使 fixed-mix ≡ always-prompt。三配置预测向量逐位相同 ⇒ `Δ_prompt=Δ_mix=0` 为**构造性恒等**，非数值巧合。
+- test 上 `Δ_base=+0.016918` 全部来自 **prompt 路径本身**（同 A-训练预算下的臂差）；**不得**归因于路由。按 §0 预先措辞：固定混合/单臂已解释全部收益，**router 无增量价值**。
+- verifier 诊断 **AUROC 0.279（<0.5）与 Spearman −0.369**：本配置（Ridge + 8 维零标签特征 + 本训练口径）对增量效用的排序在 C 上为**反序**；C-AUC 目标的校准因此选到角点。二者均为机制诊断，不参与判定。
+- `label-assisted BCE oracle diagnostic`（test 0.666793）仅诊断；**非 AUC 上界**，不得作为部署指标。
+- **不扩展 seeds #2–5**（`expand_eligible=False`，机械结果）；方向 1 按预注册规则止步于本次筛查。
+- 头级 out-of-sample + backbone 级 transductive unlabeled target exposure（§2.4）定性不变；历史 run 未参与本节任何数字。
 
 ---
 
