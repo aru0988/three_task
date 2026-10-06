@@ -46,11 +46,27 @@ def classify(delta):
 
 
 def close(a, b) -> bool:
-    """逐位比较（含 NaN 语义：同为 NaN = 在相同退化输入下同为未定义，记为一致）。"""
+    """None/NaN 语义一致的比较：同为 None（或同为 NaN）⇒ 一致；一侧 None 一侧数值 ⇒ 不一致。"""
+    if a is None or b is None:
+        return a is None and b is None
     a, b = float(a), float(b)
     if np.isnan(a) or np.isnan(b):
         return np.isnan(a) and np.isnan(b)
     return abs(a - b) <= ATOL
+
+
+def auc_opt(y, p):
+    """AUC；y 单类或结果非有限 ⇒ None（UNDEFINED）。独立实现，与实现侧 auc_or_none 同语义。"""
+    yy = np.asarray(y).astype(np.int64).ravel()
+    if yy.size == 0 or len(np.unique(yy)) < 2:
+        return None
+    v = float(roc_auc_score(yy, np.asarray(p, dtype=np.float64).ravel()))
+    return None if np.isnan(v) else v
+
+
+def fmt6(v) -> str:
+    """SUMMARY 单元格口径（与 runner _fmt6 相同）。"""
+    return "UNDEFINED" if v is None else f"{float(v):.6f}"
 
 
 def main(argv=None) -> int:
@@ -126,39 +142,60 @@ def main(argv=None) -> int:
     check("s_B_bitmatch", np.allclose(score(z["X_B"]), z["s_B"], rtol=0, atol=ATOL))
     check("s_C_bitmatch", np.allclose(score(z["X_C"]), z["s_C"], rtol=0, atol=ATOL))
 
-    # 5) 阈值（仅 C）：独立重建网格与并列保守口径
+    # 5) 阈值（仅 C）：独立重建网格、并列保守口径与 UNDEFINED 回退（照抄预注册/统筹第四轮口径）
     sC = np.asarray(z["s_C"], dtype=np.float64)
     pB_C = np.asarray(z["pB_C"], dtype=np.float64)
     pP_C = np.asarray(z["pP_C"], dtype=np.float64)
     yC = np.asarray(z["y_C"], dtype=int)
     cands = [-np.inf] + [float(np.quantile(sC, q)) for q in THRESHOLD_QUANTILES] + [np.inf]
-    best = None
+    best, n_undef = None, 0
     for idx, thr in enumerate(cands):
         pred = np.where(sC > thr, pP_C, pB_C)
-        a = float(roc_auc_score(yC, pred))
+        a = auc_opt(yC, pred)
         pi = float((sC > thr).mean())
+        if a is None:
+            n_undef += 1
+            continue
         key = (a, -pi, -idx)
         if best is None or key > best[0]:
             best = (key, thr, pi, a)
+    if best is None:
+        thr_ref, pi_ref, aucC_ref, status_ref = float("inf"), 0.0, None, "UNDEFINED"
+    else:
+        thr_ref, pi_ref, aucC_ref, status_ref = float(best[1]), float(best[2]), float(best[3]), "DEFINED"
     thr_rec = float(rep["router"]["threshold"]["thr"])
-    pi_rec = float(rep["router"]["threshold"]["pi_hat"])
-    check("threshold_thr", (best[1] == thr_rec) or (np.isinf(best[1]) and np.isinf(thr_rec) and np.sign(best[1]) == np.sign(thr_rec)),
-          f"ref={best[1]} rec={thr_rec}")
-    check("threshold_pi_hat", close(best[2], pi_rec), f"ref={best[2]} rec={pi_rec}")
-    check("threshold_auc_C", close(best[3], float(rep["router"]["threshold"]["auc_C_routed"])),
-          f"ref={best[3]} rec={rep['router']['threshold']['auc_C_routed']}")
+    pi_rec = rep["router"]["threshold"]["pi_hat"]
+    check("threshold_status", status_ref == rep["router"]["threshold"]["calibration_status"],
+          f"ref={status_ref} rec={rep['router']['threshold']['calibration_status']}")
+    check("threshold_n_undefined", n_undef == int(rep["router"]["threshold"]["n_undefined_candidates"]),
+          f"ref={n_undef} rec={rep['router']['threshold']['n_undefined_candidates']}")
+    check("threshold_thr", thr_ref == thr_rec, f"ref={thr_ref} rec={thr_rec}")
+    check("threshold_pi_hat", close(pi_ref, pi_rec), f"ref={pi_ref} rec={pi_rec}")
+    check("threshold_auc_C", close(aucC_ref, rep["router"]["threshold"]["auc_C_routed"]),
+          f"ref={aucC_ref} rec={rep['router']['threshold']['auc_C_routed']}")
 
-    # 6) 固定混合（仅 C）
-    mix_best = None
+    # 6) 固定混合（仅 C；UNDEFINED 口径同阈值）
+    mix_best, n_undef_m = None, 0
     for a in MIX_GRID:
-        v = float(roc_auc_score(yC, a * pP_C + (1.0 - a) * pB_C))
+        v = auc_opt(yC, a * pP_C + (1.0 - a) * pB_C)
+        if v is None:
+            n_undef_m += 1
+            continue
         key = (v, -float(a))
         if mix_best is None or key > mix_best[0]:
             mix_best = (key, float(a), v)
-    check("mix_alpha", mix_best[1] == float(rep["router"]["mix"]["alpha_hat"]),
-          f"ref={mix_best[1]} rec={rep['router']['mix']['alpha_hat']}")
-    check("mix_auc_C", close(mix_best[2], float(rep["router"]["mix"]["auc_C_mix"])),
-          f"ref={mix_best[2]} rec={rep['router']['mix']['auc_C_mix']}")
+    if mix_best is None:
+        alpha_ref, aucM_ref, statusM_ref = 0.0, None, "UNDEFINED"
+    else:
+        alpha_ref, aucM_ref, statusM_ref = mix_best[1], mix_best[2], "DEFINED"
+    check("mix_status", statusM_ref == rep["router"]["mix"]["calibration_status"],
+          f"ref={statusM_ref} rec={rep['router']['mix']['calibration_status']}")
+    check("mix_n_undefined", n_undef_m == int(rep["router"]["mix"]["n_undefined_candidates"]),
+          f"ref={n_undef_m} rec={rep['router']['mix']['n_undefined_candidates']}")
+    check("mix_alpha", alpha_ref == float(rep["router"]["mix"]["alpha_hat"]),
+          f"ref={alpha_ref} rec={rep['router']['mix']['alpha_hat']}")
+    check("mix_auc_C", close(aucM_ref, rep["router"]["mix"]["auc_C_mix"]),
+          f"ref={aucM_ref} rec={rep['router']['mix']['auc_C_mix']}")
 
     # 7) test 六配置（独立重算并进行逐位对照）
     yT = np.asarray(z["y_T"], dtype=int)
@@ -180,19 +217,26 @@ def main(argv=None) -> int:
         "random_router": np.where(mask, pTp, pTb),
         "label_assisted_bce_oracle_diag": np.where(uT > 0.0, pTp, pTb),
     }
-    aucs_ref = {k: auc(yT, v) for k, v in preds.items()}
+    aucs_ref = {k: auc_opt(yT, v) for k, v in preds.items()}
     aucs_rec = mtx["aucs_test"]
     for k in preds:
-        check(f"auc_test_{k}", abs(aucs_ref[k] - float(aucs_rec[k])) <= ATOL,
-              f"ref={aucs_ref[k]:.12f} rec={float(aucs_rec[k]):.12f}")
-    d_base = aucs_ref["routed"] - aucs_ref["always_baseline"]
-    d_prompt = aucs_ref["routed"] - aucs_ref["always_prompt"]
-    d_mix = aucs_ref["routed"] - aucs_ref["fixed_mix"]
-    check("delta_base", abs(d_base - float(mtx["deltas_test"]["base"])) <= ATOL, f"ref={d_base:+.12f}")
-    check("delta_prompt", abs(d_prompt - float(mtx["deltas_test"]["prompt"])) <= ATOL, f"ref={d_prompt:+.12f}")
-    check("delta_mix", abs(d_mix - float(mtx["deltas_test"]["mix"])) <= ATOL, f"ref={d_mix:+.12f}")
-    cls_ref = classify(d_base)
-    rv_ref = bool(d_base >= 0.001 and d_prompt > 0.0 and d_mix > 0.0)
+        check(f"auc_test_{k}", close(aucs_ref[k], aucs_rec[k]),
+              f"ref={aucs_ref[k]} rec={aucs_rec[k]}")
+
+    def _delta(a, b):
+        return None if (a is None or b is None) else float(a) - float(b)
+
+    d_base = _delta(aucs_ref["routed"], aucs_ref["always_baseline"])
+    d_prompt = _delta(aucs_ref["routed"], aucs_ref["always_prompt"])
+    d_mix = _delta(aucs_ref["routed"], aucs_ref["fixed_mix"])
+    for name, ref in (("base", d_base), ("prompt", d_prompt), ("mix", d_mix)):
+        check(f"delta_{name}", close(ref, mtx["deltas_test"][name]),
+              f"ref={ref} rec={mtx['deltas_test'][name]}")
+    if d_base is None:
+        cls_ref, rv_ref = "UNDEFINED", False
+    else:
+        cls_ref = classify(d_base)
+        rv_ref = bool(d_base >= 0.001 and d_prompt > 0.0 and d_mix > 0.0)
     check("classification", cls_ref == mtx["classification"], f"ref={cls_ref} rec={mtx['classification']}")
     check("router_value", rv_ref == bool(mtx["router_value"]), f"ref={rv_ref} rec={mtx['router_value']}")
 
@@ -211,17 +255,19 @@ def main(argv=None) -> int:
         "random_router": np.where(np.random.default_rng(seed).random(len(yV)) < pi_rec, pVp, pVb),
         "label_assisted_bce_oracle_diag": np.where(uV > 0.0, pVp, pVb),
     }
-    aucs_V_ref = {k: auc(yV, v) for k, v in preds_V.items()}
+    aucs_V_ref = {k: auc_opt(yV, v) for k, v in preds_V.items()}
     for k in preds_V:
-        check(f"auc_val_{k}", abs(aucs_V_ref[k] - float(mtx["aucs_val"][k])) <= ATOL,
-              f"ref={aucs_V_ref[k]:.12f} rec={float(mtx['aucs_val'][k]):.12f}")
+        check(f"auc_val_{k}", close(aucs_V_ref[k], mtx["aucs_val"][k]),
+              f"ref={aucs_V_ref[k]} rec={mtx['aucs_val'][k]}")
 
-    # 8) 诊断（AUROC/Spearman，仅机制性）
-    auroc_ref = auc((uC > 0).astype(int), sC)
-    check("auroc_C_vs_u_gt_0", close(auroc_ref, float(rep["diagnostics"]["auroc_C_vs_u_gt_0"])),
-          f"ref={auroc_ref:.12f}")
-    sp_ref = float(spearmanr(sC, uC).statistic)
-    check("spearman_C", close(sp_ref, float(rep["diagnostics"]["spearman_C"])), f"ref={sp_ref:.12f}")
+    # 8) 诊断（AUROC/Spearman，仅机制性；单类/常量输入 ⇒ None=UNDEFINED）
+    auroc_ref = auc_opt((uC > 0).astype(int), sC)
+    check("auroc_C_vs_u_gt_0", close(auroc_ref, rep["diagnostics"]["auroc_C_vs_u_gt_0"]),
+          f"ref={auroc_ref} rec={rep['diagnostics']['auroc_C_vs_u_gt_0']}")
+    _sp = spearmanr(sC, uC).statistic
+    sp_ref = None if (_sp is None or np.isnan(_sp)) else float(_sp)
+    check("spearman_C", close(sp_ref, rep["diagnostics"]["spearman_C"]),
+          f"ref={sp_ref} rec={rep['diagnostics']['spearman_C']}")
 
     # 9) 门禁与台账
     a_gates = gate["gates"]
@@ -235,9 +281,9 @@ def main(argv=None) -> int:
     last = summary_lines[-1] if summary_lines else ""
     fields = [c.strip() for c in last.split("|")][1:-1]
     check("summary_row_id", bool(fields) and fields[0] == args.run_id, last[:80])
-    check("summary_auc_val_routed", len(fields) > 4 and fields[3] == f"{aucs_V_ref['routed']:.6f}",
+    check("summary_auc_val_routed", len(fields) > 4 and fields[3] == fmt6(aucs_V_ref["routed"]),
           f"cell={fields[3] if len(fields) > 3 else 'NA'}")
-    check("summary_auc_test_routed", len(fields) > 4 and fields[4] == f"{aucs_ref['routed']:.6f}",
+    check("summary_auc_test_routed", len(fields) > 4 and fields[4] == fmt6(aucs_ref["routed"]),
           f"cell={fields[4] if len(fields) > 4 else 'NA'}")
     check("git_dirty_false", mtx["git"]["dirty"] is False, str(mtx["git"]))
 

@@ -221,6 +221,53 @@ class TestRoutingAndVerdict(unittest.TestCase):
         self.assertFalse(IUR.expand_eligible(False, True, False))
 
 
+class TestUndefinedSemantics(unittest.TestCase):
+    """统筹第四轮：单类标签/常量输入的 UNDEFINED 口径（None 贯通，禁止 NaN 参与比较）。"""
+
+    def test_calibration_undefined_fallback(self):
+        n = 50
+        s = np.linspace(-1.0, 1.0, n)
+        p = np.full(n, 0.5)
+        y1 = np.ones(n, dtype=int)
+        t = IUR.select_threshold(s, p, p, y1)
+        self.assertEqual(t["calibration_status"], "UNDEFINED")
+        self.assertEqual(t["n_undefined_candidates"], 21)
+        self.assertEqual(t["thr"], float("inf"))
+        self.assertEqual(t["pi_hat"], 0.0)
+        self.assertIsNone(t["auc_C_routed"])
+        self.assertTrue(all(g["auc_C_routed"] is None for g in t["grid"]))
+        m = IUR.select_mix_alpha(p, p, y1)
+        self.assertEqual(m["calibration_status"], "UNDEFINED")
+        self.assertEqual(m["n_undefined_candidates"], 21)
+        self.assertEqual(m["alpha_hat"], 0.0)
+        self.assertIsNone(m["auc_C_mix"])
+
+    def test_defined_path_reports_status(self):
+        rng = np.random.default_rng(5)
+        s = rng.normal(size=200)
+        p = rng.uniform(0.1, 0.9, 200)
+        y = (rng.random(200) < 0.5).astype(int)
+        t = IUR.select_threshold(s, p, p, y)
+        self.assertEqual(t["calibration_status"], "DEFINED")
+        self.assertEqual(t["n_undefined_candidates"], 0)
+        self.assertIsInstance(t["auc_C_routed"], float)
+
+    def test_auc_or_none_and_strict_auc(self):
+        y1 = np.ones(10, dtype=int)
+        p = np.linspace(0.1, 0.9, 10)
+        self.assertIsNone(IUR.auc_or_none(y1, p))
+        self.assertIsNone(IUR.spearman_or_none(np.ones(10), p))
+        self.assertIsInstance(IUR.auc_or_none(np.tile([0, 1], 5), p), float)
+        with self.assertRaises(ValueError):
+            IUR.auc(y1, p)
+
+    def test_router_value_verdict_undefined(self):
+        v = IUR.router_value_verdict(None, 0.1, 0.1)
+        self.assertEqual(v["classification_by_delta_base"], "UNDEFINED")
+        self.assertFalse(v["router_value"])
+        self.assertFalse(v["delta_base_ge_positive"])
+
+
 class TestEndToEndTiny(unittest.TestCase):
     """合成 tiny AliCCP → stage1(CPU) → 路由 runner(CPU) → 独立复核脚本，全链一次。
 

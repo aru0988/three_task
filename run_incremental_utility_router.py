@@ -22,7 +22,6 @@ from pathlib import Path
 
 import numpy as np
 import torch
-from scipy.stats import spearmanr
 from torch.utils.data import DataLoader, Subset
 
 from aliccp_benchmark import incremental_utility_router as IUR
@@ -49,6 +48,18 @@ class _Tee:
 
 def _versions() -> dict:
     return {"python": sys.version.split()[0], "torch": torch.__version__, "cuda": torch.version.cuda}
+
+
+def _fmt(value, signed: bool = False) -> str:
+    """None（UNDEFINED）显式格式化，杜绝任何 NaN 参与输出/比较（统筹第四轮）。"""
+    if value is None:
+        return "UNDEFINED"
+    return f"{value:+.6f}" if signed else f"{value:.6f}"
+
+
+def _fmt6(value) -> str:
+    """SUMMARY 单元格用固定 6 位小数；None ⇒ 'UNDEFINED'。"""
+    return "UNDEFINED" if value is None else f"{value:.6f}"
 
 
 def _reset_peak_vram(device) -> None:
@@ -287,19 +298,30 @@ def run_router(
         f"test={len(coll_T['y'])}")
 
     # ---- verifier（仅 B）与校准（仅 C）----
+    for name, arr in (("pB_B", coll_B["p_b"]), ("pP_B", coll_B["p_p"]), ("X_B", coll_B["X"]),
+                      ("pB_C", coll_C["p_b"]), ("pP_C", coll_C["p_p"]),
+                      ("pB_V", coll_V["p_b"]), ("pP_V", coll_V["p_p"]),
+                      ("pB_T", coll_T["p_b"]), ("pP_T", coll_T["p_p"])):
+        if not np.isfinite(np.asarray(arr, dtype=np.float64)).all():
+            raise AssertionError(f"{name} 含非有限值（NaN/Inf），拒绝出数")
     u_B = IUR.utility(coll_B["p_b"], coll_B["p_p"], coll_B["y"])
     u_C = IUR.utility(coll_C["p_b"], coll_C["p_p"], coll_C["y"])
+    if not (np.isfinite(u_B).all() and np.isfinite(u_C).all()):
+        raise AssertionError("效用 u 含非有限值（NaN/Inf），拒绝出数")
     ridge = IUR.fit_ridge(coll_B["X"], u_B)
     s_B = IUR.ridge_score(ridge, coll_B["X"])
     s_C = IUR.ridge_score(ridge, coll_C["X"])
     s_T = IUR.ridge_score(ridge, coll_T["X"])
     s_V = IUR.ridge_score(ridge, coll_V["X"])
+    if not (np.isfinite(s_B).all() and np.isfinite(s_C).all() and np.isfinite(s_T).all() and np.isfinite(s_V).all()):
+        raise AssertionError("router 分数含非有限值（NaN/Inf），拒绝出数")
     thr_info = IUR.select_threshold(s_C, coll_C["p_b"], coll_C["p_p"], coll_C["y"])
     mix_info = IUR.select_mix_alpha(coll_C["p_b"], coll_C["p_p"], coll_C["y"])
-    diag_auroc_C = IUR.auc(IUR.beneficial(u_C), s_C)
-    diag_spearman_C = float(spearmanr(s_C, u_C).statistic)
-    log(f"[iuv] verifier：AUROC(C, vs 1[u>0])={diag_auroc_C:.6f} spearman={diag_spearman_C:.6f} "
-        f"thr={thr_info['thr']:.6f} pi_hat={thr_info['pi_hat']:.4f} alpha_hat={mix_info['alpha_hat']:.2f}")
+    diag_auroc_C = IUR.auc_or_none(IUR.beneficial(u_C), s_C)          # 单类 ⇒ None（UNDEFINED/SKIP）
+    diag_spearman_C = IUR.spearman_or_none(s_C, u_C)
+    log(f"[iuv] verifier：AUROC(C, vs 1[u>0])={_fmt(diag_auroc_C)} spearman={_fmt(diag_spearman_C)} "
+        f"thr={thr_info['thr']:.6f}({thr_info['calibration_status']}) pi_hat={thr_info['pi_hat']:.4f} "
+        f"alpha_hat={mix_info['alpha_hat']:.2f}({mix_info['calibration_status']})")
 
     # ---- val/test 六配置（离线组配；test 端不再训练/校准）----
     y_T, pT_b, pT_p = coll_T["y"], coll_T["p_b"], coll_T["p_p"]
@@ -322,27 +344,32 @@ def run_router(
         "random_router": np.where(IUR.random_route_mask(len(y_V), thr_info["pi_hat"], rand_seed), pV_p, pV_b),
         "label_assisted_bce_oracle_diag": IUR.oracle_route(pV_b, pV_p, IUR.utility(pV_b, pV_p, y_V)),
     }
-    aucs_T = {name: IUR.auc(y_T, pred) for name, pred in preds.items()}
-    aucs_V = {name: IUR.auc(y_V, pred) for name, pred in preds_V.items()}
+    aucs_T = {name: IUR.auc_or_none(y_T, pred) for name, pred in preds.items()}
+    aucs_V = {name: IUR.auc_or_none(y_V, pred) for name, pred in preds_V.items()}
     aucs_C = {
-        "always_baseline": IUR.auc(coll_C["y"], coll_C["p_b"]),
-        "always_prompt": IUR.auc(coll_C["y"], coll_C["p_p"]),
+        "always_baseline": IUR.auc_or_none(coll_C["y"], coll_C["p_b"]),
+        "always_prompt": IUR.auc_or_none(coll_C["y"], coll_C["p_p"]),
         "fixed_mix": mix_info["auc_C_mix"],
         "routed": thr_info["auc_C_routed"],
     }
+
+    def _delta(a, b):
+        return None if (a is None or b is None) else float(a) - float(b)
+
     deltas = {
-        "base": aucs_T["routed"] - aucs_T["always_baseline"],
-        "prompt": aucs_T["routed"] - aucs_T["always_prompt"],
-        "mix": aucs_T["routed"] - aucs_T["fixed_mix"],
+        "base": _delta(aucs_T["routed"], aucs_T["always_baseline"]),
+        "prompt": _delta(aucs_T["routed"], aucs_T["always_prompt"]),
+        "mix": _delta(aucs_T["routed"], aucs_T["fixed_mix"]),
     }
     verdict = IUR.router_value_verdict(deltas["base"], deltas["prompt"], deltas["mix"])
-    log(f"[iuv] val  AUC：base={aucs_V['always_baseline']:.6f} prompt={aucs_V['always_prompt']:.6f} "
-        f"mix={aucs_V['fixed_mix']:.6f} routed={aucs_V['routed']:.6f} "
-        f"rand={aucs_V['random_router']:.6f} oracle_diag={aucs_V['label_assisted_bce_oracle_diag']:.6f}")
-    log(f"[iuv] test AUC：base={aucs_T['always_baseline']:.6f} prompt={aucs_T['always_prompt']:.6f} "
-        f"mix={aucs_T['fixed_mix']:.6f} routed={aucs_T['routed']:.6f} "
-        f"rand={aucs_T['random_router']:.6f} oracle_diag={aucs_T['label_assisted_bce_oracle_diag']:.6f}")
-    log(f"[iuv] Δbase={deltas['base']:+.6f} Δprompt={deltas['prompt']:+.6f} Δmix={deltas['mix']:+.6f} "
+    log(f"[iuv] val  AUC：base={_fmt(aucs_V['always_baseline'])} prompt={_fmt(aucs_V['always_prompt'])} "
+        f"mix={_fmt(aucs_V['fixed_mix'])} routed={_fmt(aucs_V['routed'])} "
+        f"rand={_fmt(aucs_V['random_router'])} oracle_diag={_fmt(aucs_V['label_assisted_bce_oracle_diag'])}")
+    log(f"[iuv] test AUC：base={_fmt(aucs_T['always_baseline'])} prompt={_fmt(aucs_T['always_prompt'])} "
+        f"mix={_fmt(aucs_T['fixed_mix'])} routed={_fmt(aucs_T['routed'])} "
+        f"rand={_fmt(aucs_T['random_router'])} oracle_diag={_fmt(aucs_T['label_assisted_bce_oracle_diag'])}")
+    log(f"[iuv] Δbase={_fmt(deltas['base'], signed=True)} Δprompt={_fmt(deltas['prompt'], signed=True)} "
+        f"Δmix={_fmt(deltas['mix'], signed=True)} "
         f"分类={verdict['classification_by_delta_base']} router_value={verdict['router_value']}")
 
     # ---- A1：冻结完整性 ----
@@ -368,17 +395,20 @@ def run_router(
         "stage1_id_recorded": stage1_id_recorded,
     }
     a_gates = metrics.evaluate_a_gates(a_facts)
-    b_gates = metrics.evaluate_b_gates(
-        {
-            "auc_val_ctr": art_meta.get("best_val_auc_ctr", 0.0),
-            "auc_val_cvr": art_meta.get("best_val_auc_cvr", 0.0),
-            "auc_val_bsi_best": aucs_V["routed"],   # 官方 validation 上的 routed AUC（v3.1；独立复算）
-            "auc_test_bsi": aucs_T["routed"],
-            "gate_mean": _gate_mean(head_b, model, val_loader, device),
-            "cluster_events": art_meta.get("cluster_events", []),
-            "train_size": budgets["train"],
-        }
-    )
+    if aucs_V["routed"] is None or aucs_T["routed"] is None:
+        b_gates = {g: {"verdict": "N/A", "detail": "AUC UNDEFINED（单类标签）——不判定"} for g in ("B1", "B2", "B3", "B4")}
+    else:
+        b_gates = metrics.evaluate_b_gates(
+            {
+                "auc_val_ctr": art_meta.get("best_val_auc_ctr", 0.0),
+                "auc_val_cvr": art_meta.get("best_val_auc_cvr", 0.0),
+                "auc_val_bsi_best": aucs_V["routed"],   # 官方 validation 上的 routed AUC（v3.1；独立复算）
+                "auc_test_bsi": aucs_T["routed"],
+                "gate_mean": _gate_mean(head_b, model, val_loader, device),
+                "cluster_events": art_meta.get("cluster_events", []),
+                "train_size": budgets["train"],
+            }
+        )
     feature_params = list(inspect.signature(IUR.router_features).parameters)
     label_free_ok = not any(p == "y" or "label" in p.lower() for p in feature_params)
     r_gates = {
@@ -485,8 +515,8 @@ def run_router(
 
     summary_row = {
         "run_id": run_id, "commit": protocol.code_commit(), "tag": tag,
-        "auc_val_bsi_best": f"{aucs_V['routed']:.6f}",     # 官方 validation 上的 routed AUC（v3.1；独立复算）
-        "auc_test_bsi": f"{aucs_T['routed']:.6f}",          # routed 配置 test AUC（主指标载体）
+        "auc_val_bsi_best": _fmt6(aucs_V["routed"]),     # 官方 validation 上的 routed AUC（v3.1；独立复算）
+        "auc_test_bsi": _fmt6(aucs_T["routed"]),
         "stage1_id": stage1_id,
         **{gid: gates[gid]["verdict"] for gid in ("A1", "A2", "A3", "A4", "A5", "A6", "B1", "B2", "B3", "B4")},
     }

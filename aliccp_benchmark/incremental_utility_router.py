@@ -120,34 +120,54 @@ def route_predict(scores, p_b, p_p, thr) -> np.ndarray:
 
 
 def select_threshold(scores_C, p_b_C, p_p_C, y_C) -> dict:
-    """阈值仅由 C 校准：C-AUC 最大；并列取被路由占比更小；再并列取更早（更低）候选。"""
+    """阈值仅由 C 校准：C-AUC 最大；并列取被路由占比更小；再并列取更早（更低）候选。
+
+    UNDEFINED 口径（统筹第四轮）：候选 AUC 为 None（y_C 单类）时**跳过该候选**；
+    全部候选 UNDEFINED ⇒ 保守回退 ``thr=+inf``（全部路由到 B，``pi_hat=0``）并显式记
+    ``calibration_status="UNDEFINED"``。任何情形不得产生 NaN 参与比较。
+    """
     scores = _f64(scores_C)
-    y = _f64(y_C)
     candidates = [-np.inf] + [float(np.quantile(scores, q)) for q in THRESHOLD_QUANTILES] + [np.inf]
-    grid, best = [], None
+    grid, best, n_undef = [], None, 0
     for idx, thr in enumerate(candidates):
         pred = route_predict(scores, p_b_C, p_p_C, thr)
-        auc = float(roc_auc_score(y, pred))
+        value = auc_or_none(y_C, pred)
         pi = float((scores > thr).mean())
-        grid.append({"thr": thr, "auc_C_routed": auc, "pi": pi})
-        key = (auc, -pi, -idx)
+        grid.append({"thr": thr, "auc_C_routed": value, "pi": pi})
+        if value is None:
+            n_undef += 1
+            continue
+        key = (value, -pi, -idx)
         if best is None or key > best[0]:
-            best = (key, thr, pi, auc)
-    return {"thr": float(best[1]), "pi_hat": float(best[2]), "auc_C_routed": float(best[3]), "grid": grid}
+            best = (key, thr, pi, value)
+    if best is None:
+        return {"thr": float("inf"), "pi_hat": 0.0, "auc_C_routed": None,
+                "calibration_status": "UNDEFINED", "n_undefined_candidates": n_undef, "grid": grid}
+    return {"thr": float(best[1]), "pi_hat": float(best[2]), "auc_C_routed": float(best[3]),
+            "calibration_status": "DEFINED", "n_undefined_candidates": n_undef, "grid": grid}
 
 
 def select_mix_alpha(p_b_C, p_p_C, y_C) -> dict:
-    """固定混合权重仅由 C 校准：C-AUC 最大；并列取更小 alpha。"""
-    y = _f64(y_C)
+    """固定混合权重仅由 C 校准：C-AUC 最大；并列取更小 alpha。
+
+    UNDEFINED 口径同 ``select_threshold``：全网格 UNDEFINED ⇒ 保守回退 ``alpha=0``（纯 baseline）。
+    """
     p_b, p_p = _f64(p_b_C), _f64(p_p_C)
-    grid, best = [], None
+    grid, best, n_undef = [], None, 0
     for a in MIX_GRID:
-        auc = float(roc_auc_score(y, a * p_p + (1.0 - a) * p_b))
-        grid.append({"alpha": float(a), "auc_C_mix": auc})
-        key = (auc, -float(a))
+        value = auc_or_none(y_C, a * p_p + (1.0 - a) * p_b)
+        grid.append({"alpha": float(a), "auc_C_mix": value})
+        if value is None:
+            n_undef += 1
+            continue
+        key = (value, -float(a))
         if best is None or key > best[0]:
-            best = (key, float(a), auc)
-    return {"alpha_hat": best[1], "auc_C_mix": best[2], "grid": grid}
+            best = (key, float(a), value)
+    if best is None:
+        return {"alpha_hat": 0.0, "auc_C_mix": None,
+                "calibration_status": "UNDEFINED", "n_undefined_candidates": n_undef, "grid": grid}
+    return {"alpha_hat": best[1], "auc_C_mix": best[2],
+            "calibration_status": "DEFINED", "n_undefined_candidates": n_undef, "grid": grid}
 
 
 def random_route_mask(n: int, pi_hat: float, seed: int) -> np.ndarray:
@@ -170,7 +190,29 @@ def expand_eligible(router_value: bool, all_gates_ok: bool, git_dirty: bool) -> 
 
 
 def auc(y, p) -> float:
+    """严格 AUC：y 单类或含 NaN 时**响亮失败**（正式运行禁止退化输入）。"""
     return float(roc_auc_score(_f64(y), _f64(p)))
+
+
+def auc_or_none(y, p):
+    """AUC；y 单类 ⇒ 明确返回 ``None``（UNDEFINED），绝不产生 NaN 比较（统筹第四轮）。"""
+    yy = np.asarray(y).astype(np.int64).ravel()
+    if yy.size == 0 or len(np.unique(yy)) < 2:
+        return None
+    value = float(roc_auc_score(yy, _f64(p).ravel()))
+    if np.isnan(value):                      # 兜底：任何非有限结果一律记为 UNDEFINED
+        return None
+    return value
+
+
+def spearman_or_none(a, b):
+    """Spearman ρ；常量输入等退化情形返回 ``None``（UNDEFINED）。"""
+    from scipy.stats import spearmanr
+
+    rho = spearmanr(_f64(a), _f64(b)).statistic
+    if rho is None or np.isnan(rho):
+        return None
+    return float(rho)
 
 
 def classify_delta(delta: float) -> str:
@@ -182,8 +224,20 @@ def classify_delta(delta: float) -> str:
     return "NO_CLEAR_IMPROVEMENT"
 
 
-def router_value_verdict(delta_base: float, delta_prompt: float, delta_mix: float) -> dict:
-    """router 价值充分条件（预注册 §0）：三比较同时成立；仅优于较弱一侧不构成证据。"""
+def router_value_verdict(delta_base, delta_prompt, delta_mix) -> dict:
+    """router 价值充分条件（预注册 §0）：三比较同时成立；仅优于较弱一侧不构成证据。
+
+    任一分量为 ``None``（UNDEFINED，如单类标签）⇒ 显式记 UNDEFINED 且 ``router_value=False``，
+    不做任何 NaN 比较（统筹第四轮）。
+    """
+    if delta_base is None or delta_prompt is None or delta_mix is None:
+        return {
+            "classification_by_delta_base": "UNDEFINED",
+            "delta_base_ge_positive": False,
+            "delta_prompt_gt_0": False,
+            "delta_mix_gt_0": False,
+            "router_value": False,
+        }
     ok = (delta_base >= DELTA_POSITIVE) and (delta_prompt > 0.0) and (delta_mix > 0.0)
     return {
         "classification_by_delta_base": classify_delta(float(delta_base)),
