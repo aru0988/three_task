@@ -1,0 +1,323 @@
+{
+  "started": "2026-10-07T14:18:46",
+  "device": "cuda:0",
+  "parity": {
+    "blob": "1a68c0b48dad7b30b849a6cb9582fc17041cfbd1",
+    "cases": {
+      "random_f32": {
+        "bit_equal": true,
+        "shape": [
+          5000,
+          2
+        ],
+        "dtype": "torch.float64"
+      },
+      "ties_heavy": {
+        "bit_equal": true,
+        "shape": [
+          5000,
+          2
+        ],
+        "dtype": "torch.float64"
+      },
+      "n1": {
+        "bit_equal": true,
+        "shape": [
+          1,
+          2
+        ],
+        "dtype": "torch.float64"
+      },
+      "all_equal": {
+        "bit_equal": true,
+        "shape": [
+          1000,
+          2
+        ],
+        "dtype": "torch.float64"
+      },
+      "extreme": {
+        "bit_equal": true,
+        "shape": [
+          4,
+          2
+        ],
+        "dtype": "torch.float64"
+      }
+    },
+    "all_bit_equal": true
+  },
+  "label_totals": {
+    "ctr": {
+      "pos": 92899,
+      "neg": 1907101
+    },
+    "cvr": {
+      "pos": 566,
+      "neg": 1999434
+    },
+    "bsi": {
+      "pos": 1983079,
+      "neg": 16921
+    }
+  },
+  "partitions": {
+    "P0_raw_argmin_seed1": {
+      "n": 2000000,
+      "env_counts": [
+        566,
+        1999434
+      ],
+      "env_share": [
+        0.000283,
+        0.999717
+      ],
+      "per_env": [
+        {
+          "env": 0,
+          "n": 566,
+          "ctr_pos": 566,
+          "ctr_neg": 0,
+          "cvr_pos": 566,
+          "cvr_neg": 0,
+          "bsi_pos": 566,
+          "bsi_neg": 0
+        },
+        {
+          "env": 1,
+          "n": 1999434,
+          "ctr_pos": 92333,
+          "ctr_neg": 1907101,
+          "cvr_pos": 0,
+          "cvr_neg": 1999434,
+          "bsi_pos": 1982513,
+          "bsi_neg": 16921
+        }
+      ],
+      "fold_env_cells": [
+        {
+          "fold": 0,
+          "env": 0,
+          "n": 92,
+          "bsi_pos": 92,
+          "bsi_neg": 0
+        },
+        {
+          "fold": 0,
+          "env": 1,
+          "n": 399908,
+          "bsi_pos": 394565,
+          "bsi_neg": 5343
+        },
+        {
+          "fold": 1,
+          "env": 0,
+          "n": 113,
+          "bsi_pos": 113,
+          "bsi_neg": 0
+        },
+        {
+          "fold": 1,
+          "env": 1,
+          "n": 399887,
+          "bsi_pos": 397391,
+          "bsi_neg": 2496
+        },
+        {
+          "fold": 2,
+          "env": 0,
+          "n": 137,
+          "bsi_pos": 137,
+          "bsi_neg": 0
+        },
+        {
+          "fold": 2,
+          "env": 1,
+          "n": 399863,
+          "bsi_pos": 399511,
+          "bsi_neg": 352
+        },
+        {
+          "fold": 3,
+          "env": 0,
+          "n": 110,
+          "bsi_pos": 110,
+          "bsi_neg": 0
+        },
+        {
+          "fold": 3,
+          "env": 1,
+          "n": 399890,
+          "bsi_pos": 396843,
+          "bsi_neg": 3047
+        },
+        {
+          "fold": 4,
+          "env": 0,
+          "n": 114,
+          "bsi_pos": 114,
+          "bsi_neg": 0
+        },
+        {
+          "fold": 4,
+          "env": 1,
+          "n": 399886,
+          "bsi_pos": 394203,
+          "bsi_neg": 5683
+        }
+      ],
+      "weight_space": {
+        "ess_uniform": 2000000.0,
+        "ess_floor_at_clip": 551904.463065546,
+        "max_ratio_at_clip": 100.0,
+        "clip": [
+          0.1,
+          10.0
+        ]
+      },
+      "gates": {
+        "G1_env_share": {
+          "pass": false,
+          "min_share": 0.000283,
+          "threshold": 0.2
+        },
+        "G2_per_env_support": {
+          "pass": false
+        },
+        "G3_fold_cell_support": {
+          "pass": false
+        }
+      }
+    },
+    "normalized_seed1": {
+      "n": 2000000,
+      "env_counts": [
+        936534,
+        1063466
+      ],
+      "env_share": [
+        0.468267,
+        0.531733
+      ],
+      "per_env": [
+        {
+          "env": 0,
+          "n": 936534,
+          "ctr_pos": 4754,
+          "ctr_neg": 931780,
+          "cvr_pos": 565,
+          "cvr_neg": 935969,
+          "bsi_pos": 929939,
+          "bsi_neg": 6595
+        },
+        {
+          "env": 1,
+          "n": 1063466,
+          "ctr_pos": 88145,
+          "ctr_neg": 975321,
+          "cvr_pos": 1,
+          "cvr_neg": 1063465,
+          "bsi_pos": 1053140,
+          "bsi_neg": 10326
+        }
+      ],
+      "fold_env_cells": [
+        {
+          "fold": 0,
+          "env": 0,
+          "n": 186525,
+          "bsi_pos": 184536,
+          "bsi_neg": 1989
+        },
+        {
+          "fold": 0,
+          "env": 1,
+          "n": 213475,
+          "bsi_pos": 210121,
+          "bsi_neg": 3354
+        },
+        {
+          "fold": 1,
+          "env": 0,
+          "n": 185249,
+          "bsi_pos": 184292,
+          "bsi_neg": 957
+        },
+        {
+          "fold": 1,
+          "env": 1,
+          "n": 214751,
+          "bsi_pos": 213212,
+          "bsi_neg": 1539
+        },
+        {
+          "fold": 2,
+          "env": 0,
+          "n": 196627,
+          "bsi_pos": 196394,
+          "bsi_neg": 233
+        },
+        {
+          "fold": 2,
+          "env": 1,
+          "n": 203373,
+          "bsi_pos": 203254,
+          "bsi_neg": 119
+        },
+        {
+          "fold": 3,
+          "env": 0,
+          "n": 189140,
+          "bsi_pos": 187770,
+          "bsi_neg": 1370
+        },
+        {
+          "fold": 3,
+          "env": 1,
+          "n": 210860,
+          "bsi_pos": 209183,
+          "bsi_neg": 1677
+        },
+        {
+          "fold": 4,
+          "env": 0,
+          "n": 178993,
+          "bsi_pos": 176947,
+          "bsi_neg": 2046
+        },
+        {
+          "fold": 4,
+          "env": 1,
+          "n": 221007,
+          "bsi_pos": 217370,
+          "bsi_neg": 3637
+        }
+      ],
+      "weight_space": {
+        "ess_uniform": 2000000.0,
+        "ess_floor_at_clip": 957815.3169920217,
+        "max_ratio_at_clip": 100.0,
+        "clip": [
+          0.1,
+          10.0
+        ]
+      },
+      "gates": {
+        "G1_env_share": {
+          "pass": true,
+          "min_share": 0.468267,
+          "threshold": 0.2
+        },
+        "G2_per_env_support": {
+          "pass": false
+        },
+        "G3_fold_cell_support": {
+          "pass": false
+        }
+      },
+      "backbone_sha_match": true,
+      "stage1_id": "s1-5c060b9c-m1688723512-e3-3a30e2c0"
+    }
+  },
+  "wall_seconds": 32.5
+}

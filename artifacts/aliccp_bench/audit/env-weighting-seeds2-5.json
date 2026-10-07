@@ -1,0 +1,583 @@
+{
+  "started": "2026-10-07T14:20:27",
+  "device": "cuda:0",
+  "parity": {
+    "blob": "1a68c0b48dad7b30b849a6cb9582fc17041cfbd1",
+    "cases": {
+      "random_f32": {
+        "bit_equal": true,
+        "shape": [
+          5000,
+          2
+        ],
+        "dtype": "torch.float64"
+      },
+      "ties_heavy": {
+        "bit_equal": true,
+        "shape": [
+          5000,
+          2
+        ],
+        "dtype": "torch.float64"
+      },
+      "n1": {
+        "bit_equal": true,
+        "shape": [
+          1,
+          2
+        ],
+        "dtype": "torch.float64"
+      },
+      "all_equal": {
+        "bit_equal": true,
+        "shape": [
+          1000,
+          2
+        ],
+        "dtype": "torch.float64"
+      },
+      "extreme": {
+        "bit_equal": true,
+        "shape": [
+          4,
+          2
+        ],
+        "dtype": "torch.float64"
+      }
+    },
+    "all_bit_equal": true
+  },
+  "label_totals": {
+    "ctr": {
+      "pos": 92899,
+      "neg": 1907101
+    },
+    "cvr": {
+      "pos": 566,
+      "neg": 1999434
+    },
+    "bsi": {
+      "pos": 1983079,
+      "neg": 16921
+    }
+  },
+  "partitions": {
+    "normalized_seed2": {
+      "n": 2000000,
+      "env_counts": [
+        1077778,
+        922222
+      ],
+      "env_share": [
+        0.538889,
+        0.461111
+      ],
+      "per_env": [
+        {
+          "env": 0,
+          "n": 1077778,
+          "ctr_pos": 4481,
+          "ctr_neg": 1073297,
+          "cvr_pos": 564,
+          "cvr_neg": 1077214,
+          "bsi_pos": 1069430,
+          "bsi_neg": 8348
+        },
+        {
+          "env": 1,
+          "n": 922222,
+          "ctr_pos": 88418,
+          "ctr_neg": 833804,
+          "cvr_pos": 2,
+          "cvr_neg": 922220,
+          "bsi_pos": 913649,
+          "bsi_neg": 8573
+        }
+      ],
+      "fold_env_cells": [
+        {
+          "fold": 0,
+          "env": 0,
+          "n": 211534,
+          "bsi_pos": 208836,
+          "bsi_neg": 2698
+        },
+        {
+          "fold": 0,
+          "env": 1,
+          "n": 188466,
+          "bsi_pos": 185821,
+          "bsi_neg": 2645
+        },
+        {
+          "fold": 1,
+          "env": 0,
+          "n": 214585,
+          "bsi_pos": 213378,
+          "bsi_neg": 1207
+        },
+        {
+          "fold": 1,
+          "env": 1,
+          "n": 185415,
+          "bsi_pos": 184126,
+          "bsi_neg": 1289
+        },
+        {
+          "fold": 2,
+          "env": 0,
+          "n": 225555,
+          "bsi_pos": 225376,
+          "bsi_neg": 179
+        },
+        {
+          "fold": 2,
+          "env": 1,
+          "n": 174445,
+          "bsi_pos": 174272,
+          "bsi_neg": 173
+        },
+        {
+          "fold": 3,
+          "env": 0,
+          "n": 217713,
+          "bsi_pos": 216012,
+          "bsi_neg": 1701
+        },
+        {
+          "fold": 3,
+          "env": 1,
+          "n": 182287,
+          "bsi_pos": 180941,
+          "bsi_neg": 1346
+        },
+        {
+          "fold": 4,
+          "env": 0,
+          "n": 208391,
+          "bsi_pos": 205828,
+          "bsi_neg": 2563
+        },
+        {
+          "fold": 4,
+          "env": 1,
+          "n": 191609,
+          "bsi_pos": 188489,
+          "bsi_neg": 3120
+        }
+      ],
+      "weight_space": {
+        "ess_uniform": 2000000.0,
+        "ess_floor_at_clip": 943793.2184694217,
+        "max_ratio_at_clip": 100.0,
+        "clip": [
+          0.1,
+          10.0
+        ]
+      },
+      "gates": {
+        "G1_env_share": {
+          "pass": true,
+          "min_share": 0.461111,
+          "threshold": 0.2
+        },
+        "G2_per_env_support": {
+          "pass": false
+        },
+        "G3_fold_cell_support": {
+          "pass": false
+        }
+      },
+      "backbone_sha_match": true,
+      "stage1_id": "s1-5c060b9c-m1688723740-e3-4e1b5c6f"
+    },
+    "normalized_seed3": {
+      "n": 2000000,
+      "env_counts": [
+        1081317,
+        918683
+      ],
+      "env_share": [
+        0.5406585,
+        0.4593415
+      ],
+      "per_env": [
+        {
+          "env": 0,
+          "n": 1081317,
+          "ctr_pos": 5172,
+          "ctr_neg": 1076145,
+          "cvr_pos": 566,
+          "cvr_neg": 1080751,
+          "bsi_pos": 1072303,
+          "bsi_neg": 9014
+        },
+        {
+          "env": 1,
+          "n": 918683,
+          "ctr_pos": 87727,
+          "ctr_neg": 830956,
+          "cvr_pos": 0,
+          "cvr_neg": 918683,
+          "bsi_pos": 910776,
+          "bsi_neg": 7907
+        }
+      ],
+      "fold_env_cells": [
+        {
+          "fold": 0,
+          "env": 0,
+          "n": 215960,
+          "bsi_pos": 213188,
+          "bsi_neg": 2772
+        },
+        {
+          "fold": 0,
+          "env": 1,
+          "n": 184040,
+          "bsi_pos": 181469,
+          "bsi_neg": 2571
+        },
+        {
+          "fold": 1,
+          "env": 0,
+          "n": 217083,
+          "bsi_pos": 215761,
+          "bsi_neg": 1322
+        },
+        {
+          "fold": 1,
+          "env": 1,
+          "n": 182917,
+          "bsi_pos": 181743,
+          "bsi_neg": 1174
+        },
+        {
+          "fold": 2,
+          "env": 0,
+          "n": 218117,
+          "bsi_pos": 217860,
+          "bsi_neg": 257
+        },
+        {
+          "fold": 2,
+          "env": 1,
+          "n": 181883,
+          "bsi_pos": 181788,
+          "bsi_neg": 95
+        },
+        {
+          "fold": 3,
+          "env": 0,
+          "n": 214718,
+          "bsi_pos": 213168,
+          "bsi_neg": 1550
+        },
+        {
+          "fold": 3,
+          "env": 1,
+          "n": 185282,
+          "bsi_pos": 183785,
+          "bsi_neg": 1497
+        },
+        {
+          "fold": 4,
+          "env": 0,
+          "n": 215439,
+          "bsi_pos": 212326,
+          "bsi_neg": 3113
+        },
+        {
+          "fold": 4,
+          "env": 1,
+          "n": 184561,
+          "bsi_pos": 181991,
+          "bsi_neg": 2570
+        }
+      ],
+      "weight_space": {
+        "ess_uniform": 2000000.0,
+        "ess_floor_at_clip": 940325.9350643872,
+        "max_ratio_at_clip": 100.0,
+        "clip": [
+          0.1,
+          10.0
+        ]
+      },
+      "gates": {
+        "G1_env_share": {
+          "pass": true,
+          "min_share": 0.4593415,
+          "threshold": 0.2
+        },
+        "G2_per_env_support": {
+          "pass": false
+        },
+        "G3_fold_cell_support": {
+          "pass": false
+        }
+      },
+      "backbone_sha_match": true,
+      "stage1_id": "s1-5c060b9c-m1688738016-e3-47619ce0"
+    },
+    "normalized_seed4": {
+      "n": 2000000,
+      "env_counts": [
+        1062736,
+        937264
+      ],
+      "env_share": [
+        0.531368,
+        0.468632
+      ],
+      "per_env": [
+        {
+          "env": 0,
+          "n": 1062736,
+          "ctr_pos": 4380,
+          "ctr_neg": 1058356,
+          "cvr_pos": 563,
+          "cvr_neg": 1062173,
+          "bsi_pos": 1053754,
+          "bsi_neg": 8982
+        },
+        {
+          "env": 1,
+          "n": 937264,
+          "ctr_pos": 88519,
+          "ctr_neg": 848745,
+          "cvr_pos": 3,
+          "cvr_neg": 937261,
+          "bsi_pos": 929325,
+          "bsi_neg": 7939
+        }
+      ],
+      "fold_env_cells": [
+        {
+          "fold": 0,
+          "env": 0,
+          "n": 208409,
+          "bsi_pos": 205610,
+          "bsi_neg": 2799
+        },
+        {
+          "fold": 0,
+          "env": 1,
+          "n": 191591,
+          "bsi_pos": 189047,
+          "bsi_neg": 2544
+        },
+        {
+          "fold": 1,
+          "env": 0,
+          "n": 211950,
+          "bsi_pos": 210659,
+          "bsi_neg": 1291
+        },
+        {
+          "fold": 1,
+          "env": 1,
+          "n": 188050,
+          "bsi_pos": 186845,
+          "bsi_neg": 1205
+        },
+        {
+          "fold": 2,
+          "env": 0,
+          "n": 220072,
+          "bsi_pos": 219865,
+          "bsi_neg": 207
+        },
+        {
+          "fold": 2,
+          "env": 1,
+          "n": 179928,
+          "bsi_pos": 179783,
+          "bsi_neg": 145
+        },
+        {
+          "fold": 3,
+          "env": 0,
+          "n": 211698,
+          "bsi_pos": 209891,
+          "bsi_neg": 1807
+        },
+        {
+          "fold": 3,
+          "env": 1,
+          "n": 188302,
+          "bsi_pos": 187062,
+          "bsi_neg": 1240
+        },
+        {
+          "fold": 4,
+          "env": 0,
+          "n": 210607,
+          "bsi_pos": 207729,
+          "bsi_neg": 2878
+        },
+        {
+          "fold": 4,
+          "env": 1,
+          "n": 189393,
+          "bsi_pos": 186588,
+          "bsi_neg": 2805
+        }
+      ],
+      "weight_space": {
+        "ess_uniform": 2000000.0,
+        "ess_floor_at_clip": 958530.5355502055,
+        "max_ratio_at_clip": 100.0,
+        "clip": [
+          0.1,
+          10.0
+        ]
+      },
+      "gates": {
+        "G1_env_share": {
+          "pass": true,
+          "min_share": 0.468632,
+          "threshold": 0.2
+        },
+        "G2_per_env_support": {
+          "pass": false
+        },
+        "G3_fold_cell_support": {
+          "pass": false
+        }
+      },
+      "backbone_sha_match": true,
+      "stage1_id": "s1-5c060b9c-m1688749593-e3-bb2b68de"
+    },
+    "normalized_seed5": {
+      "n": 2000000,
+      "env_counts": [
+        1003144,
+        996856
+      ],
+      "env_share": [
+        0.501572,
+        0.498428
+      ],
+      "per_env": [
+        {
+          "env": 0,
+          "n": 1003144,
+          "ctr_pos": 4602,
+          "ctr_neg": 998542,
+          "cvr_pos": 565,
+          "cvr_neg": 1002579,
+          "bsi_pos": 994075,
+          "bsi_neg": 9069
+        },
+        {
+          "env": 1,
+          "n": 996856,
+          "ctr_pos": 88297,
+          "ctr_neg": 908559,
+          "cvr_pos": 1,
+          "cvr_neg": 996855,
+          "bsi_pos": 989004,
+          "bsi_neg": 7852
+        }
+      ],
+      "fold_env_cells": [
+        {
+          "fold": 0,
+          "env": 0,
+          "n": 205834,
+          "bsi_pos": 203028,
+          "bsi_neg": 2806
+        },
+        {
+          "fold": 0,
+          "env": 1,
+          "n": 194166,
+          "bsi_pos": 191629,
+          "bsi_neg": 2537
+        },
+        {
+          "fold": 1,
+          "env": 0,
+          "n": 199090,
+          "bsi_pos": 197766,
+          "bsi_neg": 1324
+        },
+        {
+          "fold": 1,
+          "env": 1,
+          "n": 200910,
+          "bsi_pos": 199738,
+          "bsi_neg": 1172
+        },
+        {
+          "fold": 2,
+          "env": 0,
+          "n": 196727,
+          "bsi_pos": 196477,
+          "bsi_neg": 250
+        },
+        {
+          "fold": 2,
+          "env": 1,
+          "n": 203273,
+          "bsi_pos": 203171,
+          "bsi_neg": 102
+        },
+        {
+          "fold": 3,
+          "env": 0,
+          "n": 203812,
+          "bsi_pos": 202268,
+          "bsi_neg": 1544
+        },
+        {
+          "fold": 3,
+          "env": 1,
+          "n": 196188,
+          "bsi_pos": 194685,
+          "bsi_neg": 1503
+        },
+        {
+          "fold": 4,
+          "env": 0,
+          "n": 197681,
+          "bsi_pos": 194536,
+          "bsi_neg": 3145
+        },
+        {
+          "fold": 4,
+          "env": 1,
+          "n": 202319,
+          "bsi_pos": 199781,
+          "bsi_neg": 2538
+        }
+      ],
+      "weight_space": {
+        "ess_uniform": 2000000.0,
+        "ess_floor_at_clip": 1016917.4939625139,
+        "max_ratio_at_clip": 100.0,
+        "clip": [
+          0.1,
+          10.0
+        ]
+      },
+      "gates": {
+        "G1_env_share": {
+          "pass": true,
+          "min_share": 0.498428,
+          "threshold": 0.2
+        },
+        "G2_per_env_support": {
+          "pass": false
+        },
+        "G3_fold_cell_support": {
+          "pass": false
+        }
+      },
+      "backbone_sha_match": true,
+      "stage1_id": "s1-5c060b9c-m1688762746-e3-6343490f"
+    }
+  },
+  "wall_seconds": 101.6
+}
