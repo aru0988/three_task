@@ -68,7 +68,15 @@ class TestConstants(unittest.TestCase):
         self.assertEqual(latent_diag.PERM_ORDER, ("B", "C", "dev", "test"))
         self.assertEqual(latent_diag.PREFIT_SPLITS, ("A", "B", "C", "dev"))  # test 不参与拟合前判定
         self.assertEqual(latent_diag.ARMS, ("base", "full", "shuffle"))
-        self.assertEqual(latent_diag.FORMAL_STAGE1_ID, "s1-5c060b9c-m1688723512-e3-3a30e2c0")
+        self.assertEqual(
+            latent_diag.FORMAL_SEED_STAGE1_PAIRS,
+            {
+                1688723740: "s1-5c060b9c-m1688723740-e3-4e1b5c6f",
+                1688738016: "s1-5c060b9c-m1688738016-e3-47619ce0",
+            },
+        )
+        # 扩展分支白名单不含 seed1：formal 禁止静默重跑 seed1
+        self.assertNotIn(protocol.MODEL_SEED, latent_diag.FORMAL_SEED_STAGE1_PAIRS)
         self.assertTrue(latent_diag.FORMAL_FINGERPRINT_SHA256.startswith("5c060b9c"))
 
 
@@ -97,6 +105,33 @@ class TestPrefixTag(unittest.TestCase):
 
     def test_scaled_tag(self):
         self.assertEqual(latent_diag.prefix_tag_for(83, 13, 11), "p83-v13-t11")
+
+
+class TestFormalSeedWhitelist(unittest.TestCase):
+    """扩展分支（seeds2–3）：正式运行只认冻结的两个 (model_seed → Stage-1 ID) 配对；
+    resolve_formal_stage1 是 formal CLI 与正式运行共用的唯一解析入口，绝不给白名单之外的
+    Stage-1（含 seed1）留后门。"""
+
+    def test_resolve_derives_and_accepts_explicit_pairs(self):
+        for seed, sid in latent_diag.FORMAL_SEED_STAGE1_PAIRS.items():
+            self.assertEqual(latent_diag.resolve_formal_stage1(seed), sid)  # 省略 stage1_id → 白名单派生
+            self.assertEqual(latent_diag.resolve_formal_stage1(seed, sid), sid)  # 显式且一致 → 原样通过
+
+    def test_resolve_rejects_swapped_ids(self):
+        pairs = latent_diag.FORMAL_SEED_STAGE1_PAIRS
+        seed2, seed3 = 1688723740, 1688738016
+        with self.assertRaises(ValueError):
+            latent_diag.resolve_formal_stage1(seed2, pairs[seed3])
+        with self.assertRaises(ValueError):
+            latent_diag.resolve_formal_stage1(seed3, pairs[seed2])
+
+    def test_resolve_rejects_unknown_seed(self):
+        # 含 seed1（本分支正式运行禁止静默重跑 seed1）与任意未列出的 seed
+        for seed in (protocol.MODEL_SEED, 0, 123, 999):
+            with self.assertRaises(ValueError):
+                latent_diag.resolve_formal_stage1(seed)
+            with self.assertRaises(ValueError):
+                latent_diag.resolve_formal_stage1(seed, "s1-5c060b9c-m1688723740-e3-4e1b5c6f")
 
 
 class TestClipLogit(unittest.TestCase):
@@ -604,14 +639,17 @@ def prepare_negatives_safe_inputs(td):
 
 
 def run_enforce_tiny(root, data_files, meta, fp, *, tag, patches=(), log=_noop, **kwargs):
-    """enforce=True 直通运行：FORMAL_* 常量 mock 为本地微型身份；git 要求显式放开（本测试不判 git）。
+    """enforce=True 直通运行：FORMAL_* 常量 mock 为本地微型身份（白名单 {123 → 微型 stage1_id}）；
+    git 要求显式放开（本测试不判 git）。
 
     patches 为在 run_diagnostic 调用期间生效的 mock.patch 对象列表（调用方自行构造），
     与 FORMAL_* mock 一起由 ExitStack 管理。
     """
     sizes = NEGATIVES_SAFE_SIZES
     with contextlib.ExitStack() as stack:
-        stack.enter_context(mock.patch.object(latent_diag, "FORMAL_STAGE1_ID", meta["stage1_id"]))
+        stack.enter_context(
+            mock.patch.object(latent_diag, "FORMAL_SEED_STAGE1_PAIRS", {123: meta["stage1_id"]})
+        )
         stack.enter_context(
             mock.patch.object(latent_diag, "FORMAL_FINGERPRINT_SHA256", fp["fingerprint_sha256"])
         )
@@ -625,6 +663,27 @@ def run_enforce_tiny(root, data_files, meta, fp, *, tag, patches=(), log=_noop, 
             require_clean_git=False, tag=tag, batch_size=8, epochs=1, patience=1,
             log=log, **kwargs,
         )
+
+
+def run_meta_seed_mismatch_tiny(td):
+    """构造 enforce=True 的 Stage-1 meta 种子不匹配运行：白名单 mock 为
+    {1688723740 → 微型 stage1_id}（配对检查通过），但微型 Stage-1 的 meta.model_seed=123
+    ≠ 1688723740 → 唯一失败身份项为 stage1_meta_seed_match。返回 (root, result)。"""
+    root, data_files, meta = prepare_negatives_safe_inputs(td)
+    fp = protocol.load_fingerprint(root, NEGATIVES_SAFE_PREFIX_TAG)
+    sizes = NEGATIVES_SAFE_SIZES
+    with mock.patch.object(
+        latent_diag, "FORMAL_SEED_STAGE1_PAIRS", {1688723740: meta["stage1_id"]}
+    ), mock.patch.object(latent_diag, "FORMAL_FINGERPRINT_SHA256", fp["fingerprint_sha256"]):
+        result = latent_diag.run_diagnostic(
+            root=root, stage1_id=meta["stage1_id"], data_files=data_files,
+            a_rows=sizes["A"], b_rows=sizes["B"], c_rows=sizes["C"],
+            val_budget=sizes["dev"], test_budget=sizes["test"],
+            model_seed=1688723740, device=torch.device("cpu"), enforce=True,
+            require_clean_git=False, tag="latdiag-seed-mismatch",
+            batch_size=8, epochs=1, patience=1, log=_noop,
+        )
+    return root, result
 
 
 class TestCliSmoke(unittest.TestCase):
@@ -642,6 +701,150 @@ class TestCliSmoke(unittest.TestCase):
             self.assertEqual(record["recomputed"]["status"], "OK")
             # smoke 不写正式 SUMMARY
             self.assertEqual(list(Path(td).glob("*/" + latent_diag.SUMMARY_FILE)), [])
+
+
+class TestFormalCliSeedWhitelist(unittest.TestCase):
+    """formal CLI：--model-seed 必填且必须命中冻结白名单；--stage1-id 省略时严格派生、显式时必须
+    逐字一致。旧实现 formal 的 --model-seed/--stage1-id 均有 seed1 默认值 → 无参 "formal" 可直接
+    启动 seed1 重跑；以下缺失 seed / seed1 显式传入 / 交换配对的测试在旧实现下必败。"""
+
+    @staticmethod
+    def _fake_result():
+        return {
+            "run_id": "fake-run-id", "run_dir": "n/a", "status": "OK",
+            "verdict": "NO_GO_FOR_EXTENSION", "classification": "NO_CLEAR",
+            "signal_positive": False, "deltas": None, "aucs": None, "gates": None,
+            "abort_reasons": [], "recorded_reasons": [], "wall_seconds": 0.0,
+        }
+
+    def test_missing_seed_rejected(self):
+        import run_aliccp_latent_diag
+
+        with self.assertRaises(SystemExit):
+            run_aliccp_latent_diag.build_parser().parse_args(["formal"])
+
+    def test_seed1_explicitly_rejected(self):
+        import run_aliccp_latent_diag
+
+        with tempfile.TemporaryDirectory() as td:
+            with self.assertRaises(SystemExit):
+                run_aliccp_latent_diag.main(
+                    ["formal", "--model-seed", str(protocol.MODEL_SEED), "--root", td]
+                )
+
+    def test_swapped_pair_rejected(self):
+        import run_aliccp_latent_diag
+
+        with tempfile.TemporaryDirectory() as td:
+            with self.assertRaises(SystemExit):
+                run_aliccp_latent_diag.main([
+                    "formal", "--model-seed", "1688723740",
+                    "--stage1-id", "s1-5c060b9c-m1688738016-e3-47619ce0", "--root", td,
+                ])
+
+    def test_whitelisted_seed_derives_pair_and_preserves_budgets(self):
+        import run_aliccp_latent_diag
+
+        with tempfile.TemporaryDirectory() as td:
+            with mock.patch.object(
+                run_aliccp_latent_diag.latent_diag, "run_diagnostic",
+                return_value=self._fake_result(),
+            ) as run_mock:
+                code = run_aliccp_latent_diag.main(
+                    ["formal", "--model-seed", "1688723740", "--root", td, "--device", "cpu"]
+                )
+            self.assertEqual(code, 0)
+            kwargs = run_mock.call_args.kwargs
+            self.assertEqual(kwargs["stage1_id"], "s1-5c060b9c-m1688723740-e3-4e1b5c6f")
+            self.assertEqual(kwargs["model_seed"], 1688723740)
+            self.assertTrue(kwargs["enforce"])
+            # 数据/预算/头超参保持冻结默认（本次适配未触碰）
+            self.assertEqual(kwargs["data_files"], protocol.DATA_FILES)
+            self.assertEqual(
+                (kwargs["a_rows"], kwargs["b_rows"], kwargs["c_rows"]),
+                (latent_diag.A_ROWS, latent_diag.B_ROWS, latent_diag.C_ROWS),
+            )
+            self.assertEqual(
+                (kwargs["val_budget"], kwargs["test_budget"]),
+                (protocol.VAL_BUDGET, protocol.TEST_BUDGET),
+            )
+            self.assertEqual(
+                (kwargs["batch_size"], kwargs["epochs"], kwargs["patience"]),
+                (protocol.BATCH_SIZE, latent_diag.HEAD_EPOCHS, latent_diag.HEAD_PATIENCE),
+            )
+
+    def test_explicit_matching_pair_accepted(self):
+        import run_aliccp_latent_diag
+
+        with tempfile.TemporaryDirectory() as td:
+            with mock.patch.object(
+                run_aliccp_latent_diag.latent_diag, "run_diagnostic",
+                return_value=self._fake_result(),
+            ) as run_mock:
+                code = run_aliccp_latent_diag.main([
+                    "formal", "--model-seed", "1688738016",
+                    "--stage1-id", "s1-5c060b9c-m1688738016-e3-47619ce0",
+                    "--root", td, "--device", "cpu",
+                ])
+            self.assertEqual(code, 0)
+            kwargs = run_mock.call_args.kwargs
+            self.assertEqual(kwargs["stage1_id"], "s1-5c060b9c-m1688738016-e3-47619ce0")
+            self.assertEqual(kwargs["model_seed"], 1688738016)
+
+
+class TestRunnerFormalPairEnforcement(unittest.TestCase):
+    """runner 侧独立强制 (model_seed ↔ Stage-1 ID) 冻结配对与 Stage-1 meta 种子一致。
+
+    旧实现只比较单一 seed1 常量 FORMAL_STAGE1_ID → 新 seed 的合法配对会被错误拒绝；
+    test_patched_whitelist_pair_accepted 在旧实现下必败（AttributeError/mock 目标不存在，
+    或仍被硬编码 seed1 拒绝 → ABORT）。"""
+
+    def test_nonwhitelisted_pair_aborts_identity(self):
+        # 真实冻结白名单、不 mock 白名单（仅把指纹常量对齐到本地微型指纹以隔离变量）：
+        # (model_seed=123, 微型 stage1) 不在白名单 → 唯一失败身份项是配对检查
+        with tempfile.TemporaryDirectory() as td:
+            root, data_files, meta = prepare_negatives_safe_inputs(td)
+            fp = protocol.load_fingerprint(root, NEGATIVES_SAFE_PREFIX_TAG)
+            sizes = NEGATIVES_SAFE_SIZES
+            with mock.patch.object(
+                latent_diag, "FORMAL_FINGERPRINT_SHA256", fp["fingerprint_sha256"]
+            ):
+                result = latent_diag.run_diagnostic(
+                    root=root, stage1_id=meta["stage1_id"], data_files=data_files,
+                    a_rows=sizes["A"], b_rows=sizes["B"], c_rows=sizes["C"],
+                    val_budget=sizes["dev"], test_budget=sizes["test"],
+                    model_seed=123, device=torch.device("cpu"), enforce=True,
+                    require_clean_git=False, tag="latdiag-pair-reject",
+                    batch_size=8, epochs=1, patience=1, log=_noop,
+                )
+            self.assertEqual(result["status"], "ABORT")
+            self.assertEqual([r["code"] for r in result["abort_reasons"]], ["IDENTITY_MISMATCH"])
+            run_dir = Path(result["run_dir"])
+            abort = load_json(run_dir / "abort.json")
+            self.assertEqual(
+                abort["facts"]["identity_detail"], {"formal_seed_stage1_pair_match": False}
+            )
+            self.assertFalse((run_dir / "probes.json").exists())
+
+    def test_patched_whitelist_pair_accepted(self):
+        # 白名单 mock 为本地微型身份 (123 → 微型 stage1_id)：合法配对必须被接受（回归：旧实现
+        # 硬编码 seed1 单一常量 → 微型身份必然被拒 → 本测试在旧实现下必败）
+        with tempfile.TemporaryDirectory() as td:
+            root, data_files, meta = prepare_negatives_safe_inputs(td)
+            fp = protocol.load_fingerprint(root, NEGATIVES_SAFE_PREFIX_TAG)
+            result = run_enforce_tiny(root, data_files, meta, fp, tag="latdiag-pair-accept")
+            self.assertEqual(result["status"], "OK", result.get("abort_reasons"))
+            gate_report = load_json(Path(result["run_dir"]) / "gate_report.json")
+            self.assertEqual(gate_report["gates"]["I1_identity"]["verdict"], "PASS")
+
+    def test_meta_seed_mismatch_aborts(self):
+        # 配对检查通过，但 Stage-1 meta 种子 ≠ 运行 model_seed → 唯一失败身份项是 meta 种子检查
+        with tempfile.TemporaryDirectory() as td:
+            _, result = run_meta_seed_mismatch_tiny(td)
+            self.assertEqual(result["status"], "ABORT")
+            self.assertEqual([r["code"] for r in result["abort_reasons"]], ["IDENTITY_MISMATCH"])
+            abort = load_json(Path(result["run_dir"]) / "abort.json")
+            self.assertEqual(abort["facts"]["identity_detail"], {"stage1_meta_seed_match": False})
 
 
 class TestEndToEndTiny(unittest.TestCase):

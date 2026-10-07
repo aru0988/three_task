@@ -3,8 +3,10 @@
 用法：
   smoke（管线正确性；合成小数据 + 微型 Stage-1；CPU；< 1 分钟；不写正式产物目录）：
     python run_aliccp_latent_diag.py smoke
-  formal（唯一一次筛查；要求干净 git 树；先经审阅再跑；预计 4–6 分钟）：
-    python run_aliccp_latent_diag.py formal
+  formal（每个白名单 seed 唯一一次筛查；要求干净 git 树；先经审阅再跑；预计 4–6 分钟）：
+    --model-seed 必填且必须命中冻结白名单（latent_diag.FORMAL_SEED_STAGE1_PAIRS，seeds2–3）；
+    省略 --stage1-id 时按白名单派生，显式提供时必须与白名单逐字一致：
+    python run_aliccp_latent_diag.py formal --model-seed 1688723740
     python run_aliccp_latent_diag.py verify --run-id <run_id>     # 独立验证，PASS 后才追加 SUMMARY
   verify 预计 2–3 分钟（重扫数据文件 + 全量重算）。
 
@@ -103,17 +105,22 @@ def _cmd_smoke(args) -> int:
 
 def _cmd_formal(args) -> int:
     root = Path(args.root)
+    try:
+        # 冻结白名单配对解析：seed 必填命中；显式 stage1_id 必须逐字一致；绝不静默回退 seed1
+        stage1_id = latent_diag.resolve_formal_stage1(args.model_seed, args.stage1_id)
+    except ValueError as exc:
+        raise SystemExit(f"[formal] {exc}")
     device = torch.device(args.device) if args.device else torch.device(f"cuda:{args.gpu}")
     log_path = _log_path(root, "formal")
     with open(log_path, "w", encoding="utf-8") as log_file, contextlib.redirect_stdout(_Tee(sys.stdout, log_file)):
         print(
-            f"command=formal root={root} device={device} stage1_id={args.stage1_id} "
+            f"command=formal root={root} device={device} stage1_id={stage1_id} "
             f"model_seed={args.model_seed} A/B/C={args.a_rows}/{args.b_rows}/{args.c_rows} "
             f"val={args.val_budget} test={args.test_budget} batch={args.batch_size} "
             f"epochs={args.epochs} patience={args.patience}"
         )
         result = latent_diag.run_diagnostic(
-            root=root, stage1_id=args.stage1_id, data_files=protocol.DATA_FILES,
+            root=root, stage1_id=stage1_id, data_files=protocol.DATA_FILES,
             a_rows=args.a_rows, b_rows=args.b_rows, c_rows=args.c_rows,
             val_budget=args.val_budget, test_budget=args.test_budget, model_seed=args.model_seed,
             device=device, enforce=True, tag=args.tag, batch_size=args.batch_size,
@@ -165,10 +172,16 @@ def build_parser() -> argparse.ArgumentParser:
     smoke.add_argument("--root", type=str, default="artifacts/aliccp_latent_diag_smoke")
     smoke.add_argument("--device", type=str, default="cpu")
 
-    formal = sub.add_parser("formal", help="正式筛查运行（需干净 git 树；唯一一次）")
+    formal = sub.add_parser("formal", help="正式筛查运行（需干净 git 树；每个白名单 seed 唯一一次）")
     formal.add_argument("--root", type=str, default=str(protocol.ARTIFACT_ROOT))
-    formal.add_argument("--stage1-id", type=str, default=latent_diag.FORMAL_STAGE1_ID)
-    formal.add_argument("--model-seed", type=int, default=protocol.MODEL_SEED)
+    formal.add_argument(
+        "--model-seed", type=int, required=True,
+        help="必填：必须命中冻结白名单 latent_diag.FORMAL_SEED_STAGE1_PAIRS（无默认值，禁止静默重跑 seed1）",
+    )
+    formal.add_argument(
+        "--stage1-id", type=str, default=None,
+        help="省略时按 --model-seed 从冻结白名单派生；显式提供时必须与白名单逐字一致",
+    )
     formal.add_argument("--a-rows", type=int, default=latent_diag.A_ROWS)
     formal.add_argument("--b-rows", type=int, default=latent_diag.B_ROWS)
     formal.add_argument("--c-rows", type=int, default=latent_diag.C_ROWS)

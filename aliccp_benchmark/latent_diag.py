@@ -23,7 +23,9 @@
   不调用会读取 test 的 verify_fingerprint/ensure_fingerprint）；三探针全部冻结后、test 评估前
   执行完整 protocol.verify_fingerprint(fp)（含 test 逐项比对），失败则中止且不产生任何 test
   指标。smoke（enforce=False，合成数据）豁免：ensure_fingerprint 在拟合前构建/校验完整指纹。
-- 正式运行（enforce=True）额外要求：Stage-1 常量身份匹配、干净 git 树（dirty=False）。
+- 正式运行（enforce=True）额外要求：(model_seed, stage1_id) 命中冻结白名单
+  FORMAL_SEED_STAGE1_PAIRS（不含 seed1）、Stage-1 meta 种子与运行 model_seed 一致、指纹命中
+  正式常量、干净 git 树（dirty=False）。
 
 不修改 multitaskrec/*；复用 aliccp_benchmark.protocol 与 bench 的纯工具（种子/指纹/冻结/哈希）。
 """
@@ -82,7 +84,12 @@ HEAD_PATIENCE = protocol.STAGE2_PATIENCE
 HEAD_LR = protocol.LR
 
 # ---- 正式运行的冻结身份（预注册正文；smoke 不强制）----
-FORMAL_STAGE1_ID = "s1-5c060b9c-m1688723512-e3-3a30e2c0"
+# 扩展分支（seeds2–3）：正式运行只认这些 (model_seed → Stage-1 ID) 冻结配对；不含 seed1——
+# formal CLI --model-seed 无默认值，禁止在本分支静默重跑 seed1（见 resolve_formal_stage1）。
+FORMAL_SEED_STAGE1_PAIRS = {
+    1688723740: "s1-5c060b9c-m1688723740-e3-4e1b5c6f",
+    1688738016: "s1-5c060b9c-m1688738016-e3-47619ce0",
+}
 FORMAL_FINGERPRINT_SHA256 = (
     "5c060b9c5c9d0e235ec815e1b488b9dec222fc37887ad2eedd2afadc82bdd0d8"
 )
@@ -126,6 +133,28 @@ def prefix_tag_for(train_budget: int, val_budget: int, test_budget: int) -> str:
     ):
         return protocol.PREFIX_TAG
     return f"p{train_budget}-v{val_budget}-t{test_budget}"
+
+
+def resolve_formal_stage1(model_seed: int, stage1_id=None) -> str:
+    """正式运行 (model_seed, stage1_id) 冻结配对的唯一解析入口（formal CLI 使用）。
+
+    seed 必须命中 FORMAL_SEED_STAGE1_PAIRS；stage1_id 省略（None）时严格按白名单派生，
+    显式提供时必须与白名单逐字一致。任何其他组合抛 ValueError——正式运行绝不静默回退到
+    白名单之外的 Stage-1（含 seed1），杜绝"formal 无参默认重跑 seed1"。
+    """
+    expected = FORMAL_SEED_STAGE1_PAIRS.get(int(model_seed))
+    if expected is None:
+        raise ValueError(
+            f"model_seed {int(model_seed)} 不在正式冻结白名单中: {sorted(FORMAL_SEED_STAGE1_PAIRS)}"
+        )
+    if stage1_id is None:
+        return expected
+    if stage1_id != expected:
+        raise ValueError(
+            f"stage1_id 与冻结白名单不匹配: model_seed={int(model_seed)} "
+            f"expected={expected} got={stage1_id}"
+        )
+    return stage1_id
 
 
 # ---- 拟合前指纹身份（provisional：自哈希 + 仅 train/val；完整校验在三探针冻结后）----
@@ -674,9 +703,10 @@ def run_diagnostic(
     不扫描 test 标签，拟合前中止只判定 A/B/C/dev。拟合前指纹身份只做 provisional 校验（自哈希 +
     train/val 文件逐项比对，见 provisional_fingerprint_checks）；完整 protocol.verify_fingerprint
     （含 test 源文件）在三探针冻结后、test 评估前执行，失败即中止且不计算任何 test 指标。
-    enforce=True（正式）：常量身份、全部中止原因、干净 git 树均为硬约束；enforce=False（smoke）：
-    中止原因只记录不中止、不校验正式常量，且合成数据豁免——ensure_fingerprint 会在拟合前
-    构建/校验含 test 的完整指纹，正式模式绝不走该路径。
+    enforce=True（正式）：冻结白名单配对身份（(model_seed, stage1_id) 命中
+    FORMAL_SEED_STAGE1_PAIRS 且 Stage-1 meta 种子一致）、全部中止原因、干净 git 树均为硬约束；
+    enforce=False（smoke）：中止原因只记录不中止、不校验正式常量，且合成数据豁免——
+    ensure_fingerprint 会在拟合前构建/校验含 test 的完整指纹，正式模式绝不走该路径。
     """
     root = Path(root)
     device = torch.device(device)
@@ -803,13 +833,17 @@ def run_diagnostic(
     backbone_sha_loaded = protocol.backbone_sha256(model)
     identity_checks = {
         "stage1_id_recorded": meta.get("stage1_id") == stage1_id,
+        "stage1_meta_seed_match": int(meta.get("model_seed", -1)) == int(model_seed),
         "fingerprint_match": meta.get("fingerprint_sha256") == fp["fingerprint_sha256"],
         "budgets_match_fp": bool(budgets_match_fp),
         "backbone_sha_match": backbone_sha_loaded == meta.get("backbone_sha256"),
         # 拟合前指纹身份为 provisional（自哈希 + train/val）；test 部分由三探针冻结后的完整
         # 校验负责（失败即中止，不会进入任何 OK 结果）
         "provisional_fingerprint_train_val": bool(provisional["passed"]),
-        "formal_stage1_match": (stage1_id == FORMAL_STAGE1_ID) if enforce else True,
+        # 正式：(model_seed → stage1_id) 必须命中冻结白名单（不含 seed1；见 FORMAL_SEED_STAGE1_PAIRS）
+        "formal_seed_stage1_pair_match": (
+            FORMAL_SEED_STAGE1_PAIRS.get(int(model_seed)) == stage1_id
+        ) if enforce else True,
         "formal_fingerprint_match": (fp["fingerprint_sha256"] == FORMAL_FINGERPRINT_SHA256) if enforce else True,
     }
     identity_ok = all(identity_checks.values())
@@ -918,7 +952,10 @@ def run_diagnostic(
         "stage1": {
             "stage1_id": stage1_id,
             "backbone_sha256_loaded": backbone_sha_loaded,
-            "expected_formal_stage1_id": FORMAL_STAGE1_ID,
+            "expected_formal_stage1_id": FORMAL_SEED_STAGE1_PAIRS.get(int(model_seed)),
+            "expected_formal_seed_stage1_pairs": {
+                str(k): v for k, v in FORMAL_SEED_STAGE1_PAIRS.items()
+            },
             "expected_formal_fingerprint_sha256": FORMAL_FINGERPRINT_SHA256,
         },
         "fingerprint": {

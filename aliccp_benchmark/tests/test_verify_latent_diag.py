@@ -14,10 +14,14 @@ from unittest import mock
 
 import numpy as np
 
-from aliccp_benchmark import latent_diag, verify_latent_diag
+from aliccp_benchmark import latent_diag, protocol, verify_latent_diag
 from aliccp_benchmark.tests.test_latent_diag import (
+    NEGATIVES_SAFE_PREFIX_TAG,
     load_json,
+    prepare_negatives_safe_inputs,
     run_designed_pipeline,
+    run_enforce_tiny,
+    run_meta_seed_mismatch_tiny,
     run_tiny_pipeline,
 )
 
@@ -57,7 +61,7 @@ class TestConstantsParity(unittest.TestCase):
 
     def test_frozen_constants_match(self):
         v, l = verify_latent_diag, latent_diag
-        self.assertEqual(v.FORMAL_STAGE1_ID, l.FORMAL_STAGE1_ID)
+        self.assertEqual(v.FORMAL_SEED_STAGE1_PAIRS, l.FORMAL_SEED_STAGE1_PAIRS)
         self.assertEqual(v.FORMAL_FINGERPRINT_SHA256, l.FORMAL_FINGERPRINT_SHA256)
         self.assertEqual(v.SHUFFLE_SEED, l.SHUFFLE_SEED)
         self.assertEqual(v.CLIP_EPS, l.CLIP_EPS)
@@ -80,6 +84,14 @@ class TestConstantsParity(unittest.TestCase):
         self.assertEqual(list(v.RAW_FILES), list(l.RAW_FILES))
         self.assertEqual(v.SUMMARY_FILE, l.SUMMARY_FILE)
         self.assertEqual(v.LATENT_DIAG_SUMMARY_COLUMNS, l.LATENT_DIAG_SUMMARY_COLUMNS)
+
+    def test_formal_seed_stage1_pairs_frozen_content(self):
+        expected = {
+            1688723740: "s1-5c060b9c-m1688723740-e3-4e1b5c6f",
+            1688738016: "s1-5c060b9c-m1688738016-e3-47619ce0",
+        }
+        self.assertEqual(verify_latent_diag.FORMAL_SEED_STAGE1_PAIRS, expected)
+        self.assertEqual(latent_diag.FORMAL_SEED_STAGE1_PAIRS, expected)
 
 
 class TestIndependence(unittest.TestCase):
@@ -149,8 +161,19 @@ class TestVerifierHonestRun(unittest.TestCase):
                         rec["aucs"][split][arm], reported["aucs"][split][arm], places=9
                     )
             self.assertEqual(rec["verdict"], reported["verdict"])
+            # 报告一致性回归（OK 路径）：诊断三元必须在返回值与落盘报告中一致暴露。
+            # identity/freeze 在诚实运行下必为真；smoke 各切分负例数远低于 MIN_BSI_NEGATIVES(100)，
+            # counts_ok 必为 False，且必须与 D1_counts 门禁同源。
+            for key in ("identity_ok", "freeze_ok", "counts_ok"):
+                self.assertIn(key, rec)
+            self.assertTrue(rec["identity_ok"])
+            self.assertTrue(rec["freeze_ok"])
+            self.assertFalse(rec["counts_ok"])
+            self.assertEqual(rec["counts_ok"], rec["gates"]["D1_counts"] == "PASS")
             written = load_json(run_dir / "verification.json")
             self.assertEqual(written["overall"], "PASS")
+            for key in ("identity_ok", "freeze_ok", "counts_ok"):
+                self.assertEqual(written["recomputed"][key], rec[key])
 
     def test_summary_appended_once_after_verification(self):
         with tempfile.TemporaryDirectory() as td:
@@ -467,9 +490,65 @@ class TestVerifierAbortRun(unittest.TestCase):
             self.assertEqual(verdict["overall"], "PASS", verdict["checks"])
             self.assertEqual(verdict["recomputed"]["status"], "ABORT")
             self.assertEqual(verdict["recomputed"]["verdict"], "ABORT_NO_GO")
+            # 中止路径报告一致性回归：诊断三元必须显式暴露。身份因 enforce 冻结白名单不成立；
+            # 冻结链完好；计数一致性（raw/扫描计数 vs config）成立——MIN_NEGATIVES 是合法中止
+            # 原因本身（负例"充分性"），不属于该计数"一致性"诊断。
+            self.assertFalse(verdict["recomputed"]["identity_ok"])
+            self.assertTrue(verdict["recomputed"]["freeze_ok"])
+            self.assertTrue(verdict["recomputed"]["counts_ok"])
             for check in verdict["checks"]:
                 if check["id"].startswith("abort_reason"):
                     self.assertTrue(check["ok"], check)
+
+
+class TestVerifierFormalPairIndependence(unittest.TestCase):
+    """验证器不采信 runner 的接受决定：用自持的独立白名单副本重判 (model_seed, stage1_id)
+    与 Stage-1 meta 种子。构造 runner 侧被（错误地扩展的）白名单接受、或 runner 已中止的运行，
+    验证器必须独立给出相同或更严格的结论。"""
+
+    def test_runner_accepted_nonwhitelisted_pair_rejected_by_verifier(self):
+        if verify_latent_diag._git_dirty_now() is not False:
+            self.skipTest("工作树非干净：enforce 运行的 git_clean_required 预期 FAIL（提交后重跑本测试）")
+        with tempfile.TemporaryDirectory() as td:
+            root, data_files, meta = prepare_negatives_safe_inputs(td)
+            fp = protocol.load_fingerprint(root, NEGATIVES_SAFE_PREFIX_TAG)
+            # runner 白名单被 mock 为本地微型身份 (123) → runner 接受（OK）；
+            # 验证器持有未篡改的冻结白名单（不含 123）→ 必须独立判 I1_identity FAIL
+            result = run_enforce_tiny(root, data_files, meta, fp, tag="latdiag-pair-indep")
+            self.assertEqual(result["status"], "OK", result.get("abort_reasons"))
+            verdict = verify_latent_diag.verify_run(
+                Path(result["run_dir"]), root, append_summary=False
+            )
+            self.assertEqual(verdict["overall"], "FAIL", verdict["checks"])
+            failed = {c["id"] for c in verdict["checks"] if not c["ok"]}
+            self.assertIn("gate_match", failed)
+            self.assertEqual(verdict["recomputed"]["gates"]["I1_identity"], "FAIL")
+            # OK 路径报告一致性回归：诊断三元显式暴露；身份失败不影响 freeze/counts 的独立取值
+            # （负例安全规模下 counts 一致性成立）
+            self.assertFalse(verdict["recomputed"]["identity_ok"])
+            self.assertTrue(verdict["recomputed"]["freeze_ok"])
+            self.assertTrue(verdict["recomputed"]["counts_ok"])
+
+    def test_meta_seed_mismatch_abort_confirmed_by_verifier(self):
+        if verify_latent_diag._git_dirty_now() is not False:
+            self.skipTest("工作树非干净：enforce 运行的 git_clean_required 预期 FAIL（提交后重跑本测试）")
+        with tempfile.TemporaryDirectory() as td:
+            root, result = run_meta_seed_mismatch_tiny(td)
+            self.assertEqual(result["status"], "ABORT")
+            verdict = verify_latent_diag.verify_run(
+                Path(result["run_dir"]), root, append_summary=False
+            )
+            self.assertEqual(verdict["overall"], "PASS", verdict["checks"])
+            # 验证器在不采信 runner 结论的情况下独立确认：身份（配对 + meta 种子）不成立
+            self.assertFalse(verdict["recomputed"]["identity_ok"])
+            # 回归（原缺陷：中止路径写入 identity_ok 后被 recomputed 白名单过滤 → 消费方 KeyError）：
+            # 中止路径的独立报告必须同样暴露 freeze/counts 诊断，且本运行的冻结链与计数一致性成立
+            self.assertTrue(verdict["recomputed"]["freeze_ok"])
+            self.assertTrue(verdict["recomputed"]["counts_ok"])
+            written = load_json(Path(result["run_dir"]) / "verification.json")
+            self.assertFalse(written["recomputed"]["identity_ok"])
+            self.assertTrue(written["recomputed"]["freeze_ok"])
+            self.assertTrue(written["recomputed"]["counts_ok"])
 
 
 if __name__ == "__main__":

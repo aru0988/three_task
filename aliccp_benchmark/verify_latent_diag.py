@@ -1,7 +1,8 @@
 """独立验证器（独立解析器）：只读 run 产物 + 数据文件 + Stage-1 产物，逐项重算并比对。
 
 约束（预注册 2026-10-08 §Artifacts）：
-- 不得 import aliccp_benchmark 的任何模块（常量在本文件独立复制一份；两份副本由测试锁定相等）。
+- 不得 import aliccp_benchmark 的任何模块（常量在本文件独立复制一份，含
+  (model_seed → Stage-1 ID) 冻结白名单；两份副本由测试锁定相等）。
 - 不得调用训练/评分函数：AUC 直接调用 sklearn.metrics.roc_auc_score；
   探针概率由 probes.json 的 coef/intercept 独立重算；置换由 seed 独立重生成。
 - SUMMARY 只在全部检查 PASS（且运行本身为正式运行或显式要求）之后追加；同一 run_id 幂等。
@@ -27,7 +28,11 @@ from sklearn.metrics import roc_auc_score
 from multitaskrec.model import MPTRec
 
 # ---- 冻结常量的独立副本（与 latent_diag 逐项相等；由测试锁定）----
-FORMAL_STAGE1_ID = "s1-5c060b9c-m1688723512-e3-3a30e2c0"
+# 扩展分支（seeds2–3）：正式运行只认这些 (model_seed → Stage-1 ID) 冻结配对；不含 seed1。
+FORMAL_SEED_STAGE1_PAIRS = {
+    1688723740: "s1-5c060b9c-m1688723740-e3-4e1b5c6f",
+    1688738016: "s1-5c060b9c-m1688738016-e3-47619ce0",
+}
 FORMAL_FINGERPRINT_SHA256 = (
     "5c060b9c5c9d0e235ec815e1b488b9dec222fc37887ad2eedd2afadc82bdd0d8"
 )
@@ -542,10 +547,15 @@ def verify_run(run_dir, root, *, append_summary=None, log=print) -> dict:
     # ---- 身份/冻结门禁的独立重算 ----
     identity_checks = {
         "stage1_id_recorded": meta.get("stage1_id") == stage1_id,
+        "stage1_meta_seed_match": int(meta.get("model_seed", -1)) == int(config["model_seed"]),
         "fingerprint_match": meta.get("fingerprint_sha256") == fp["fingerprint_sha256"],
         "budgets_match_fp": budgets_match_fp,
         "backbone_sha_match": backbone_sha == meta.get("backbone_sha256"),
-        "formal_stage1_match": (stage1_id == FORMAL_STAGE1_ID) if enforce else True,
+        # 独立重判（不采信 runner 的接受决定）：(config.model_seed → stage1_id) 必须命中本验证器
+        # 自持的冻结白名单副本（不含 seed1；见 FORMAL_SEED_STAGE1_PAIRS）
+        "formal_seed_stage1_pair_match": (
+            FORMAL_SEED_STAGE1_PAIRS.get(int(config["model_seed"])) == stage1_id
+        ) if enforce else True,
         "formal_fingerprint_match": (fp["fingerprint_sha256"] == FORMAL_FINGERPRINT_SHA256) if enforce else True,
     }
     identity_ok = all(identity_checks.values())
@@ -645,7 +655,12 @@ def verify_run(run_dir, root, *, append_summary=None, log=print) -> dict:
             recorded.get("verdict"),
         )
         recomputed["verdict"] = "ABORT_NO_GO"
+        # 诊断三元与 OK 路径一致地暴露（独立报告消费方不区分路径）：
         recomputed["identity_ok"] = identity_ok
+        recomputed["freeze_ok"] = bool(freeze_ok)
+        # 中止路径的计数一致性诊断：仅由中止路径已定义的事实构成（raw 逐切分计数 vs config、
+        # 原始扫描计数 vs config）；负例下限（MIN_NEGATIVES）本身是合法中止原因，不并入此诊断。
+        recomputed["counts_ok"] = bool(raw_counts_ok and scan_ok)
     else:
         # ---- 正常路径：置换 → 标准化 → 探针 → 概率 → AUC/Δ/门禁 全部独立重算 ----
         lengths = {
@@ -843,6 +858,8 @@ def verify_run(run_dir, root, *, append_summary=None, log=print) -> dict:
     failed = [c["id"] for c in checks if not c["ok"]]
     log(f"[verify] overall={overall} checks={len(checks)} failed={failed}")
 
+    # recomputed 白名单：identity/freeze/counts 诊断在 OK 与 ABORT 两条路径都必须落盘
+    # （回归：中止路径曾把已写入的 identity_ok 过滤掉 → 独立报告消费方 KeyError）
     verification = {
         "run_id": run_id,
         "verified_at": datetime.now().isoformat(timespec="seconds"),
@@ -851,7 +868,10 @@ def verify_run(run_dir, root, *, append_summary=None, log=print) -> dict:
         "checks": checks,
         "recomputed": {
             k: v for k, v in recomputed.items()
-            if k in ("status", "aucs", "deltas", "classification", "verdict", "signal_positive", "gates", "negatives")
+            if k in (
+                "status", "aucs", "deltas", "classification", "verdict", "signal_positive",
+                "gates", "negatives", "identity_ok", "freeze_ok", "counts_ok",
+            )
         },
     }
     (run_dir / "verification.json").write_text(
