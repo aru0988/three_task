@@ -57,3 +57,9 @@ artifacts/aliccp_bench/splits/
 artifacts/aliccp_bench/stage1/
 artifacts/aliccp_bench/runs/
 !artifacts/aliccp_bench/SUMMARY.md
+
+# ==============================
+# 7. 潜在跨任务诊断（2026-10-08 预注册）smoke 工作区
+# ==============================
+# smoke 自建的微型 splits/stage1/runs/logs 全部本地化；LATENT_DIAG_SUMMARY.md 入库
+artifacts/aliccp_latent_diag_smoke/
