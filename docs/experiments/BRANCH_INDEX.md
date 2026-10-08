@@ -1,6 +1,8 @@
 # Experiment branch inventory and direction map
 
-Snapshot: 2026-10-08, local `origin/exp/*` refs. This is a provenance inventory, not a claim that experiments have been migrated. There are **39** remote experiment refs, each listed exactly once below. `master`, `main`, infrastructure baselines, and `archive/exploration` are outside this experiment-direction inventory. No remote ref has yet been deleted by this consolidation.
+The tables below are a **pre-consolidation snapshot** from 2026-10-08: they list the original 39 `origin/exp/*` branch names and their exact tips. They are provenance, **not a list of branches currently on GitHub**. `master`, `main`, infrastructure baselines, and `archive/exploration` are outside this inventory.
+
+After branch-name consolidation on 2026-10-08, GitHub has **14** `exp/*` branches: the eight maintained direction branches named below and the six distinct single-branch directions listed near the end. The 33 original tips in the eight grouped directions are retained as `archive/experiment/exp/<original-branch-name>` tags; their old remote branch names were removed. No `master` merge was performed. The maintained branches contain a direction-level results ledger and one selected code lineage; they **do not combine every historical code variant into one Git ancestry or working tree**. Use the archive tags to recover a variant's exact code and records.
 
 ## Stage-2 Residual Prompt (12)
 
