@@ -1,0 +1,137 @@
+{
+  "dataset": "AliCCP",
+  "commit": "d9a2a040c39ef8953fd326ed454e50ca9b486b85",
+  "dirty": false,
+  "smoke": false,
+  "model_seed": 1688723512,
+  "env_seed": 20261003,
+  "budgets": {
+    "train": 2000000,
+    "val": 500000,
+    "test": 1000000
+  },
+  "fingerprint": {
+    "prefix_tag": "p2M-v500k-t1M",
+    "budgets": {
+      "train": 2000000,
+      "val": 500000,
+      "test": 1000000
+    },
+    "files": {
+      "train": {
+        "path": "dataset\\AliCCP\\ctr_cvr.train",
+        "size_bytes": 2473647855,
+        "prefix_sha256": "129b0a9e275a8220ade07a743a92abe3e7d1d505ad2e0717764524c0f25a208e"
+      },
+      "val": {
+        "path": "dataset\\AliCCP\\ctr_cvr.dev",
+        "size_bytes": 274769757,
+        "prefix_sha256": "ea65f591e669f942a517cec3720eae52eff24c74b17c7f45daa389a0b75c9d7b"
+      },
+      "test": {
+        "path": "dataset\\AliCCP\\ctr_cvr.test",
+        "size_bytes": 2711167840,
+        "prefix_sha256": "919428511d2814732b82c057924eb2dad962e444a1e61ff503e6bf295e425696"
+      }
+    },
+    "header_sha256": "3288b17a9f8d6eee488e3665090b8f2bd63146d7dd6f6183d69aa0d5cf0ae9cc",
+    "label_counts": {
+      "train": {
+        "n": 2000000,
+        "click1": 92899,
+        "purchase1": 566,
+        "bsi_pos": 1983079,
+        "bsi_raw": {
+          "1": 792282,
+          "2": 16921,
+          "3": 1190797
+        }
+      },
+      "val": {
+        "n": 500000,
+        "click1": 23297,
+        "purchase1": 141,
+        "bsi_pos": 496205,
+        "bsi_raw": {
+          "1": 211656,
+          "2": 3795,
+          "3": 284549
+        }
+      },
+      "test": {
+        "n": 1000000,
+        "click1": 47163,
+        "purchase1": 346,
+        "bsi_pos": 989976,
+        "bsi_raw": {
+          "1": 439575,
+          "2": 10024,
+          "3": 550401
+        }
+      }
+    },
+    "duplicate_stats": {
+      "train_within": 100330,
+      "val_within": 3677,
+      "test_within": 57835,
+      "train_val": 18505,
+      "train_test": 20581,
+      "val_test": 3007
+    },
+    "fingerprint_sha256": "5c060b9c5c9d0e235ec815e1b488b9dec222fc37887ad2eedd2afadc82bdd0d8"
+  },
+  "source": "D:\\MPT-Rec-three_task\\MPT-Rec",
+  "actual_prefixes": {
+    "train": {
+      "prefix_sha256": "129b0a9e275a8220ade07a743a92abe3e7d1d505ad2e0717764524c0f25a208e",
+      "label_counts": {
+        "n": 2000000,
+        "click1": 92899,
+        "purchase1": 566,
+        "bsi_pos": 1983079,
+        "bsi_raw": {
+          "1": 792282,
+          "2": 16921,
+          "3": 1190797
+        }
+      }
+    },
+    "val": {
+      "prefix_sha256": "ea65f591e669f942a517cec3720eae52eff24c74b17c7f45daa389a0b75c9d7b",
+      "label_counts": {
+        "n": 500000,
+        "click1": 23297,
+        "purchase1": 141,
+        "bsi_pos": 496205,
+        "bsi_raw": {
+          "1": 211656,
+          "2": 3795,
+          "3": 284549
+        }
+      }
+    },
+    "test": {
+      "prefix_sha256": "919428511d2814732b82c057924eb2dad962e444a1e61ff503e6bf295e425696",
+      "label_counts": {
+        "n": 1000000,
+        "click1": 47163,
+        "purchase1": 346,
+        "bsi_pos": 989976,
+        "bsi_raw": {
+          "1": 439575,
+          "2": 10024,
+          "3": 550401
+        }
+      }
+    }
+  },
+  "stage1_epochs": 3,
+  "stage2_epochs": 5,
+  "batch_size": 2000,
+  "lr": 0.0001,
+  "created": "2026-10-09T11:36:55.643758",
+  "torch": "2.6.0+cu124",
+  "cuda": "12.4",
+  "u_seed": 1685480946,
+  "mask_seed": 20261009
+}

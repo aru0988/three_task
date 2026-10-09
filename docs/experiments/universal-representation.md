@@ -84,3 +84,43 @@ Implementation plan (inline, approved cross-dataset transfer):
 2. Import unchanged benchmark support from `8133d32`; add `universal_experiment/aliccp.py` for prefix verification, Stage-1 recording, bounded caches and the four heads. Keep Census runner unchanged.
 3. Run model/adapter tests and small-prefix smoke, then commit clean code and execute the canonical short run once.
 4. Independently recompute AUC, hashes, sample counts, U reconstruction and statistics; append results here and push this same branch.
+
+## Initial AliCCP result — 2026-10-09
+
+Preregistration `a9b8498`; clean training commit `d9a2a040c39ef8953fd326ed454e50ca9b486b85`. Evidence: `results/universal/aliccp-seed1688723512/`. Runtime 446.9629 seconds excluding interpreter imports; Stage 1 selected epoch 3, all four Stage-2 heads selected epoch 5. Ten model/transfer tests passed, including CPU and CUDA random-state isolation; a corrected small-prefix smoke completed before this formal run. Unchanged AliCCP benchmark support was imported from `8133d32`, not from an experimental model branch.
+
+| BSI arm | Validation AUC | Test AUC | Stage-2 trainable parameters |
+| --- | ---: | ---: | ---: |
+| B: original baseline | 0.5781533414 | 0.5988392178 | 8129 |
+| U: learned self-supervised expert | 0.5819449076 | 0.5986469590 | 12226 |
+| R: frozen random expert control | 0.5799961346 | 0.6004200533 | 12226 |
+| G: extra General residual control | 0.5793536311 | 0.6017272594 | 12226 |
+
+| U minus control | Validation delta | Test delta | Added threshold classification |
+| --- | ---: | ---: | --- |
+| B | +0.0037915661 | -0.0001922588 | No clear improvement |
+| R | +0.0019487730 | -0.0017730943 | No clear improvement |
+| G | +0.0025912765 | -0.0030803004 | No clear improvement |
+
+**Preregistered NO-GO.** U improves validation relative to all controls but loses on test against all three. R and G exceed B test AUC by +0.0015808355 and +0.0028880416 respectively; these are control-arm observations on a single seed, not evidence that self-supervised U helps, nor grounds to select a new winner using test results.
+
+| Preserved old task | Validation AUC | Test AUC |
+| --- | ---: | ---: |
+| CTR | 0.5493130789 | 0.5481837665 |
+| CVR | 0.5132119173 | 0.5280080347 |
+
+Old-task AUC and the entire base parameter hash exactly match history; fresh B also exactly reproduces the historical BSI metrics and validation learning curve. Final environment counts remain 566 / 1,999,434. Preservation is by design, not an old-task improvement.
+
+U masked reconstruction 0.5178612471 versus zero predictor 0.8125898242; all 64 dimensions have std >.01, mean std 0.6400022907; mean squared U/G correlation 0.0981099295. Shuffled-U validation/test AUC are 0.5552463182 / 0.5779087260: the head uses aligned U, but use does not imply incremental utility. The independent verifier recomputed the AUCs from raw arrays, checked matched labels/counts/selection/budgets/hashes, and reconstructed the U probe using NumPy; all checks in `verification.json` passed.
+
+**Across the two datasets:** U-B test deltas are CensusIncome -0.0002451407 and AliCCP -0.0001922588. Both are no clear improvement, not marked large regressions. Reconstruction and noncollapse are demonstrated; incremental transfer value is not. AliCCP validation/test direction reversal and stronger simple controls weaken the case for simply extending this configuration. A different target/readout remains a hypothesis, not a demonstrated opportunity; no automatic tuning, extra seeds or longer training were performed. This does not rule out all G/U decompositions, only this detached embedding-reconstruction implementation at these budgets.
+
+Reproduce from the recorded clean code commit with a fresh output directory:
+
+```powershell
+python -m unittest universal_experiment.test_aliccp universal_experiment.test_model -v
+python -m universal_experiment.aliccp --source D:\MPT-Rec-three_task\MPT-Rec --out results/universal/aliccp-seed1688723512
+python -m universal_experiment.verify_aliccp results/universal/aliccp-seed1688723512
+```
+
+All result JSON, raw prediction arrays, U diagnostic statistics/probe and selected checkpoints are versioned. Large regenerable representation caches under `cache/` are local and ignored. The same branch contains both datasets; neither original baseline nor master is modified.
