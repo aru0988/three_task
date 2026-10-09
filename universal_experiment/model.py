@@ -13,7 +13,8 @@ class UniversalExpert(nn.Module):
         self.input_dim = sum(widths)
         self.mask_rng = torch.Generator().manual_seed(20261009)
         with torch.random.fork_rng(devices=[]):
-            torch.manual_seed(seed)
+            # Initialize CPU layers without reseeding CUDA dropout generators.
+            torch.random.default_generator.manual_seed(seed)
             self.encoder = nn.Sequential(nn.Linear(self.input_dim + len(widths), hidden),
                                          nn.ReLU(), nn.Linear(hidden, rep_dim))
             self.decoder = nn.Linear(rep_dim, self.input_dim)
@@ -80,7 +81,8 @@ class UniversalStage1(nn.Module):
     def forward(self, x, alpha=1):
         out = self.base(x, alpha)
         if self.training and torch.is_grad_enabled():
-            with torch.no_grad():
+            devices = [next(self.base.parameters()).device.index] if next(self.base.parameters()).is_cuda else []
+            with torch.random.fork_rng(devices=devices), torch.no_grad():
                 embedded = self.base.embedding_network(x)
                 general = self.base.shared_expert_network(embedded)
             self.auxiliary = self.universal.losses(embedded, general)

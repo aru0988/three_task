@@ -61,3 +61,4 @@ artifacts/census_stage2/splits
 # Universal Representation: raw prediction arrays and JSON evidence are versioned.
 !results/universal/**/*.json
 results/universal-smoke/
+results/universal/**/cache/

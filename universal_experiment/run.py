@@ -90,7 +90,7 @@ def evaluate(head, cache, envs, arm, device, batch_size):
     return float(roc_auc_score(cache['y'].numpy(), p)), p
 
 
-def train_head(head, caches, envs, arm, device, epochs, out):
+def train_head(head, caches, envs, arm, device, epochs, out, cpu_loss=False):
     opt = torch.optim.Adam(head.parameters(), lr=P.LR)
     best = -1.; state = None; stale = 0; history = []; best_epoch = 0
     start = time.perf_counter()
@@ -98,7 +98,8 @@ def train_head(head, caches, envs, arm, device, epochs, out):
         head.train(); total = 0.; steps = 0
         for b in batches(caches['train'], device, P.BATCH_SIZE):
             opt.zero_grad()
-            loss = torch.nn.functional.binary_cross_entropy(predict(head, b, envs, arm), b['y']) + head.get_l2_reg()
+            prediction = predict(head, b, envs, arm)
+            loss = torch.nn.functional.binary_cross_entropy(prediction.cpu() if cpu_loss else prediction, b['y'].cpu() if cpu_loss else b['y']) + head.get_l2_reg()
             loss.backward(); opt.step()
             total += float(loss.detach()); steps += 1
         va, _ = evaluate(head, caches['val'], envs, arm, device, P.BATCH_SIZE)
