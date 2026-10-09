@@ -11,16 +11,28 @@ import itertools
 import json
 import os
 import sys
+import time
 from pathlib import Path
 
 import torch
 from torch.utils.data import DataLoader
 
 from benchmark import gates
-from benchmark.protocol import canonical_json, sha256_bytes, stage1_id
+from benchmark.cliutil import write_json
+from benchmark.metrics import auc
+from benchmark.profile import DatasetProfile
+from benchmark.protocol import (
+    append_summary_row,
+    backbone_sha256,
+    canonical_json,
+    git_state,
+    sha256_bytes,
+    sha256_tensor,
+    stage1_id,
+)
 from config import AliCCP_Vocabulary_Size
 from multitaskrec.dataset import AliCCPDataset
-from multitaskrec.model import MPTRec
+from multitaskrec.model import MPTRec, NewTask
 
 # ---- 前缀预算（spec 5.1）----
 PREFIX_TAG = "p2M-v500k-t1M"
@@ -316,6 +328,37 @@ def env_accuracy_probe(model, loader, env_ids, batch_size, device, max_batches=2
     return correct / max(1, total)
 
 
+@torch.no_grad()
+def evaluate_newtask(newtask, model, loader, device) -> float:
+    """阶段 2 评测口径与仓库 AliCCP_NewTask.py 的 evaluation() 一致（spec 7.5）。"""
+    newtask.eval()
+    y_true, y_hat = [], []
+    for _, _, y, features in loader:
+        for key in features:
+            features[key] = features[key].to(device)
+        dnn_input, gen_rep, spec_reps, env_embs = model.get_infos(features)
+        pred = newtask(dnn_input, gen_rep, spec_reps, env_embs)
+        y_true.append(y)
+        y_hat.append(pred)
+    return auc(torch.cat(y_true), torch.cat(y_hat))
+
+
+@torch.no_grad()
+def newtask_gate_mean(newtask, model, loader, device) -> list:
+    """M3：val 上 NewTask.gate_network 的平均输出（2 维），no_grad 累积（spec 9.2）。"""
+    newtask.eval()
+    total = None
+    count = 0
+    for _, _, _, features in loader:
+        for key in features:
+            features[key] = features[key].to(device)
+        dnn_input, _, _, _ = model.get_infos(features)
+        gate = newtask.gate_network(dnn_input)
+        total = gate.sum(dim=0) if total is None else total + gate.sum(dim=0)
+        count += gate.shape[0]
+    return [float(v) / max(1, count) for v in total]
+
+
 # ---- 门禁判定（原 aliccp_benchmark.metrics；spec 10）----
 def _a_outcomes(facts: dict) -> list:
     """A 类协议正确性门禁（spec 10）。A3 为按需复跑，首轮 SKIP。"""
@@ -385,3 +428,322 @@ def hard_pass(a_gates: dict, enforce_b: bool, b_gates: dict | None = None) -> bo
         return a_ok
     return a_ok and b_gates is not None and gates.hard_pass(
         (g["verdict"] for g in b_gates.values()), allowed=(gates.PASS, gates.NA))
+
+
+def build_profile(*, prefix_tag: str = PREFIX_TAG, data_files=None, budgets=None,
+                  model_seed: int = MODEL_SEED, env_seed: int = ENV_SEED,
+                  stage1_epochs: int = STAGE1_EPOCHS, stage1_patience: int = STAGE1_PATIENCE,
+                  stage2_epochs: int = STAGE2_EPOCHS, stage2_patience: int = STAGE2_PATIENCE,
+                  vocab=None, expert_hidden=EXPERT_HIDDEN, tower_hidden=TOWER_HIDDEN,
+                  embedding_size: int = EMBEDDING_SIZE, input_size: int = INPUT_SIZE,
+                  batch_size: int = BATCH_SIZE, lr: float = LR, uni_coe: float = UNI_COE,
+                  env_coe: float = ENV_COE, reg_embedding: float = REG_EMBEDDING,
+                  reg_dnn: float = REG_DNN, dropout=DROPOUT, newtask_rep_dim=None,
+                  enforce_b: bool = True, log_batches: int = 200, log=print) -> DatasetProfile:
+    """aliccp 两阶段适配；data_files/budgets/vocab 与模型结构参数供 tiny e2e 测试注入。
+
+    enforce_b 只影响阶段 2 门禁与落盘字段；log 只接管阶段 1 控制台输出（阶段 2 用 pipeline 的 log）。
+    """
+    resolved_vocab = dict(vocab) if vocab is not None else build_vocab()
+    resolved_files = dict(DATA_FILES) if data_files is None else dict(data_files)
+    resolved_budgets = ({"train": TRAIN_BUDGET, "val": VAL_BUDGET, "test": TEST_BUDGET}
+                        if budgets is None else dict(budgets))
+    rep_dim = int(newtask_rep_dim) if newtask_rep_dim is not None else int(list(expert_hidden)[-1])
+
+    def prepare(root):
+        t0 = time.time()
+        log(f"[stage1] 开始：prefix={prefix_tag} budgets={resolved_budgets} "
+            f"model_seed={model_seed} env_seed={env_seed}")
+        datasets, loaders = build_loaders(resolved_files, resolved_budgets, batch_size)
+        files_budgets = {split: (Path(resolved_files[split]), resolved_budgets[split])
+                         for split in ("train", "val", "test")}
+        fp, created = ensure_fingerprint(root, prefix_tag, files_budgets)
+        log(f"[stage1] 前缀指纹 {'构建并落盘' if created else '读取校验'}：{fp['fingerprint_sha256'][:16]}")
+        if not _budget_of(datasets, resolved_budgets):
+            raise AssertionError("A4: 样本数与预算不符")
+        for split in ("train", "val", "test"):
+            verify_label_counts(datasets[split], resolved_budgets[split], fp["label_counts"][split])
+        log("[stage1] A4 通过：三切分样本数与标签计数与指纹逐项相等")
+        return {"loaders": loaders, "datasets": datasets, "fp": fp, "budgets": resolved_budgets,
+                "data_files": resolved_files, "t0": t0}
+
+    def build_model(device):
+        _reset_peak_vram(device)
+        return build_mptrec(device, vocab=resolved_vocab, expert_hidden=expert_hidden,
+                            tower_hidden=tower_hidden, embedding_size=embedding_size,
+                            input_size=input_size, reg_embedding=reg_embedding,
+                            reg_dnn=reg_dnn, dropout=dropout)
+
+    def manager_kwargs(ctx, epochs):
+        ld = ctx["loaders"]
+        return {"train_loader": ld["train"], "val_loader": ld["val"], "task_name": ["CTR", "CVR"],
+                "lr": lr, "batch_size": batch_size, "uni_coe": uni_coe, "env_coe": env_coe,
+                "epochs": epochs, "patience": stage1_patience,
+                "record_env_acc": False, "cluster_epoch_offset": 1}
+
+    def post_train(model, manager, ctx, device):
+        test_aucs = manager.evaluation_two_task(ctx["loaders"]["test"])
+        env_acc = env_accuracy_probe(model, ctx["loaders"]["train"], manager.env_ids,
+                                     batch_size, device, log_batches)
+        return {"test_aucs": test_aucs, "env_acc": env_acc}
+
+    def build_cfg(ctx, epochs):
+        return {
+            "prefix_tag": prefix_tag,
+            "budgets": dict(ctx["budgets"]),
+            "model_seed": int(model_seed),
+            "env_seed": int(env_seed),
+            "epochs": int(epochs),
+            "patience": int(stage1_patience),
+            "batch_size": int(batch_size),
+            "lr": float(lr),
+            "uni_coe": float(uni_coe),
+            "env_coe": float(env_coe),
+            "reg_embedding": float(reg_embedding),
+            "reg_dnn": float(reg_dnn),
+            "embedding_size": int(embedding_size),
+            "input_size": int(input_size),
+            "expert_hidden": list(expert_hidden),
+            "tower_hidden": list(tower_hidden),
+            "dropout": [float(d) for d in dropout],
+            "num_tasks": NUM_TASKS,
+            "vocab": {str(k): int(v) for k, v in sorted(resolved_vocab.items())},
+        }
+
+    def build_meta(*, sid, cfg, cfg_sha, ctx, model, manager, env_ids, post, commit, epochs):
+        per_epoch = []
+        for i in range(len(manager.val_epoch_aucs)):
+            per_epoch.append({
+                "epoch": i + 1,
+                "auc_val_ctr": manager.val_epoch_aucs[i][0],
+                "auc_val_cvr": manager.val_epoch_aucs[i][1],
+                "uni_loss_0": float(manager.uni_loss_0_list[i]),
+                "uni_loss_1": float(manager.uni_loss_1_list[i]),
+                "fuse_loss_0": float(manager.fused_loss_0_list[i]),
+                "fuse_loss_1": float(manager.fused_loss_1_list[i]),
+                "env_loss": float(manager.env_loss_list[i]),
+            })
+        best_epoch = manager.best_epoch()
+        device = next(model.parameters()).device
+        return {
+            "stage1_id": sid,
+            "prefix_tag": prefix_tag,
+            "budgets": dict(ctx["budgets"]),
+            "model_seed": int(model_seed),
+            "env_seed": int(env_seed),
+            "epochs": int(epochs),
+            "patience": int(stage1_patience),
+            "config_hash": cfg_sha,
+            "config": cfg,
+            "fingerprint_sha256": ctx["fp"]["fingerprint_sha256"],
+            "per_epoch": per_epoch,
+            "best_epoch": best_epoch,
+            "best_val_auc_ctr": manager.val_epoch_aucs[best_epoch - 1][0],
+            "best_val_auc_cvr": manager.val_epoch_aucs[best_epoch - 1][1],
+            "test_auc_ctr": float(post["test_aucs"][0]),
+            "test_auc_cvr": float(post["test_aucs"][1]),
+            "env_acc": float(post["env_acc"]),
+            "cluster_events": [{"epoch": r["epoch"], "diff_num": r["diff_num"],
+                                "env_0": r["env_counts"][0], "env_1": r["env_counts"][1]}
+                               for r in manager.cluster_records],
+            "backbone_sha256": backbone_sha256(model),
+            "env_ids_sha256": sha256_tensor(env_ids),
+            "commit": commit,
+            "git": git_state(),
+            "versions": _versions(),
+            "device": str(device),
+            "wall_seconds": round(time.time() - ctx["t0"], 1),
+            "peak_vram_mb": (round(torch.cuda.max_memory_allocated(device.index) / 1e6, 1)
+                             if device.type == "cuda" else None),
+        }
+
+    def log_summary(sid, path, meta):
+        log(f"[stage1] 完成：stage1_id={sid} best_epoch={meta['best_epoch']} "
+            f"test_auc_ctr={meta['test_auc_ctr']:.4f} test_auc_cvr={meta['test_auc_cvr']:.4f} "
+            f"env_acc={meta['env_acc']:.4f} wall={meta['wall_seconds']}s")
+
+    # ---- 阶段 2 ----
+    def prepare_stage2(root, meta, device):
+        t0 = time.time()
+        datasets, loaders = build_loaders(resolved_files, resolved_budgets, batch_size)
+        log_lines = []
+        prefix_sha_ok = True
+        fp = None
+        try:
+            fp = load_fingerprint(root, prefix_tag)
+            verify_fingerprint(fp)
+        except (AssertionError, FileNotFoundError) as exc:  # noqa: BLE001
+            prefix_sha_ok = False
+            log_lines.append(f"[stage2] A2 前缀指纹校验失败：{exc}")
+            if fp is None:
+                fp = {"fingerprint_sha256": None, "label_counts": {}}
+        len_ok = _budget_of(datasets, resolved_budgets)
+        counts_ok = True
+        for split in ("train", "val", "test"):
+            try:
+                verify_label_counts(datasets[split], resolved_budgets[split], fp["label_counts"][split])
+            except (AssertionError, KeyError) as exc:  # noqa: BLE001
+                counts_ok = False
+                log_lines.append(f"[stage2] A4 标签计数失败（{split}）：{exc}")
+        return {"loaders": loaders, "datasets": datasets, "model_seed": model_seed,
+                "prefix_tag": prefix_tag, "budgets": resolved_budgets, "data_files": resolved_files,
+                "fp": fp, "prefix_sha_ok": prefix_sha_ok, "len_ok": len_ok, "counts_ok": counts_ok,
+                "rep_dim": rep_dim, "t0": t0, "log_lines": log_lines}
+
+    def log_stage2_start(sid, tag, ctx2, log):
+        ctx2["sid"] = sid                       # backbone_ready 的 A6 需要比对的请求 id
+        log(f"[stage2] 开始：stage1_id={sid} tag={tag} model_seed={ctx2['model_seed']} "
+            f"enforce_b={enforce_b}")
+        for line in ctx2["log_lines"]:
+            log(line)
+
+    def backbone_ready(backbone, checkpoint, ctx2, log):
+        art_meta = checkpoint["meta"]
+        sha_loaded = backbone_sha256(backbone)
+        matches = sha_loaded == art_meta.get("backbone_sha256")
+        log(f"[stage2] backbone 已加载并冻结：sha={sha_loaded[:16]}（A6 匹配={matches}）")
+        return {"backbone_sha_loaded": sha_loaded, "backbone_sha_matches_stage1": matches,
+                "stage1_id_recorded": art_meta.get("stage1_id") == ctx2["sid"],
+                "fingerprint_sha_match":
+                    art_meta.get("fingerprint_sha256") == ctx2["fp"].get("fingerprint_sha256")}
+
+    def build_newtask(device, ctx2):
+        if ctx2["rep_dim"] != int(list(expert_hidden)[-1]):
+            raise AssertionError("NewTask rep_dim 必须等于 expert_dnn_hidden_units[-1]（env_embs 维度约束）")
+        return NewTask(input_size=input_size, rep_dim=ctx2["rep_dim"],
+                       tower_dnn_hidden_units=list(tower_hidden), reg_dnn=reg_dnn,
+                       device=device).to(device)
+
+    def log_stage2_epoch(epoch, loss, auc_val, stale, stopped, log):
+        log(f"[stage2] Epoch:{epoch} train_loss={loss:.4f} AUC-Val-BSI:{auc_val:.4f}")
+        if stale:
+            log(f"[stage2] EarlyStopping count {stale}")
+        if stopped:
+            log(f"[stage2] EarlyStopping at epoch {epoch}")
+
+    def final_eval(newtask, backbone, ctx2, device):
+        return {"test_auc": evaluate_newtask(newtask, backbone, ctx2["loaders"]["test"], device),
+                "gate_mean": newtask_gate_mean(newtask, backbone, ctx2["loaders"]["val"], device)}
+
+    def build_gates(final, ctx2, meta, facts, best_auc, log):
+        a_gates = evaluate_a_gates({
+            "backbone_sha_before": facts["sha_before"],
+            "backbone_sha_after": facts["sha_after"],
+            "backbone_grads_none": facts["grads_all_none"],
+            "prefix_sha_ok": ctx2["prefix_sha_ok"],
+            "fingerprint_sha_match": facts["fingerprint_sha_match"],
+            "len_ok": ctx2["len_ok"],
+            "counts_ok": ctx2["counts_ok"],
+            "env_ids_sha_match": facts["env_ids_ok"],
+            "backbone_sha_matches_stage1": facts["backbone_sha_matches_stage1"],
+            "stage1_id_recorded": facts["stage1_id_recorded"],
+        })
+        b_gates = evaluate_b_gates({
+            "auc_val_ctr": meta.get("best_val_auc_ctr", 0.0),
+            "auc_val_cvr": meta.get("best_val_auc_cvr", 0.0),
+            "auc_val_bsi_best": best_auc,
+            "auc_test_bsi": final["test_auc"],
+            "gate_mean": final["gate_mean"],
+            "cluster_events": meta.get("cluster_events", []),
+            "train_size": ctx2["budgets"]["train"],
+        })
+        return {**a_gates, **b_gates}, hard_pass(a_gates, enforce_b, b_gates)
+
+    def write_artifacts(run_path, bundle):
+        ctx2, meta, facts, final = bundle["ctx2"], bundle["meta"], bundle["facts"], bundle["final"]
+        run_id = bundle["run_id"]
+        torch.save({k: v.detach().cpu() for k, v in bundle["newtask"].state_dict().items()},
+                   run_path / "newtask.pt")
+        wall = round(time.time() - ctx2["t0"], 1)
+        metrics_doc = {
+            "run_id": run_id,
+            "tag": bundle["tag"],
+            "stage1_id": bundle["stage1_id"],
+            "prefix_tag": ctx2["prefix_tag"],
+            "budgets": dict(ctx2["budgets"]),
+            "model_seed": int(ctx2["model_seed"]),
+            "epochs": int(bundle["epochs"]),
+            "patience": int(stage2_patience),
+            "enforce_b": bool(enforce_b),
+            "best_epoch": bundle["best_epoch"],
+            "best_val_auc_bsi": float(bundle["best_auc"]),
+            "test_auc_bsi": float(final["test_auc"]),
+            "gate_mean": final["gate_mean"],
+            "per_epoch": bundle["epoch_records"],
+            "backbone_sha256_loaded": facts["backbone_sha_loaded"],
+            "backbone_sha256_before": facts["sha_before"],
+            "backbone_sha256_after": facts["sha_after"],
+            "backbone_grads_none": facts["grads_all_none"],
+            "env_ids_sha256": sha256_tensor(bundle["env_ids"]),
+            "fingerprint_sha256": ctx2["fp"].get("fingerprint_sha256"),
+            "hard_pass": bool(bundle["passed"]),
+            "commit": bundle["commit"],
+            "git": git_state(),
+            "versions": _versions(),
+            "device": str(bundle["device"]),
+            "wall_seconds": wall,
+            "peak_vram_mb": (round(torch.cuda.max_memory_allocated(bundle["device"].index) / 1e6, 1)
+                             if bundle["device"].type == "cuda" else None),
+        }
+        config_doc = {
+            "run_id": run_id,
+            "tag": bundle["tag"],
+            "stage1_id": bundle["stage1_id"],
+            "data_files": {k: str(v) for k, v in ctx2["data_files"].items()},
+            "budgets": dict(ctx2["budgets"]),
+            "model_seed": int(ctx2["model_seed"]),
+            "batch_size": int(batch_size),
+            "lr": float(lr),
+            "reg_dnn": float(reg_dnn),
+            "newtask_rep_dim": ctx2["rep_dim"],
+            "expert_hidden": list(expert_hidden),
+            "tower_hidden": list(tower_hidden),
+            "input_size": int(input_size),
+            "embedding_size": int(embedding_size),
+            "enforce_b": bool(enforce_b),
+            "commit": bundle["commit"],
+            "git": git_state(),
+        }
+        gate_doc = {"run_id": run_id, "tag": bundle["tag"], "enforce_b": bool(enforce_b),
+                    "gates": bundle["gates_doc"], "hard_pass": bool(bundle["passed"])}
+        write_json(run_path / "metrics.json", metrics_doc)
+        write_json(run_path / "config.json", config_doc)
+        write_json(run_path / "gate_report.json", gate_doc)
+        append_summary_row(bundle["root"] / "SUMMARY.md", {
+            "run_id": run_id, "commit": bundle["commit"], "tag": bundle["tag"],
+            "auc_val_bsi_best": f"{bundle['best_auc']:.6f}",
+            "auc_test_bsi": f"{final['test_auc']:.6f}",
+            "stage1_id": bundle["stage1_id"],
+            **{gate_id: bundle["gates_doc"][gate_id]["verdict"]
+               for gate_id in ("A1", "A2", "A3", "A4", "A5", "A6", "B1", "B2", "B3", "B4")},
+        }, SUMMARY_COLUMNS)
+        ctx2["wall_seconds"] = wall
+        return {"gates": bundle["gates_doc"], "metrics": metrics_doc,
+                "hard_pass": bool(bundle["passed"])}
+
+    def log_stage2_end(bundle, log):
+        log(f"[stage2] 完成：run_id={bundle['run_id']} "
+            f"AUC-Val-BSI(best)={bundle['best_auc']:.4f} "
+            f"AUC-Test-BSI={bundle['final']['test_auc']:.4f} hard_pass={bundle['passed']} "
+            f"wall={bundle['ctx2']['wall_seconds']}s")
+
+    return DatasetProfile(
+        name="aliccp", model_seed=model_seed, env_seed=env_seed,
+        stage1_epochs=stage1_epochs, stage2_epochs=stage2_epochs,
+        stage2_patience=stage2_patience, stage2_lr=lr,
+        stage2_cpu_loss=True, stage2_catch_grads=True,
+        prepare=prepare, build_model=build_model,
+        train_size=lambda ctx: len(ctx["datasets"]["train"]),
+        manager_kwargs=manager_kwargs, post_train=post_train, build_cfg=build_cfg,
+        fingerprint_sha=lambda ctx: ctx["fp"]["fingerprint_sha256"],
+        state_dict=lambda model: {k: v.detach().cpu() for k, v in model.state_dict().items()},
+        build_meta=build_meta, after_save=lambda stage1_path, log_buffer: None,
+        log_summary=log_summary, prepare_stage2=prepare_stage2,
+        log_stage2_start=log_stage2_start, backbone_ready=backbone_ready,
+        build_newtask=build_newtask,
+        val_auc=lambda newtask, backbone, loader, device: evaluate_newtask(newtask, backbone, loader, device),
+        epoch_record=lambda epoch, loss, auc_val: {"epoch": epoch, "train_loss": loss, "val_auc_bsi": auc_val},
+        log_stage2_epoch=log_stage2_epoch, final_eval=final_eval,
+        log_grads_failure=lambda exc, log: log(f"[stage2] A1 失败：{exc}"),
+        build_gates=build_gates, run_id_prefix=lambda ctx2: ctx2["prefix_tag"],
+        write_artifacts=write_artifacts, log_stage2_end=log_stage2_end)
