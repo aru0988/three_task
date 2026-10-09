@@ -2,7 +2,13 @@
 from __future__ import annotations
 
 import contextlib
+import json
 import sys
+from pathlib import Path
+
+
+def write_json(path: Path, payload: dict) -> None:
+    path.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
 
 
 @contextlib.contextmanager

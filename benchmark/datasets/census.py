@@ -11,15 +11,24 @@ from pathlib import Path
 
 import numpy as np
 import torch
+import torch.nn.functional as F
 from sklearn.model_selection import train_test_split
 from torch.utils.data import DataLoader, Subset
 
 from benchmark import gates
+from benchmark.cliutil import write_json
+from benchmark.metrics import auc
 from benchmark.profile import DatasetProfile
-from benchmark.protocol import backbone_sha256, canonical_json, sha256_bytes, sha256_tensor
+from benchmark.protocol import (
+    append_summary_row,
+    backbone_sha256,
+    canonical_json,
+    sha256_bytes,
+    sha256_tensor,
+)
 from config import CensusIncome_Vocabulary_Size
 from multitaskrec.dataset import CensusIncomeDataset
-from multitaskrec.model import MPTRec
+from multitaskrec.model import MPTRec, NewTask
 
 # ---- 三个独立种子（spec 5.2）----
 SPLIT_SEED = 20260929          # 唯一决定 val/test 划分，跨 model seed 恒定
@@ -141,15 +150,89 @@ def judge(*, backbone_sha_equal: bool, grads_all_none: bool, split_ok: bool, spl
     return report
 
 
-# ---- 阶段 1 profile（供 benchmark/pipeline.run_stage1）----
+# ---- 机制指标 M3/M4 与新任务头评估（搬自 census_benchmark/metrics.py，行为不变）----
+class GateStats:
+    """M3：各 gate 在样本维度的平均权重（流式累加，显存 O(1)）。
+
+    gate_networks[i] 输出 2 维（specific 分支 / general 分支）且过 softmax → 两维互补，
+    故 result() 报告**每个任务 specific 分支**的样本均值（= 1 − general 分支均值），长度 = num_tasks；
+    这正是 B3「未坍缩到单一分支」判据所需的量（0.05 / 0.95 即两端的坍缩边界）。
+    """
+
+    def __init__(self, num_tasks: int = NUM_TASKS):
+        self.total = torch.zeros(num_tasks, 2, dtype=torch.float64)
+        self.count = 0
+
+    def update(self, gate_outs: list[torch.Tensor]) -> None:
+        for i, gate_out in enumerate(gate_outs):
+            # 累加器恒在 CPU：先在原设备归约，再显式 .cpu()，否则 CPU 累加器接 CUDA 张量会 device mismatch
+            self.total[i] += gate_out.detach().double().sum(dim=0).cpu()
+        self.count += gate_outs[0].shape[0]
+
+    def result(self) -> list[float]:
+        return (self.total[:, 0] / max(self.count, 1)).tolist()
+
+
+class RepStats:
+    """M4：cos(gen_rep, spec_rep_i) 均值 + gen_rep 各维标准差均值（防常量表征）。
+
+    用累加和 / 平方和代替"按固定 seed 抽样后保存中间张量"：全量、显存 O(1)、不受抽样影响。
+    """
+
+    def __init__(self, num_tasks: int = NUM_TASKS):
+        self.cos_sum = torch.zeros(num_tasks, dtype=torch.float64)
+        self.gen_sum = self.gen_sq_sum = None
+        self.count = 0
+
+    def update(self, gen_rep: torch.Tensor, spec_reps: list[torch.Tensor]) -> None:
+        gen = gen_rep.detach().double()
+        # 同 GateStats：归约留在原设备，结果显式 .cpu()，三个累加器恒为 CPU（result() 的返回类型不变）
+        gen_sum = gen.sum(dim=0).cpu()
+        gen_sq_sum = (gen * gen).sum(dim=0).cpu()
+        self.gen_sum = gen_sum if self.gen_sum is None else self.gen_sum + gen_sum
+        self.gen_sq_sum = gen_sq_sum if self.gen_sq_sum is None else self.gen_sq_sum + gen_sq_sum
+        for i, spec in enumerate(spec_reps):
+            self.cos_sum[i] += F.cosine_similarity(gen, spec.detach().double(), dim=1).sum().cpu()
+        self.count += gen.shape[0]
+
+    def result(self) -> dict:
+        n = max(self.count, 1)
+        mean = self.gen_sum / n
+        std = (self.gen_sq_sum / n - mean * mean).clamp_min(0).sqrt()
+        return {"cos_gen_spec": (self.cos_sum / n).tolist(), "gen_std": float(std.mean())}
+
+
+@torch.no_grad()
+def evaluate_newtask(newtask, backbone, loader, device, *, mechanism: bool = False) -> dict:
+    """评估新任务头。mechanism=True 时额外算 M3/M4（只在 val 上开一次）。"""
+    newtask.eval(); backbone.eval()                 # 三件套之 2：backbone 恒为 eval
+    ys, preds = [], []
+    gate = GateStats() if mechanism else None
+    rep = RepStats() if mechanism else None
+    for _, _, y, features in loader:
+        features = {key: value.to(device) for key, value in features.items()}
+        dnn_input, gen_rep, spec_reps, env_embs = backbone.get_infos(features)   # 三件套之 3：no_grad 抽取
+        pred = newtask(dnn_input, gen_rep, spec_reps, env_embs)
+        ys.append(y); preds.append(pred.detach())
+        if mechanism:
+            gate.update([backbone.gate_networks[i](dnn_input) for i in range(NUM_TASKS)])
+            rep.update(gen_rep, spec_reps)
+    out = {"auc": auc(torch.cat(ys), torch.cat(preds))}
+    if mechanism:
+        out["gate_mean"] = gate.result(); out.update(rep.result())
+    return out
+
+
+# ---- 数据集 profile（供 benchmark/pipeline 两阶段编排）----
 def stage1_epoch_records(manager) -> list:
     """census 侧 epoch_records（旧 Stage1HookTrainManager.epoch_records 的等价重建）。"""
     return [{"epoch": i + 1, "auc_val_income": aucs[0], "auc_val_marital": aucs[1],
              "env_acc": manager.env_accs[i]} for i, aucs in enumerate(manager.val_epoch_aucs)]
 
 
-def stage1_profile(*, split_seed: int = SPLIT_SEED, loaders=None, stats=None, indices=None) -> DatasetProfile:
-    """census 阶段 1 适配；loaders/stats/indices 仅供 tiny e2e 测试注入。"""
+def build_profile(*, split_seed: int = SPLIT_SEED, loaders=None, stats=None, indices=None,
+                  input_size: int = INPUT_SIZE, rep_dim: int = EXPERT_HIDDEN[-1]) -> DatasetProfile:
+    """census 两阶段适配；loaders/stats/indices 与 input_size/rep_dim 仅供 tiny e2e 测试注入。"""
 
     def prepare(root):
         if loaders is not None:
@@ -201,12 +284,111 @@ def stage1_profile(*, split_seed: int = SPLIT_SEED, loaders=None, stats=None, in
     def after_save(stage1_path, log_buffer):
         (stage1_path / "stdout.log").write_text(log_buffer.getvalue(), encoding="utf-8")
 
+    # ---- 阶段 2 ----
+    def prepare_stage2(root, meta, device):
+        if loaders is not None:
+            ld, st, ix = loaders, stats, indices
+        else:
+            ld, st, ix = build_census_loaders(meta["split_seed"])
+        val_idx, test_idx = ix
+        fp = split_fingerprint(split_seed=meta["split_seed"], stats=st, val_idx=val_idx, test_idx=test_idx)
+        split_ok = (verify_split_fingerprint(fp, load_split_fingerprint(root, meta["split_seed"]))
+                    and fp["fingerprint_sha256"] == meta["split_fingerprint_sha256"])
+        return {"loaders": ld, "model_seed": meta["model_seed"], "split_seed": meta["split_seed"],
+                "split_ok": split_ok, "split_stats_ok": bool(st["disjoint"] and st["union_complete"]),
+                "fp": fp, "input_size": input_size, "rep_dim": rep_dim}
+
+    def build_newtask(device, ctx2):
+        return NewTask(input_size=ctx2["input_size"], rep_dim=ctx2["rep_dim"],
+                       tower_dnn_hidden_units=list(TOWER_HIDDEN), reg_dnn=REG_DNN,
+                       device=device).to(device)
+
+    def val_auc(newtask, backbone, loader, device):
+        return evaluate_newtask(newtask, backbone, loader, device)["auc"]
+
+    def epoch_record(epoch, loss, auc_val):
+        return {"epoch": epoch, "loss": loss, "auc_val_education": auc_val}
+
+    def log_stage2_epoch(epoch, loss, auc_val, stale, stopped, log):
+        log(f"[stage2] epoch={epoch} loss={loss:.4f} auc_val_education={auc_val:.4f}")
+        if stopped:
+            log(f"[stage2] early stop at epoch {epoch}")
+
+    def final_eval(newtask, backbone, ctx2, device):
+        return {"val": evaluate_newtask(newtask, backbone, ctx2["loaders"]["val"], device, mechanism=True),
+                "test": evaluate_newtask(newtask, backbone, ctx2["loaders"]["test"], device)}
+
+    def build_gates(final, ctx2, meta, facts, best_auc, log):
+        env_shares = [count / meta["n_train"] for record in meta["cluster_records"]
+                      for count in record["env_counts"]]
+        report = judge(backbone_sha_equal=(facts["sha_before"] == facts["sha_after"]),
+                       grads_all_none=facts["grads_all_none"], split_ok=ctx2["split_ok"],
+                       split_stats_ok=ctx2["split_stats_ok"], env_ids_ok=facts["env_ids_ok"],
+                       auc_val_income=meta["val_auc_income_max"], auc_val_marital=meta["val_auc_marital_max"],
+                       auc_test_education=final["test"]["auc"], auc_val_education_best=best_auc,
+                       gate_mean=final["val"]["gate_mean"], env_shares=env_shares)
+        report["A3"] = {"status": "on_demand",
+                        "detail": "按需复跑同一配置，比较 AUC-Test-Education 差 ≤ 1e-9 与 backbone_sha256 一致"}
+        return report, report["overall_pass"]
+
+    def write_artifacts(run_path, bundle):
+        ctx2, meta, fp = bundle["ctx2"], bundle["meta"], bundle["ctx2"]["fp"]
+        final, facts = bundle["final"], bundle["facts"]
+        test_auc = final["test"]["auc"]
+        torch.save(bundle["newtask"].state_dict(), run_path / "newtask.pt")
+        torch.save(bundle["env_ids"], run_path / "env_ids.pt")
+        write_json(run_path / "split_fingerprint.json", fp)
+        write_json(run_path / "config.json", {
+            "run_id": bundle["run_id"], "stage1_id": bundle["stage1_id"], "commit": bundle["commit"],
+            "tag": bundle["tag"], "frozen": True, "split_seed": meta["split_seed"],
+            "model_seed": meta["model_seed"], "env_seed": meta["env_seed"], "epochs": bundle["epochs"],
+            "patience": PATIENCE, "lr": LR, "batch_size": bundle["loaders"]["train"].batch_size,
+            "input_size": ctx2["input_size"], "rep_dim": ctx2["rep_dim"]})
+        write_json(run_path / "metrics.json", {
+            "run_id": bundle["run_id"], "stage1_id": bundle["stage1_id"], "commit": bundle["commit"],
+            "split_sha256": {"val": fp["val_sha256"], "test": fp["test_sha256"],
+                             "fingerprint": fp["fingerprint_sha256"]},
+            "env_ids_sha256": meta["env_ids_sha256"],
+            "backbone_sha256_before": facts["sha_before"], "backbone_sha256_after": facts["sha_after"],
+            "stage1": {"epoch_records": meta["epoch_records"], "best_epoch": meta["best_epoch"],
+                       "uni_loss_0": meta["uni_loss_0_list"], "uni_loss_1": meta["uni_loss_1_list"],
+                       "fuse_loss_0": meta["fuse_loss_0_list"], "fuse_loss_1": meta["fuse_loss_1_list"],
+                       "env_loss": meta["env_loss_list"], "cluster_records": meta["cluster_records"]},
+            "stage2": {"epoch_records": bundle["epoch_records"], "best_epoch": bundle["best_epoch"],
+                       "best_val_auc": bundle["best_auc"], "test_auc": test_auc},
+            "mechanism": {"gate_mean": final["val"]["gate_mean"],
+                          "cos_gen_spec": final["val"]["cos_gen_spec"], "gen_std": final["val"]["gen_std"],
+                          "env_acc_stage1": [record["env_acc"] for record in meta["epoch_records"]]}})
+        write_json(run_path / "gate_report.json", bundle["gates_doc"])
+        append_summary_row(bundle["root"] / "SUMMARY.md", {
+            "run_id": bundle["run_id"], "commit": bundle["commit"],
+            "auc_test_education": f"{test_auc:.6f}", "stage1_id": bundle["stage1_id"],
+            **{key: ("PASS" if bundle["gates_doc"][key]["pass"] else "FAIL")
+               for key in ("A1", "A2", "A4", "A5", "B1", "B2", "B3", "B4")}}, SUMMARY_COLUMNS)
+        (run_path / "stdout.log").write_text(bundle["log_buffer"].getvalue(), encoding="utf-8")
+        return {"report": bundle["gates_doc"], "test_auc": test_auc}
+
+    def log_stage2_end(bundle, log):
+        report = bundle["gates_doc"]
+        log(f"[stage2] run_id={bundle['run_id']} test_auc={bundle['final']['test']['auc']:.4f} "
+            f"overall_pass={report['overall_pass']}")
+        log(f"[stage2] failures={report['failures']} run_dir={bundle['run_path']}")
+
     return DatasetProfile(
-        name="census", model_seed=MODEL_SEED, env_seed=ENV_SEED, stage1_epochs=STAGE1_EPOCHS,
+        name="census", model_seed=MODEL_SEED, env_seed=ENV_SEED,
+        stage1_epochs=STAGE1_EPOCHS, stage2_epochs=STAGE2_EPOCHS, stage2_patience=PATIENCE,
+        stage2_lr=LR, stage2_cpu_loss=False, stage2_catch_grads=False,
         prepare=prepare, build_model=build_mptrec,
         train_size=lambda ctx: len(ctx["loaders"]["train"].dataset),
         manager_kwargs=manager_kwargs, post_train=lambda model, manager, ctx, device: {},
         build_cfg=build_cfg, fingerprint_sha=lambda ctx: ctx["fp"]["fingerprint_sha256"],
         state_dict=lambda model: model.state_dict(), build_meta=build_meta, after_save=after_save,
         log_summary=lambda sid, path, meta: print(
-            f"[stage1] id={sid} dir={path} backbone_sha256={meta['backbone_sha256']}"))
+            f"[stage1] id={sid} dir={path} backbone_sha256={meta['backbone_sha256']}"),
+        prepare_stage2=prepare_stage2, log_stage2_start=lambda sid, tag, ctx2, log: None,
+        backbone_ready=lambda backbone, checkpoint, ctx2, log: {},
+        build_newtask=build_newtask, val_auc=val_auc, epoch_record=epoch_record,
+        log_stage2_epoch=log_stage2_epoch, final_eval=final_eval,
+        log_grads_failure=lambda exc, log: None, build_gates=build_gates,
+        run_id_prefix=lambda ctx2: f"s{ctx2['split_seed']}",
+        write_artifacts=write_artifacts, log_stage2_end=log_stage2_end)
