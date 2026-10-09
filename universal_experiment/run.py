@@ -90,33 +90,45 @@ def evaluate(head, cache, envs, arm, device, batch_size):
     return float(roc_auc_score(cache['y'].numpy(), p)), p
 
 
-def train_head(head, caches, envs, arm, device, epochs, out, cpu_loss=False):
-    opt = torch.optim.Adam(head.parameters(), lr=P.LR)
+def train_head(head, caches, envs, arm, device, epochs, out, cpu_loss=False,
+               *, lr=None, batch_size=None, patience=None):
+    lr = P.LR if lr is None else lr
+    batch_size = P.BATCH_SIZE if batch_size is None else batch_size
+    patience = P.PATIENCE if patience is None else patience
+    def sync():
+        if device.type == 'cuda':
+            torch.cuda.synchronize(device)
+    opt = torch.optim.Adam(head.parameters(), lr=lr)
     best = -1.; state = None; stale = 0; history = []; best_epoch = 0
-    start = time.perf_counter()
+    sync(); start = time.perf_counter()
     for epoch in range(1, epochs + 1):
+        sync(); epoch_start = time.perf_counter()
         head.train(); total = 0.; steps = 0
-        for b in batches(caches['train'], device, P.BATCH_SIZE):
+        for b in batches(caches['train'], device, batch_size):
             opt.zero_grad()
             prediction = predict(head, b, envs, arm)
             loss = torch.nn.functional.binary_cross_entropy(prediction.cpu() if cpu_loss else prediction, b['y'].cpu() if cpu_loss else b['y']) + head.get_l2_reg()
             loss.backward(); opt.step()
             total += float(loss.detach()); steps += 1
-        va, _ = evaluate(head, caches['val'], envs, arm, device, P.BATCH_SIZE)
-        history.append(dict(epoch=epoch, val_auc=va, loss=total / steps, steps=steps))
+        sync(); train_end = time.perf_counter()
+        va, _ = evaluate(head, caches['val'], envs, arm, device, batch_size)
+        sync(); val_end = time.perf_counter()
+        history.append(dict(epoch=epoch, val_auc=va, loss=total / steps, steps=steps,
+                            train_seconds=train_end-epoch_start, val_seconds=val_end-train_end,
+                            cumulative_seconds=val_end-start))
         print(f'{arm}: epoch={epoch} val={va:.9f}', flush=True)
         if va > best:
             best = va; best_epoch = epoch; state = copy.deepcopy(head.state_dict()); stale = 0
         else:
             stale += 1
-            if stale == P.PATIENCE:
+            if stale == patience:
                 break
     head.load_state_dict(state)
     result = dict(best_epoch=best_epoch, epochs=history, parameters=sum(p.numel() for p in head.parameters()),
                   wall_seconds=time.perf_counter() - start)
     raw = {}
     for split in ('val', 'test'):
-        score, preds = evaluate(head, caches[split], envs, arm, device, P.BATCH_SIZE)
+        score, preds = evaluate(head, caches[split], envs, arm, device, batch_size)
         result[split + '_auc'] = score
         raw[split + '_y'] = caches[split]['y'].numpy()
         raw[split + '_p'] = preds
@@ -125,7 +137,7 @@ def train_head(head, caches, envs, arm, device, epochs, out, cpu_loss=False):
             shuffled = dict(caches[split])
             order = torch.randperm(len(shuffled['y']), generator=torch.Generator().manual_seed(20261009))
             shuffled['u'] = shuffled['u'][order]
-            score, preds = evaluate(head, shuffled, envs, arm, device, P.BATCH_SIZE)
+            score, preds = evaluate(head, shuffled, envs, arm, device, batch_size)
             result[split + '_shuffled_u_auc'] = score
             raw[split + '_shuffled_u_p'] = preds
     np.savez_compressed(out / f'{arm}_predictions.npz', **raw)

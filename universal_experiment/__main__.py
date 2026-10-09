@@ -12,10 +12,16 @@ def main() -> None:
         description="Run the four-arm Universal Representation experiment.",
     )
     parser.add_argument("dataset", choices=("census", "aliccp"))
+    parser.add_argument("--budget20", action="store_true", help="Reuse Stage-1 for the 20-epoch screen")
     args, remaining = parser.parse_known_args()
 
     # Keep the already verified dataset runners as implementation modules.  The
     # package CLI is the only documented entry point and forwards their flags.
+    if args.budget20:
+        from universal_experiment.budget import main as budget_main
+        sys.argv = [f"universal_experiment {args.dataset}", *remaining]
+        budget_main(args.dataset)
+        return
     if args.dataset == "census":
         from universal_experiment.run import main as dataset_main
     else:
