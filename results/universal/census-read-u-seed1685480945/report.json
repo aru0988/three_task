@@ -1,0 +1,122 @@
+{
+  "dataset": "census",
+  "epochs": 20,
+  "task_names": [
+    "Income",
+    "Marital"
+  ],
+  "arms": {
+    "B": {
+      "selected_epoch": 18,
+      "val_auc": {
+        "Income": 0.945123137224152,
+        "Marital": 0.9912542074923415
+      },
+      "test_auc": {
+        "Income": 0.9455806927675339,
+        "Marital": 0.9909109553157982
+      },
+      "wall_seconds": 828.104595199984,
+      "residual_gates": null
+    },
+    "U": {
+      "selected_epoch": 15,
+      "val_auc": {
+        "Income": 0.943815130862946,
+        "Marital": 0.9921276806201382
+      },
+      "test_auc": {
+        "Income": 0.9447998094306715,
+        "Marital": 0.991896396790773
+      },
+      "wall_seconds": 1074.347205500002,
+      "residual_gates": {
+        "alpha": [
+          0.046127498149871826,
+          0.04278560355305672
+        ],
+        "identity_deviation": [
+          9.703367233276367,
+          8.697247505187988
+        ]
+      }
+    },
+    "R": {
+      "selected_epoch": 18,
+      "val_auc": {
+        "Income": 0.9451632955751952,
+        "Marital": 0.991503911357815
+      },
+      "test_auc": {
+        "Income": 0.9459735680559528,
+        "Marital": 0.9913539902418451
+      },
+      "wall_seconds": 857.2804376999848,
+      "residual_gates": {
+        "alpha": [
+          0.07681894302368164,
+          0.08137507736682892
+        ],
+        "identity_deviation": [
+          15.009358406066895,
+          14.834768295288086
+        ]
+      }
+    },
+    "G": {
+      "selected_epoch": 15,
+      "val_auc": {
+        "Income": 0.9438774547194639,
+        "Marital": 0.9910850513345927
+      },
+      "test_auc": {
+        "Income": 0.9449534293474583,
+        "Marital": 0.9910353716526723
+      },
+      "wall_seconds": 846.3348946999758,
+      "residual_gates": {
+        "alpha": [
+          0.06186804547905922,
+          0.06006849184632301
+        ],
+        "identity_deviation": [
+          5.40435266494751,
+          7.601191997528076
+        ]
+      }
+    }
+  },
+  "read_minus": {
+    "B": {
+      "Income": {
+        "val": -0.0013080063612059822,
+        "test": -0.0007808833368623258
+      },
+      "Marital": {
+        "val": 0.0008734731277967311,
+        "test": 0.000985441474974813
+      }
+    },
+    "R": {
+      "Income": {
+        "val": -0.001348164712249189,
+        "test": -0.0011737586252812404
+      },
+      "Marital": {
+        "val": 0.000623769262323215,
+        "test": 0.0005424065489278984
+      }
+    },
+    "G": {
+      "Income": {
+        "val": -6.232385651794292e-05,
+        "test": -0.00015361991678675135
+      },
+      "Marital": {
+        "val": 0.0010426292855455488,
+        "test": 0.0008610251381007128
+      }
+    }
+  },
+  "note": "old-task metrics; U/R/G read extra with detached gradient; U encoder trained only by its self-supervised losses"
+}
