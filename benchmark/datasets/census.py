@@ -6,6 +6,7 @@
 from __future__ import annotations
 
 import json
+from datetime import datetime
 from pathlib import Path
 
 import numpy as np
@@ -14,7 +15,8 @@ from sklearn.model_selection import train_test_split
 from torch.utils.data import DataLoader, Subset
 
 from benchmark import gates
-from benchmark.protocol import canonical_json, sha256_bytes, sha256_tensor
+from benchmark.profile import DatasetProfile
+from benchmark.protocol import backbone_sha256, canonical_json, sha256_bytes, sha256_tensor
 from config import CensusIncome_Vocabulary_Size
 from multitaskrec.dataset import CensusIncomeDataset
 from multitaskrec.model import MPTRec
@@ -137,3 +139,74 @@ def judge(*, backbone_sha_equal: bool, grads_all_none: bool, split_ok: bool, spl
     report["overall_pass"] = gates.hard_pass((outcome.state for outcome in outcomes), allowed=(gates.PASS,))
     report["failures"] = [outcome.gate_id for outcome in outcomes if outcome.state == gates.FAIL]
     return report
+
+
+# ---- 阶段 1 profile（供 benchmark/pipeline.run_stage1）----
+def stage1_epoch_records(manager) -> list:
+    """census 侧 epoch_records（旧 Stage1HookTrainManager.epoch_records 的等价重建）。"""
+    return [{"epoch": i + 1, "auc_val_income": aucs[0], "auc_val_marital": aucs[1],
+             "env_acc": manager.env_accs[i]} for i, aucs in enumerate(manager.val_epoch_aucs)]
+
+
+def stage1_profile(*, split_seed: int = SPLIT_SEED, loaders=None, stats=None, indices=None) -> DatasetProfile:
+    """census 阶段 1 适配；loaders/stats/indices 仅供 tiny e2e 测试注入。"""
+
+    def prepare(root):
+        if loaders is not None:
+            ld, st, ix = loaders, stats, indices
+        else:
+            ld, st, ix = build_census_loaders(split_seed)
+        val_idx, test_idx = ix
+        fp = split_fingerprint(split_seed=split_seed, stats=st, val_idx=val_idx, test_idx=test_idx)
+        baseline = load_split_fingerprint(root, split_seed)
+        if baseline is None:
+            write_split_fingerprint(root, split_seed, fp)
+            save_split_indices(root, split_seed, val_idx, test_idx)
+        elif not verify_split_fingerprint(fp, baseline):
+            raise RuntimeError("划分指纹与基准不一致（A2 失败），协议禁止继续")
+        return {"loaders": ld, "stats": st, "indices": ix, "fp": fp, "split_seed": split_seed}
+
+    def manager_kwargs(ctx, epochs):
+        ld = ctx["loaders"]
+        return {"train_loader": ld["train"], "val_loader": ld["val"], "task_name": ["Income", "Marital"],
+                "lr": LR, "batch_size": ld["train"].batch_size, "uni_coe": UNI_COE, "env_coe": ENV_COE,
+                "epochs": epochs, "patience": PATIENCE, "record_env_acc": True, "cluster_epoch_offset": 0}
+
+    def build_cfg(ctx, epochs):
+        return {"model_seed": MODEL_SEED, "env_seed": ENV_SEED, "epochs": epochs, "patience": PATIENCE,
+                "batch_size": ctx["loaders"]["train"].batch_size, "lr": LR, "uni_coe": UNI_COE,
+                "env_coe": ENV_COE, "reg_embedding": REG_EMBEDDING, "reg_dnn": REG_DNN,
+                "input_size": INPUT_SIZE, "embedding_size": EMBEDDING_SIZE,
+                "expert_hidden": list(EXPERT_HIDDEN), "tower_hidden": list(TOWER_HIDDEN),
+                "num_tasks": NUM_TASKS}
+
+    def build_meta(*, sid, cfg, cfg_sha, ctx, model, manager, env_ids, post, commit, epochs):
+        fp, stats = ctx["fp"], ctx["stats"]
+        records = stage1_epoch_records(manager)
+        return {"stage1_id": sid, "commit": commit, "config_hash": cfg_sha, **cfg, **stats,
+                "created": datetime.now().isoformat(timespec="seconds"),
+                "split_seed": ctx["split_seed"], "model_seed": MODEL_SEED, "env_seed": ENV_SEED,
+                "split_fingerprint_sha256": fp["fingerprint_sha256"],
+                "val_sha256": fp["val_sha256"], "test_sha256": fp["test_sha256"],
+                "env_ids_sha256": sha256_tensor(env_ids), "backbone_sha256": backbone_sha256(model),
+                "best_epoch": manager.best_epoch(),
+                "best_val_auc_sum": max(r["auc_val_income"] + r["auc_val_marital"] for r in records),
+                "val_auc_income_max": max(r["auc_val_income"] for r in records),
+                "val_auc_marital_max": max(r["auc_val_marital"] for r in records),
+                "epoch_records": records, "cluster_records": manager.cluster_records,
+                "uni_loss_0_list": manager.uni_loss_0_list, "uni_loss_1_list": manager.uni_loss_1_list,
+                "fuse_loss_0_list": manager.fused_loss_0_list, "fuse_loss_1_list": manager.fused_loss_1_list,
+                "env_loss_list": manager.env_loss_list}
+
+    def after_save(stage1_path, log_buffer):
+        (stage1_path / "stdout.log").write_text(log_buffer.getvalue(), encoding="utf-8")
+
+    return DatasetProfile(
+        name="census", model_seed=MODEL_SEED, env_seed=ENV_SEED, stage1_epochs=STAGE1_EPOCHS,
+        prepare=prepare, build_model=build_mptrec,
+        train_size=lambda ctx: len(ctx["loaders"]["train"].dataset),
+        manager_kwargs=manager_kwargs, post_train=lambda model, manager, ctx, device: {},
+        build_cfg=build_cfg, fingerprint_sha=lambda ctx: ctx["fp"]["fingerprint_sha256"],
+        state_dict=lambda model: model.state_dict(), build_meta=build_meta, after_save=after_save,
+        log_summary=lambda sid, path, meta: print(
+            f"[stage1] id={sid} dir={path} backbone_sha256={meta['backbone_sha256']}"))
