@@ -13,10 +13,17 @@ def main() -> None:
     )
     parser.add_argument("dataset", choices=("census", "aliccp"))
     parser.add_argument("--budget20", action="store_true", help="Reuse Stage-1 for the 20-epoch screen")
+    parser.add_argument("--stage1-read", action="store_true",
+                        help="Stage-1 old-task read-only-U four-arm screen")
     args, remaining = parser.parse_known_args()
 
     # Keep the already verified dataset runners as implementation modules.  The
     # package CLI is the only documented entry point and forwards their flags.
+    if args.stage1_read:
+        from universal_experiment.stage1_read import main as read_main
+        sys.argv = [f"universal_experiment {args.dataset}", *remaining]
+        read_main(args.dataset)
+        return
     if args.budget20:
         from universal_experiment.budget import main as budget_main
         sys.argv = [f"universal_experiment {args.dataset}", *remaining]
