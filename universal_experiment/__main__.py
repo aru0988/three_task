@@ -7,9 +7,13 @@ import sys
 
 
 def main() -> None:
+    # allow_abbrev=False: an abbreviated sub-runner flag such as `--stage1`
+    # (the newtask runner's Stage-1 directory) must reach the sub-parser
+    # instead of being prefix-matched by `--stage1-read` here.
     parser = argparse.ArgumentParser(
         prog="python -m universal_experiment",
         description="Run the four-arm Universal Representation experiment.",
+        allow_abbrev=False,
     )
     parser.add_argument("dataset", choices=("census", "aliccp"))
     parser.add_argument("--budget20", action="store_true", help="Reuse Stage-1 for the 20-epoch screen")
@@ -21,15 +25,15 @@ def main() -> None:
 
     # Keep the already verified dataset runners as implementation modules.  The
     # package CLI is the only documented entry point and forwards their flags.
-    if args.stage1_read:
-        from universal_experiment.stage1_read import main as read_main
-        sys.argv = [f"universal_experiment {args.dataset}", *remaining]
-        read_main(args.dataset)
-        return
     if args.newtask_read:
         from universal_experiment.newtask_read import main as newtask_main
         sys.argv = [f"universal_experiment {args.dataset}", *remaining]
         newtask_main(args.dataset)
+        return
+    if args.stage1_read:
+        from universal_experiment.stage1_read import main as read_main
+        sys.argv = [f"universal_experiment {args.dataset}", *remaining]
+        read_main(args.dataset)
         return
     if args.budget20:
         from universal_experiment.budget import main as budget_main
