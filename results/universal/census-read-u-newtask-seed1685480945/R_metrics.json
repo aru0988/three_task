@@ -1,0 +1,167 @@
+{
+  "arm": "R",
+  "task": "Education",
+  "best_epoch": 15,
+  "val_auc": 0.8630527042123267,
+  "test_auc": 0.863136973618515,
+  "epochs": [
+    {
+      "epoch": 1,
+      "loss": 0.2647995285689831,
+      "steps": 780,
+      "val_auc": 0.8481641470349505,
+      "wall_seconds": 16.01090439996915
+    },
+    {
+      "epoch": 2,
+      "loss": 0.2423367539468484,
+      "steps": 780,
+      "val_auc": 0.8548863676719205,
+      "wall_seconds": 31.610213299980387
+    },
+    {
+      "epoch": 3,
+      "loss": 0.23977244523091193,
+      "steps": 780,
+      "val_auc": 0.8567473057327464,
+      "wall_seconds": 47.04519390000496
+    },
+    {
+      "epoch": 4,
+      "loss": 0.23760805510175534,
+      "steps": 780,
+      "val_auc": 0.8588594190074977,
+      "wall_seconds": 62.64479130000109
+    },
+    {
+      "epoch": 5,
+      "loss": 0.23567387054745967,
+      "steps": 780,
+      "val_auc": 0.860916534327529,
+      "wall_seconds": 78.11122069996782
+    },
+    {
+      "epoch": 6,
+      "loss": 0.23414077286918958,
+      "steps": 780,
+      "val_auc": 0.862274674395667,
+      "wall_seconds": 93.56096279999474
+    },
+    {
+      "epoch": 7,
+      "loss": 0.23308250027207228,
+      "steps": 780,
+      "val_auc": 0.8625498765342157,
+      "wall_seconds": 108.7763743000105
+    },
+    {
+      "epoch": 8,
+      "loss": 0.23224470240947528,
+      "steps": 780,
+      "val_auc": 0.8625029895504388,
+      "wall_seconds": 124.17108519998146
+    },
+    {
+      "epoch": 9,
+      "loss": 0.2315599328623368,
+      "steps": 780,
+      "val_auc": 0.8626126954561317,
+      "wall_seconds": 139.11257219995605
+    },
+    {
+      "epoch": 10,
+      "loss": 0.23089298810332248,
+      "steps": 780,
+      "val_auc": 0.8625929706343393,
+      "wall_seconds": 155.34947389998706
+    },
+    {
+      "epoch": 11,
+      "loss": 0.23030940504410327,
+      "steps": 780,
+      "val_auc": 0.8627815781106961,
+      "wall_seconds": 170.81416199996602
+    },
+    {
+      "epoch": 12,
+      "loss": 0.22982970888798054,
+      "steps": 780,
+      "val_auc": 0.8629869806859514,
+      "wall_seconds": 185.99830649996875
+    },
+    {
+      "epoch": 13,
+      "loss": 0.22934170212501134,
+      "steps": 780,
+      "val_auc": 0.8627127947022646,
+      "wall_seconds": 201.10626079997746
+    },
+    {
+      "epoch": 14,
+      "loss": 0.22892550602555276,
+      "steps": 780,
+      "val_auc": 0.8625646804262833,
+      "wall_seconds": 216.10903599997982
+    },
+    {
+      "epoch": 15,
+      "loss": 0.2285145499003239,
+      "steps": 780,
+      "val_auc": 0.8630527042123267,
+      "wall_seconds": 231.39283470000373
+    },
+    {
+      "epoch": 16,
+      "loss": 0.2281643223304015,
+      "steps": 780,
+      "val_auc": 0.8629014387145266,
+      "wall_seconds": 246.56680639996193
+    },
+    {
+      "epoch": 17,
+      "loss": 0.22782569747322645,
+      "steps": 780,
+      "val_auc": 0.8626530881827684,
+      "wall_seconds": 261.8431858999538
+    },
+    {
+      "epoch": 18,
+      "loss": 0.22746393529650494,
+      "steps": 780,
+      "val_auc": 0.8628565520715566,
+      "wall_seconds": 276.98764519998804
+    }
+  ],
+  "epoch_count": 18,
+  "parameters": 27063,
+  "head_init_hash": "081deab8467d9a2534a597c6ce6ff720f8926fc075408352a6dd6821a92c3b77",
+  "head_state_sha256": "6217dda2a74995ed02248563e5a81449d2688252ec1401168a2925dc6405dd6b",
+  "val_n": 49881,
+  "test_n": 49881,
+  "base_hash": "4b3032ef462f8067a5071f4e68ac1ff28b5699b774b8ae4eac8904ff647fcc17",
+  "base_hash_recorded": "4b3032ef462f8067a5071f4e68ac1ff28b5699b774b8ae4eac8904ff647fcc17",
+  "frozen_base_hash_before": "4b3032ef462f8067a5071f4e68ac1ff28b5699b774b8ae4eac8904ff647fcc17",
+  "frozen_base_hash_after": "4b3032ef462f8067a5071f4e68ac1ff28b5699b774b8ae4eac8904ff647fcc17",
+  "frozen_gradients_none": true,
+  "lr": 0.001,
+  "batch_size": 256,
+  "epoch_budget": 20,
+  "patience": 3,
+  "tie_rule": "best epoch = earliest epoch attaining the strictly maximum validation AUC; an epoch must strictly improve to replace the current best",
+  "loss": "BCELoss(pred.cpu(), target.float()) + head.get_l2_reg() (original NewTask path)",
+  "checkpoint_file": "R_model.pt",
+  "checkpoint_sha256": "c7ac099e4d85a20abc5cd7225a5a1eaae1d5effdfca380a90b8d19914d5c1fe9",
+  "stage1_selected_epoch": 18,
+  "stage1_wall_seconds": 857.2804376999848,
+  "stage1_old_tasks_val": {
+    "Income": 0.9451632955751952,
+    "Marital": 0.991503911357815
+  },
+  "stage1_old_tasks_test": {
+    "Income": 0.9459735680559528,
+    "Marital": 0.9913539902418451
+  },
+  "encoder_hash_recorded": "0d1e206517038a5ca825c745de801f8917e386e024c7fa228aa2c3d756611e6d",
+  "encoder_hash_loaded": "0d1e206517038a5ca825c745de801f8917e386e024c7fa228aa2c3d756611e6d",
+  "stage2_wall_seconds": 281.4626903999597
+}

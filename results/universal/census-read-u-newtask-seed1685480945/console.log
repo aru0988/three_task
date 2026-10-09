@@ -1,0 +1,142 @@
+[B] base a24f55841770 at Stage-1 epoch 18; head init 081deab8467d
+[B] epoch=1 loss=0.260608 val_auc=0.848909548
+[B] epoch=2 loss=0.241922 val_auc=0.852939990
+[B] epoch=3 loss=0.239619 val_auc=0.855818965
+[B] epoch=4 loss=0.238051 val_auc=0.856267537
+[B] epoch=5 loss=0.236913 val_auc=0.857114343
+[B] epoch=6 loss=0.236048 val_auc=0.857794564
+[B] epoch=7 loss=0.235218 val_auc=0.858489052
+[B] epoch=8 loss=0.234490 val_auc=0.858587124
+[B] epoch=9 loss=0.233737 val_auc=0.859052233
+[B] epoch=10 loss=0.232932 val_auc=0.859134733
+[B] epoch=11 loss=0.232048 val_auc=0.859526099
+[B] epoch=12 loss=0.231135 val_auc=0.859074732
+[B] epoch=13 loss=0.230346 val_auc=0.860287557
+[B] epoch=14 loss=0.229645 val_auc=0.859277027
+[B] epoch=15 loss=0.229034 val_auc=0.857874772
+[B] epoch=16 loss=0.228526 val_auc=0.859175021
+[B] early stop after epoch 16 (3 stale epochs)
+[B] best_epoch=13 val_auc=0.860287557 test_auc=0.858038623 wall=251.4s
+[U] base 497976270a99 at Stage-1 epoch 15; head init 081deab8467d
+[U] epoch=1 loss=0.261792 val_auc=0.850701276
+[U] epoch=2 loss=0.241834 val_auc=0.854729852
+[U] epoch=3 loss=0.239793 val_auc=0.855812354
+[U] epoch=4 loss=0.238451 val_auc=0.856839639
+[U] epoch=5 loss=0.237522 val_auc=0.857661713
+[U] epoch=6 loss=0.236695 val_auc=0.857992790
+[U] epoch=7 loss=0.235914 val_auc=0.858335407
+[U] epoch=8 loss=0.235143 val_auc=0.859324749
+[U] epoch=9 loss=0.234106 val_auc=0.860477117
+[U] epoch=10 loss=0.232601 val_auc=0.862254854
+[U] epoch=11 loss=0.231561 val_auc=0.862817164
+[U] epoch=12 loss=0.230719 val_auc=0.863679457
+[U] epoch=13 loss=0.230116 val_auc=0.863812541
+[U] epoch=14 loss=0.229678 val_auc=0.863768000
+[U] epoch=15 loss=0.229268 val_auc=0.863755993
+[U] epoch=16 loss=0.228875 val_auc=0.863959555
+[U] epoch=17 loss=0.228542 val_auc=0.863684940
+[U] epoch=18 loss=0.228139 val_auc=0.863759041
+[U] epoch=19 loss=0.227736 val_auc=0.863707119
+[U] early stop after epoch 19 (3 stale epochs)
+[U] best_epoch=16 val_auc=0.863959555 test_auc=0.862708208 wall=296.4s
+[R] base 4b3032ef462f at Stage-1 epoch 18; head init 081deab8467d
+[R] epoch=1 loss=0.264800 val_auc=0.848164147
+[R] epoch=2 loss=0.242337 val_auc=0.854886368
+[R] epoch=3 loss=0.239772 val_auc=0.856747306
+[R] epoch=4 loss=0.237608 val_auc=0.858859419
+[R] epoch=5 loss=0.235674 val_auc=0.860916534
+[R] epoch=6 loss=0.234141 val_auc=0.862274674
+[R] epoch=7 loss=0.233083 val_auc=0.862549877
+[R] epoch=8 loss=0.232245 val_auc=0.862502990
+[R] epoch=9 loss=0.231560 val_auc=0.862612695
+[R] epoch=10 loss=0.230893 val_auc=0.862592971
+[R] epoch=11 loss=0.230309 val_auc=0.862781578
+[R] epoch=12 loss=0.229830 val_auc=0.862986981
+[R] epoch=13 loss=0.229342 val_auc=0.862712795
+[R] epoch=14 loss=0.228926 val_auc=0.862564680
+[R] epoch=15 loss=0.228515 val_auc=0.863052704
+[R] epoch=16 loss=0.228164 val_auc=0.862901439
+[R] epoch=17 loss=0.227826 val_auc=0.862653088
+[R] epoch=18 loss=0.227464 val_auc=0.862856552
+[R] early stop after epoch 18 (3 stale epochs)
+[R] best_epoch=15 val_auc=0.863052704 test_auc=0.863136974 wall=281.5s
+[G] base 5c21d4d04218 at Stage-1 epoch 15; head init 081deab8467d
+[G] epoch=1 loss=0.262000 val_auc=0.844157282
+[G] epoch=2 loss=0.243883 val_auc=0.852687776
+[G] epoch=3 loss=0.241539 val_auc=0.855587101
+[G] epoch=4 loss=0.239993 val_auc=0.856881406
+[G] epoch=5 loss=0.238690 val_auc=0.857696671
+[G] epoch=6 loss=0.237685 val_auc=0.858542344
+[G] epoch=7 loss=0.236809 val_auc=0.858996093
+[G] epoch=8 loss=0.235974 val_auc=0.859513932
+[G] epoch=9 loss=0.235362 val_auc=0.859494271
+[G] epoch=10 loss=0.234830 val_auc=0.859914183
+[G] epoch=11 loss=0.234264 val_auc=0.860264115
+[G] epoch=12 loss=0.233739 val_auc=0.860542461
+[G] epoch=13 loss=0.233236 val_auc=0.860749828
+[G] epoch=14 loss=0.232699 val_auc=0.861111440
+[G] epoch=15 loss=0.232093 val_auc=0.861465815
+[G] epoch=16 loss=0.231569 val_auc=0.861930438
+[G] epoch=17 loss=0.231002 val_auc=0.861941248
+[G] epoch=18 loss=0.230447 val_auc=0.861838456
+[G] epoch=19 loss=0.229954 val_auc=0.862381240
+[G] epoch=20 loss=0.229342 val_auc=0.862919935
+[G] best_epoch=20 val_auc=0.862919935 test_auc=0.861399418 wall=312.3s
+{
+  "B": [
+    13,
+    0.8602875573029136,
+    0.8580386229818712
+  ],
+  "U": [
+    16,
+    0.8639595550635548,
+    0.8627082082271847
+  ],
+  "R": [
+    15,
+    0.8630527042123267,
+    0.863136973618515
+  ],
+  "G": [
+    20,
+    0.8629199350165084,
+    0.8613994184745069
+  ]
+}
+{
+  "B": {
+    "val": 0.003671997760641199,
+    "test": 0.004669585245313579
+  },
+  "R": {
+    "val": 0.0009068508512281026,
+    "test": -0.0004287653913302991
+  },
+  "G": {
+    "val": 0.0010396200470463857,
+    "test": 0.0013087897526778969
+  }
+}
+{
+  "per_arm": {
+    "B": {
+      "val": 0.003671997760641199,
+      "test": 0.004669585245313579,
+      "classification": "positive"
+    },
+    "R": {
+      "val": 0.0009068508512281026,
+      "test": -0.0004287653913302991,
+      "classification": "no_clear_improvement"
+    },
+    "G": {
+      "val": 0.0010396200470463857,
+      "test": 0.0013087897526778969,
+      "classification": "positive"
+    }
+  },
+  "decision": "NO_GO",
+  "unstable": false,
+  "note": "U-B is the complete Stage-1 design effect; U-R the learned-content control; U-G secondary specificity; single seed, not a generalization claim"
+}

@@ -182,3 +182,24 @@ python -m universal_experiment census --budget20 --source D:\MPT-Rec-three_task\
 python -m universal_experiment aliccp --budget20 --source D:\MPT-Rec-three_task\MPT-Rec --previous results/universal/aliccp-seed1688723512 --out <new-dir>
 python -m universal_experiment.verify_budget <dir>
 ```
+
+## Read-U Stage-1 → original NewTask transfer: CensusIncome — 2026-10-10
+
+This is a **different** Stage-1 design from the Direction-1 budget screen above. The frozen protocol is in `docs/experiments/universal-read-u-newtask-prereg.md` (committed before this run, `ec3b1f4`). Runner/test commit `0b4258d`; formal run recorded `commit=0b4258d`, `dirty=false`, model seed 1685480945, canonical split 20260929, 199523/49881/49881 train/val/test rows, 20-epoch cap, patience 3, identical original NewTask-head initialization and parameter count (27063) across B/U/R/G. Each arm loaded its **own** validation-selected 20-epoch Read-U Stage-1 base; the new-task head received no U/R/G extra input. Stage-1 was not retrained. This compares changed Stage-1 representations, not a fixed backbone with an added Stage-2 expert.
+
+Raw run: `results/universal/census-read-u-newtask-seed1685480945/` (four `*_predictions.npz`, four head checkpoints, per-arm metrics, `config.json`, `report.json`, `verification.json`, `indices.npz`, `console.log`). The four previously gitignored Stage-1 input `*_model.pt` files are versioned with this result. Independent verifier passed 119/119 checks; the supervising run separately recalculated all eight val/test AUCs from the raw prediction arrays, checked 49881 labels per split, shared head-initialization hash, each frozen-base before/after hash, and the recorded code commit. Test was used only after validation selection.
+
+| Arm | Val AUC | Test AUC | Best epoch | Epochs run |
+| --- | ---: | ---: | ---: | ---: |
+| B: no old-task read-in | 0.8602875573 | 0.8580386230 | 13 | 16 |
+| U: learned U read-in during Stage-1 | 0.8639595551 | 0.8627082082 | 16 | 19 |
+| R: frozen random U read-in during Stage-1 | 0.8630527042 | 0.8631369736 | 15 | 18 |
+| G: duplicate general read-in during Stage-1 | 0.8629199350 | 0.8613994185 | 20 | 20 |
+
+| U minus control | Δval | Δtest | New classification |
+| --- | ---: | ---: | --- |
+| B | +0.0036719978 | +0.0046695852 | Positive |
+| R | +0.0009068509 | −0.0004287654 | No clear improvement |
+| G (secondary) | +0.0010396200 | +0.0013087898 | Positive |
+
+**Preregistered verdict: NO-GO for learned-U-content transfer on Census.** The complete U-read Stage-1 design beats no-read B, but fails the random-twin content control R on test; the gain cannot be attributed to learned U content. Validation favors U over R while test favors R, so this single-seed contrast is not stable. G reaches the 20-epoch cap, while B/U/R early-stop, limiting any blanket convergence comparison. The old-task Read-U metrics belong to their original Stage-1 artifacts and are context only; the old-task backbones differ between arms. Neither the earlier direct-U new-task screen nor a historical shorter-budget baseline is a valid paired comparator here. No new seed or tuning was selected from this test result.

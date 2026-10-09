@@ -1,0 +1,174 @@
+{
+  "arm": "U",
+  "task": "Education",
+  "best_epoch": 16,
+  "val_auc": 0.8639595550635548,
+  "test_auc": 0.8627082082271847,
+  "epochs": [
+    {
+      "epoch": 1,
+      "loss": 0.2617917104982413,
+      "steps": 780,
+      "val_auc": 0.8507012756438211,
+      "wall_seconds": 15.506945999979507
+    },
+    {
+      "epoch": 2,
+      "loss": 0.2418344186475644,
+      "steps": 780,
+      "val_auc": 0.854729852421249,
+      "wall_seconds": 30.472838399989996
+    },
+    {
+      "epoch": 3,
+      "loss": 0.23979349059936328,
+      "steps": 780,
+      "val_auc": 0.8558123542034706,
+      "wall_seconds": 45.57727349997731
+    },
+    {
+      "epoch": 4,
+      "loss": 0.23845071324553246,
+      "steps": 780,
+      "val_auc": 0.8568396388155409,
+      "wall_seconds": 60.83189610001864
+    },
+    {
+      "epoch": 5,
+      "loss": 0.23752151876688005,
+      "steps": 780,
+      "val_auc": 0.8576617126658584,
+      "wall_seconds": 76.13683849998051
+    },
+    {
+      "epoch": 6,
+      "loss": 0.23669520895450544,
+      "steps": 780,
+      "val_auc": 0.8579927896208509,
+      "wall_seconds": 91.60028329998022
+    },
+    {
+      "epoch": 7,
+      "loss": 0.2359135998174166,
+      "steps": 780,
+      "val_auc": 0.8583354073548822,
+      "wall_seconds": 107.09040799998911
+    },
+    {
+      "epoch": 8,
+      "loss": 0.23514259677284804,
+      "steps": 780,
+      "val_auc": 0.8593247494294552,
+      "wall_seconds": 122.22794429998612
+    },
+    {
+      "epoch": 9,
+      "loss": 0.23410591807885048,
+      "steps": 780,
+      "val_auc": 0.8604771169962984,
+      "wall_seconds": 137.3128012000234
+    },
+    {
+      "epoch": 10,
+      "loss": 0.23260074955148574,
+      "steps": 780,
+      "val_auc": 0.8622548536671234,
+      "wall_seconds": 152.33097479998833
+    },
+    {
+      "epoch": 11,
+      "loss": 0.23156097963070257,
+      "steps": 780,
+      "val_auc": 0.8628171640823116,
+      "wall_seconds": 167.80588060000446
+    },
+    {
+      "epoch": 12,
+      "loss": 0.23071941691331374,
+      "steps": 780,
+      "val_auc": 0.8636794571137162,
+      "wall_seconds": 183.20494660001714
+    },
+    {
+      "epoch": 13,
+      "loss": 0.2301156117556951,
+      "steps": 780,
+      "val_auc": 0.8638125414317165,
+      "wall_seconds": 198.51706909999484
+    },
+    {
+      "epoch": 14,
+      "loss": 0.22967839126403516,
+      "steps": 780,
+      "val_auc": 0.8637679995963513,
+      "wall_seconds": 213.52311170002213
+    },
+    {
+      "epoch": 15,
+      "loss": 0.22926775238070732,
+      "steps": 780,
+      "val_auc": 0.8637559929845218,
+      "wall_seconds": 228.88575999997556
+    },
+    {
+      "epoch": 16,
+      "loss": 0.2288748601308236,
+      "steps": 780,
+      "val_auc": 0.8639595550635548,
+      "wall_seconds": 243.97191790002398
+    },
+    {
+      "epoch": 17,
+      "loss": 0.22854175431988177,
+      "steps": 780,
+      "val_auc": 0.8636849397829826,
+      "wall_seconds": 259.38940679997904
+    },
+    {
+      "epoch": 18,
+      "loss": 0.22813869240956428,
+      "steps": 780,
+      "val_auc": 0.8637590414491076,
+      "wall_seconds": 275.7287000999786
+    },
+    {
+      "epoch": 19,
+      "loss": 0.22773569006568345,
+      "steps": 780,
+      "val_auc": 0.8637071193609023,
+      "wall_seconds": 291.5466128999833
+    }
+  ],
+  "epoch_count": 19,
+  "parameters": 27063,
+  "head_init_hash": "081deab8467d9a2534a597c6ce6ff720f8926fc075408352a6dd6821a92c3b77",
+  "head_state_sha256": "e9e7e64b234667e6b310f686fc4c14a0f93c125966c37800d724565717003ee2",
+  "val_n": 49881,
+  "test_n": 49881,
+  "base_hash": "497976270a99362521fb62eb0df33f96e7ca38f3934a818642cc368755f411b3",
+  "base_hash_recorded": "497976270a99362521fb62eb0df33f96e7ca38f3934a818642cc368755f411b3",
+  "frozen_base_hash_before": "497976270a99362521fb62eb0df33f96e7ca38f3934a818642cc368755f411b3",
+  "frozen_base_hash_after": "497976270a99362521fb62eb0df33f96e7ca38f3934a818642cc368755f411b3",
+  "frozen_gradients_none": true,
+  "lr": 0.001,
+  "batch_size": 256,
+  "epoch_budget": 20,
+  "patience": 3,
+  "tie_rule": "best epoch = earliest epoch attaining the strictly maximum validation AUC; an epoch must strictly improve to replace the current best",
+  "loss": "BCELoss(pred.cpu(), target.float()) + head.get_l2_reg() (original NewTask path)",
+  "checkpoint_file": "U_model.pt",
+  "checkpoint_sha256": "d3e51b6a89fb3e4426b6eb4c102f9859b6642dc30a862b34fe1255d26a93116b",
+  "stage1_selected_epoch": 15,
+  "stage1_wall_seconds": 1074.347205500002,
+  "stage1_old_tasks_val": {
+    "Income": 0.943815130862946,
+    "Marital": 0.9921276806201382
+  },
+  "stage1_old_tasks_test": {
+    "Income": 0.9447998094306715,
+    "Marital": 0.991896396790773
+  },
+  "encoder_hash_recorded": "86f71b6fa9d5ddf543c5d7974f8cbf6482c4ed1a5df0b18c0216d9cd86278541",
+  "encoder_hash_loaded": "86f71b6fa9d5ddf543c5d7974f8cbf6482c4ed1a5df0b18c0216d9cd86278541",
+  "stage2_wall_seconds": 296.3962381000165
+}

@@ -1,0 +1,116 @@
+{
+  "dataset": "census",
+  "mode": "newtask-read-u",
+  "task_name": "Education",
+  "commit": "0b4258d5badf5b23d75c4d9cbb5b7490d508c786",
+  "dirty": false,
+  "smoke": false,
+  "epochs": 20,
+  "patience": 3,
+  "tie_rule": "best epoch = earliest epoch attaining the strictly maximum validation AUC; an epoch must strictly improve to replace the current best",
+  "loss": "BCELoss(pred.cpu(), target.float()) + head.get_l2_reg() (original NewTask path)",
+  "head_init_protocol": "seed_model -> build -> NewTask, deep-copied per arm",
+  "head_init_hash": "081deab8467d9a2534a597c6ce6ff720f8926fc075408352a6dd6821a92c3b77",
+  "head_init_hashes": {
+    "B": "081deab8467d9a2534a597c6ce6ff720f8926fc075408352a6dd6821a92c3b77",
+    "U": "081deab8467d9a2534a597c6ce6ff720f8926fc075408352a6dd6821a92c3b77",
+    "R": "081deab8467d9a2534a597c6ce6ff720f8926fc075408352a6dd6821a92c3b77",
+    "G": "081deab8467d9a2534a597c6ce6ff720f8926fc075408352a6dd6821a92c3b77"
+  },
+  "head_parameters": 27063,
+  "model_seed": 1685480945,
+  "lr": 0.001,
+  "batch_size": 256,
+  "input_size": 123,
+  "rep_dim": 128,
+  "tower_hidden": [
+    64,
+    32
+  ],
+  "reg_dnn": 3e-05,
+  "frozen_base": true,
+  "extra_head_input": false,
+  "per_arm_reseed": true,
+  "rows": {
+    "train": 199523,
+    "val": 49881,
+    "test": 49881
+  },
+  "split_seed": 20260929,
+  "stage1_dir": "results\\universal\\census-read-u-seed1685480945",
+  "stage1_task_names": [
+    "Income",
+    "Marital"
+  ],
+  "stage1_files": {
+    "B": {
+      "checkpoint_file": "B_model.pt",
+      "checkpoint_sha256": "1af92a1e0158b25fffa551c15ff9d05e21a6652b2abee0139da8e664734557b3",
+      "base_hash_recorded": "a24f55841770c464901ebb15cfce824f7559e500092f59353cbf5573483aed83",
+      "base_hash_loaded": "a24f55841770c464901ebb15cfce824f7559e500092f59353cbf5573483aed83",
+      "selected_epoch": 18,
+      "encoder_hash_recorded": null,
+      "encoder_hash_loaded": null
+    },
+    "U": {
+      "checkpoint_file": "U_model.pt",
+      "checkpoint_sha256": "d3e51b6a89fb3e4426b6eb4c102f9859b6642dc30a862b34fe1255d26a93116b",
+      "base_hash_recorded": "497976270a99362521fb62eb0df33f96e7ca38f3934a818642cc368755f411b3",
+      "base_hash_loaded": "497976270a99362521fb62eb0df33f96e7ca38f3934a818642cc368755f411b3",
+      "selected_epoch": 15,
+      "encoder_hash_recorded": "86f71b6fa9d5ddf543c5d7974f8cbf6482c4ed1a5df0b18c0216d9cd86278541",
+      "encoder_hash_loaded": "86f71b6fa9d5ddf543c5d7974f8cbf6482c4ed1a5df0b18c0216d9cd86278541"
+    },
+    "R": {
+      "checkpoint_file": "R_model.pt",
+      "checkpoint_sha256": "c7ac099e4d85a20abc5cd7225a5a1eaae1d5effdfca380a90b8d19914d5c1fe9",
+      "base_hash_recorded": "4b3032ef462f8067a5071f4e68ac1ff28b5699b774b8ae4eac8904ff647fcc17",
+      "base_hash_loaded": "4b3032ef462f8067a5071f4e68ac1ff28b5699b774b8ae4eac8904ff647fcc17",
+      "selected_epoch": 18,
+      "encoder_hash_recorded": "0d1e206517038a5ca825c745de801f8917e386e024c7fa228aa2c3d756611e6d",
+      "encoder_hash_loaded": "0d1e206517038a5ca825c745de801f8917e386e024c7fa228aa2c3d756611e6d"
+    },
+    "G": {
+      "checkpoint_file": "G_model.pt",
+      "checkpoint_sha256": "a7d688fe7d521357e15b414410b05d14b9748e9dca38267eb518188b3badb168",
+      "base_hash_recorded": "5c21d4d0421878fee288900a67b0be0674221acc0c9dc54ecb46a6c450fdbe02",
+      "base_hash_loaded": "5c21d4d0421878fee288900a67b0be0674221acc0c9dc54ecb46a6c450fdbe02",
+      "selected_epoch": 15,
+      "encoder_hash_recorded": null,
+      "encoder_hash_loaded": null
+    }
+  },
+  "base_hashes_distinct": true,
+  "fingerprints": {
+    "split_seed": 20260929,
+    "n_train": 199523,
+    "n_val": 49881,
+    "n_test": 49881,
+    "disjoint": true,
+    "union_complete": true,
+    "val_sha256": "6f2c5868b5bf261a7a04fe82ad1e039598b38b71b49cd52f5665014a27f62722",
+    "test_sha256": "68e027924fb1127ef97720e02e32b5a3363e71aacd9538b11673f53fc3a8e5da",
+    "val_indices_head": [
+      0,
+      1,
+      4,
+      5,
+      6
+    ],
+    "test_indices_head": [
+      2,
+      3,
+      7,
+      8,
+      9
+    ],
+    "fingerprint_sha256": "096f8f16db081d7ad024b7aa450a40510a50e0acdbb439d973cc8fc9557d460c"
+  },
+  "source": "D:\\MPT-Rec-three_task\\MPT-Rec",
+  "created": "2026-10-10T04:08:56.596042",
+  "device": "cuda:0",
+  "torch": "2.6.0+cu124",
+  "cuda": "12.4",
+  "python": "3.10.11 (tags/v3.10.11:7d4cc5a, Apr  5 2023, 00:38:17) [MSC v.1929 64 bit (AMD64)]",
+  "preflight_seconds": 0.23951099999248981
+}

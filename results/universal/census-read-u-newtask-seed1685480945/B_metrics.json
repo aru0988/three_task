@@ -1,0 +1,153 @@
+{
+  "arm": "B",
+  "task": "Education",
+  "best_epoch": 13,
+  "val_auc": 0.8602875573029136,
+  "test_auc": 0.8580386229818712,
+  "epochs": [
+    {
+      "epoch": 1,
+      "loss": 0.26060770839834824,
+      "steps": 780,
+      "val_auc": 0.848909548004818,
+      "wall_seconds": 15.296285500051454
+    },
+    {
+      "epoch": 2,
+      "loss": 0.24192247704053538,
+      "steps": 780,
+      "val_auc": 0.8529399903969027,
+      "wall_seconds": 30.639576100045815
+    },
+    {
+      "epoch": 3,
+      "loss": 0.2396189984602806,
+      "steps": 780,
+      "val_auc": 0.8558189649188085,
+      "wall_seconds": 46.16205240000272
+    },
+    {
+      "epoch": 4,
+      "loss": 0.2380507009724776,
+      "steps": 780,
+      "val_auc": 0.8562675367777728,
+      "wall_seconds": 61.465871900029015
+    },
+    {
+      "epoch": 5,
+      "loss": 0.23691322247569377,
+      "steps": 780,
+      "val_auc": 0.8571143431523821,
+      "wall_seconds": 77.0427222000435
+    },
+    {
+      "epoch": 6,
+      "loss": 0.2360484458697148,
+      "steps": 780,
+      "val_auc": 0.8577945640674635,
+      "wall_seconds": 92.69616490002954
+    },
+    {
+      "epoch": 7,
+      "loss": 0.2352179932861756,
+      "steps": 780,
+      "val_auc": 0.8584890522535056,
+      "wall_seconds": 107.76753650000319
+    },
+    {
+      "epoch": 8,
+      "loss": 0.23448995540921505,
+      "steps": 780,
+      "val_auc": 0.8585871237569023,
+      "wall_seconds": 123.35334790003253
+    },
+    {
+      "epoch": 9,
+      "loss": 0.2337372495386845,
+      "steps": 780,
+      "val_auc": 0.8590522326799349,
+      "wall_seconds": 138.86271340004168
+    },
+    {
+      "epoch": 10,
+      "loss": 0.23293246160715053,
+      "steps": 780,
+      "val_auc": 0.8591347330372561,
+      "wall_seconds": 154.18963160004932
+    },
+    {
+      "epoch": 11,
+      "loss": 0.2320480182575874,
+      "steps": 780,
+      "val_auc": 0.8595260988027331,
+      "wall_seconds": 169.2348156000371
+    },
+    {
+      "epoch": 12,
+      "loss": 0.23113452923985628,
+      "steps": 780,
+      "val_auc": 0.8590747319470248,
+      "wall_seconds": 184.6229258000385
+    },
+    {
+      "epoch": 13,
+      "loss": 0.23034588704124476,
+      "steps": 780,
+      "val_auc": 0.8602875573029136,
+      "wall_seconds": 200.09493300004397
+    },
+    {
+      "epoch": 14,
+      "loss": 0.22964528212562585,
+      "steps": 780,
+      "val_auc": 0.8592770266868482,
+      "wall_seconds": 215.6050349000143
+    },
+    {
+      "epoch": 15,
+      "loss": 0.22903418246752177,
+      "steps": 780,
+      "val_auc": 0.8578747717967364,
+      "wall_seconds": 231.1236143000424
+    },
+    {
+      "epoch": 16,
+      "loss": 0.2285259797787055,
+      "steps": 780,
+      "val_auc": 0.8591750207231653,
+      "wall_seconds": 246.8371196000371
+    }
+  ],
+  "epoch_count": 16,
+  "parameters": 27063,
+  "head_init_hash": "081deab8467d9a2534a597c6ce6ff720f8926fc075408352a6dd6821a92c3b77",
+  "head_state_sha256": "1e1895a29b11656d4fdd91dffa07f9c2a3e5c0f1291ec2ebd45bc0931f687171",
+  "val_n": 49881,
+  "test_n": 49881,
+  "base_hash": "a24f55841770c464901ebb15cfce824f7559e500092f59353cbf5573483aed83",
+  "base_hash_recorded": "a24f55841770c464901ebb15cfce824f7559e500092f59353cbf5573483aed83",
+  "frozen_base_hash_before": "a24f55841770c464901ebb15cfce824f7559e500092f59353cbf5573483aed83",
+  "frozen_base_hash_after": "a24f55841770c464901ebb15cfce824f7559e500092f59353cbf5573483aed83",
+  "frozen_gradients_none": true,
+  "lr": 0.001,
+  "batch_size": 256,
+  "epoch_budget": 20,
+  "patience": 3,
+  "tie_rule": "best epoch = earliest epoch attaining the strictly maximum validation AUC; an epoch must strictly improve to replace the current best",
+  "loss": "BCELoss(pred.cpu(), target.float()) + head.get_l2_reg() (original NewTask path)",
+  "checkpoint_file": "B_model.pt",
+  "checkpoint_sha256": "1af92a1e0158b25fffa551c15ff9d05e21a6652b2abee0139da8e664734557b3",
+  "stage1_selected_epoch": 18,
+  "stage1_wall_seconds": 828.104595199984,
+  "stage1_old_tasks_val": {
+    "Income": 0.945123137224152,
+    "Marital": 0.9912542074923415
+  },
+  "stage1_old_tasks_test": {
+    "Income": 0.9455806927675339,
+    "Marital": 0.9909109553157982
+  },
+  "encoder_hash_recorded": null,
+  "encoder_hash_loaded": null,
+  "stage2_wall_seconds": 251.35032980004326
+}
