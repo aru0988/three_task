@@ -1,0 +1,12 @@
+{
+  "u_std_mean": 0.5451976006174157,
+  "u_live_fraction": 1.0,
+  "ug_squared_correlation": 0.04646879549439573,
+  "reconstruction_train_probe": {
+    "total": 0.11460002511739731,
+    "reconstruction": 0.11412552744150162,
+    "zero": 1.7759345769882202,
+    "decorrelation": 0.04618856683373451,
+    "variance": 0.0012616922613233328
+  }
+}

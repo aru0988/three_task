@@ -8,6 +8,38 @@ import numpy as np
 from scipy.stats import rankdata
 
 
+def checkpoint_audit(path, mech, report, stage1, checks):
+    # Rebuild the probe with NumPy, not UniversalExpert.forward/losses.
+    import torch
+    state = torch.load(path/'stage1.pt', map_location='cpu', weights_only=True)
+    u = {k.removeprefix('universal.'): v.numpy() for k,v in state.items() if k.startswith('universal.')}
+    x = np.clip((mech['probe_x']-u['mean'])/u['scale'], -10, 10)
+    mask = mech['probe_mask']; expanded = np.repeat(mask, mech['widths'], axis=1)
+    def encode(a):
+        h = np.maximum(a @ u['encoder.0.weight'].T + u['encoder.0.bias'], 0)
+        return h @ u['encoder.2.weight'].T + u['encoder.2.bias']
+    clean = encode(np.concatenate([x,np.zeros_like(mask,dtype=np.float32)],axis=1))
+    hidden = encode(np.concatenate([np.where(expanded,0,x),mask.astype(np.float32)],axis=1))
+    pred = hidden @ u['decoder.weight'].T + u['decoder.bias']
+    ends = np.cumsum(mech['widths'])[:-1]
+    errors = np.stack([a.mean(1) for a in np.split((pred-x)**2,ends,axis=1)],axis=1)
+    zeros = np.stack([a.mean(1) for a in np.split(x*x,ends,axis=1)],axis=1)
+    expected = report['mechanism']['reconstruction_train_probe']
+    checks['probe_clean_encoding'] = np.allclose(clean,mech['probe_u'],atol=2e-5,rtol=2e-5)
+    checks['probe_reconstruction'] = bool(np.isclose((errors*mask).sum()/mask.sum(),expected['reconstruction'],atol=2e-6,rtol=2e-5))
+    checks['probe_zero'] = bool(np.isclose((zeros*mask).sum()/mask.sum(),expected['zero'],atol=2e-6,rtol=2e-5))
+    checks['probe_mask_count'] = bool(np.all(mask.sum(1)==round(.3*len(mech['widths']))))
+    for prefix,key in [('base.','base_hash'),('universal.','universal_hash')]:
+        digest = hashlib.sha256()
+        for name,t in sorted(state.items()):
+            if not name.startswith(prefix) or (prefix=='universal.' and name.removeprefix(prefix) in ('mean','scale')) or name=='base.env_indices':
+                continue
+            h = hashlib.sha256(str(t.dtype).encode()+str(tuple(t.shape)).encode()+t.contiguous().numpy().tobytes()).hexdigest()
+            digest.update(name.removeprefix(prefix).encode()); digest.update(h.encode())
+        checks['checkpoint_'+key] = digest.hexdigest()==stage1[key]
+    checks['checkpoint_env_buffer'] = np.array_equal(state['base.env_indices'].numpy(),[0,1])
+
+
 def rank_auc(y, p):
     y, p = np.asarray(y), np.asarray(p)
     assert y.shape == p.shape and np.isfinite(p).all()
@@ -53,6 +85,14 @@ def main():
     checks['u_std'] = np.allclose(us,mech['u_std'],atol=1e-8,rtol=1e-8)
     checks['ug_corr'] = np.allclose(corr,mech['ug_correlation'],atol=1e-8,rtol=1e-8)
     checks['live_fraction'] = abs(float(np.mean(us > .01))-report['mechanism']['u_live_fraction']) < 1e-12
+    checkpoint_audit(path,mech,report,stage1,checks)
+    checks['canonical_seeds'] = (config['model_seed'],config['env_seed'],config['split_seed']) == (1685480945,20260929,20260929)
+    checks['budget'] = config['stage1_epochs']==2 and config['stage2_epochs']==5 and all(len(report['arms'][a]['epochs'])<=5 and all(e['steps']==780 for e in report['arms'][a]['epochs']) for a in scores)
+    checks['old_historical_auc'] = all(abs(report['stage1_old_tasks'][s][t]-v)<1e-12 for s,t,v in [('val','income',.9373971773636002),('val','marital',.9909744586701101),('test','income',.9381688583685694),('test','marital',.9908426142246791)])
+    checks['baseline_historical_auc'] = abs(scores['B']['val']-.8527881905614896)<1e-12 and abs(scores['B']['test']-.8500685307175756)<1e-12
+    checks['positive_runtime'] = report['wall_seconds']>0 and all(report['arms'][a]['wall_seconds']>0 for a in scores)
+    expected_go = all(scores['U']['test']-scores[a]['test']>=.001 and scores['U']['val']>scores[a]['val'] for a in ('B','R','G')) and float(np.mean(us>.01))>=.5 and report['mechanism']['reconstruction_train_probe']['reconstruction']<report['mechanism']['reconstruction_train_probe']['zero'] and checks['old_historical_auc']
+    checks['decision'] = bool(expected_go)==report['preregistered_go']
     checks['capacity'] = len({report['arms'][a]['parameters'] for a in ('U','R','G')}) == 1
     checks['freeze_base'] = report['frozen_base_hash_after'] == stage1['base_hash']
     checks['freeze_u'] = report['frozen_u_hash_after'] == stage1['universal_hash']

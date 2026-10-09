@@ -1,0 +1,45 @@
+{
+  "commit": "51a1c7d6259a0ed069cfd5838e1096b8a982f904",
+  "dirty": false,
+  "model_seed": 1685480945,
+  "env_seed": 20260929,
+  "split_seed": 20260929,
+  "smoke": false,
+  "fingerprint": {
+    "split_seed": 20260929,
+    "n_train": 199523,
+    "n_val": 49881,
+    "n_test": 49881,
+    "disjoint": true,
+    "union_complete": true,
+    "val_sha256": "6f2c5868b5bf261a7a04fe82ad1e039598b38b71b49cd52f5665014a27f62722",
+    "test_sha256": "68e027924fb1127ef97720e02e32b5a3363e71aacd9538b11673f53fc3a8e5da",
+    "val_indices_head": [
+      0,
+      1,
+      4,
+      5,
+      6
+    ],
+    "test_indices_head": [
+      2,
+      3,
+      7,
+      8,
+      9
+    ],
+    "fingerprint_sha256": "096f8f16db081d7ad024b7aa450a40510a50e0acdbb439d973cc8fc9557d460c"
+  },
+  "stage1_epochs": 2,
+  "stage2_epochs": 5,
+  "source": "D:\\MPT-Rec-three_task\\MPT-Rec",
+  "created": "2026-10-09T11:05:24.768279",
+  "device": "cuda:0",
+  "python": "3.10.11 (tags/v3.10.11:7d4cc5a, Apr  5 2023, 00:38:17) [MSC v.1929 64 bit (AMD64)]",
+  "torch": "2.6.0+cu124",
+  "cuda": "12.4",
+  "data_sha256": {
+    "train.gz": "e2f2d57925a8020d23fcd05802284b3bc1d91fcdd451f1eaaefd683e76d1b2dc",
+    "test.gz": "8de690375028ac531de37fcbb117bd6527c5f3542d3bfead8975226e45100cec"
+  }
+}

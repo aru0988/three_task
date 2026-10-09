@@ -22,4 +22,50 @@ Delta >= .001 = positive; -.02 < delta < .001 = no clear improvement; delta <= -
 1. Add failing tests for whole-field masking, detached gradients, train-only normalization, and residual-head initialization/capacity.
 2. Implement U in `universal_experiment/model.py`; wrap baseline only at its forward/auxiliary-loss boundary, preserving old-task interfaces.
 3. Add `universal_experiment/run.py`: strict data/checkpoint assertions, Stage-1 training, frozen-cache four-arm training, raw outputs. Commit implementation before formal run.
-4. Run unit tests and tiny synthetic smoke. Run the single preregistered full-data short experiment. Independently recompute AUC from saved raw NPZ and verify hashes. Append outcomes here and push code plus valid records (including negative results).
+4. Run unit tests and a small-data smoke. Run the single preregistered full-data short experiment. Independently recompute AUC from saved raw NPZ and verify hashes. Append outcomes here and push code plus valid records (including negative results).
+
+## Initial CensusIncome result — 2026-10-09
+
+Preregistration commit `a52303f`; training code `51a1c7d6259a0ed069cfd5838e1096b8a982f904`, `dirty=false`. Raw evidence: `results/universal/census-seed1685480945/`. Total runner wall time 303.4104 seconds, excluding Python import/startup. This was one full-data short-budget experiment, not a multi-seed confirmation. All four heads used five training epochs, with validation-only checkpoint selection.
+
+| New-task Education arm | Validation AUC | Test AUC | Selected epoch | Trainable Stage-2 parameters |
+| --- | ---: | ---: | ---: | ---: |
+| B: original baseline | 0.8527881906 | 0.8500685307 | 5 | 27063 |
+| U: learned self-supervised expert | 0.8525359330 | 0.8498233900 | 5 | 43448 |
+| R: frozen random expert control | 0.8523018109 | 0.8495605306 | 5 | 43448 |
+| G: extra General residual control | 0.8506287793 | 0.8477891230 | 4 | 43448 |
+
+| U minus control | Validation delta | Test delta | Added threshold classification |
+| --- | ---: | ---: | --- |
+| B | -0.0002522576 | -0.0002451407 | No clear improvement |
+| R | +0.0002341221 | +0.0002628594 | No clear improvement |
+| G | +0.0019071537 | +0.0020342670 | Positive relative to G control only |
+
+**Preregistered decision: NO-GO for this configuration.** U does not beat B or the equal-capacity random-feature control by +0.001. Beating the weaker G residual arm is not an improvement over MPT-Rec. No automatic seed expansion or coefficient search is justified by this run.
+
+### Old tasks and mechanism
+
+| Original task | Validation AUC | Test AUC |
+| --- | ---: | ---: |
+| Income | 0.9373971774 | 0.9381688584 |
+| Marital | 0.9909744587 | 0.9908426142 |
+
+Both old-task AUCs and the full G/S parameter hash exactly reproduce the historical paired baseline. Fresh B also reproduces historical Education AUC. Old-task preservation is **by one-way gradient isolation and unchanged prediction paths**, not evidence that U improves existing tasks.
+
+- U masked reconstruction MSE: 0.1141255274 versus zero-predictor 1.7759345770 on the fixed training-only probe.
+- All 128 U dimensions have standard deviation >0.01; mean standard deviation 0.5451976006. Mean squared U/G cross-correlation: 0.0464687955. These show learning/noncollapse, not mathematical independence or future-task universality.
+- Shuffling U at inference reduces Education AUC to validation 0.8069508788 / test 0.8036833618. The fitted head depends on the aligned representation, but this distribution-shift diagnostic does not establish incremental useful information: the matched random control is nearly as good.
+- Improvement space: possible but unproven. The current self-supervised objective predicts task-shaped embedding coordinates, which may retain nuisance information or duplicate what the existing path already supplies. Only one seed and one budget exist; there is no cross-seed or long-budget evidence. A future falsifiable test could change only the self-supervised target to original masked fields, while retaining these controls. It is not run or authorized as a claimed success in this record.
+
+### Reproduction and evidence
+
+```powershell
+# Run from this worktree; source supplies the existing dataset and fixed split.
+python -m unittest universal_experiment.test_model -v
+python -m universal_experiment.run --source D:\MPT-Rec-three_task\MPT-Rec --out results/universal/census-seed1685480945
+python -m universal_experiment.verify results/universal/census-seed1685480945
+```
+
+The runner rejects nonempty output paths and dirty formal starts. Use the recorded training commit and a new output path to reproduce. Six model tests passed before the formal run; the 1024-row/one-epoch smoke completed all four arms and is not included in scientific results. The independent verifier uses rank-statistic AUC, NumPy reconstruction of the U encoder/decoder, raw sufficient statistics for representation diagnostics, and explicit checkpoint/data-split checks. It does not call the training metric implementation or U loss implementation. `verification.json` is the machine-readable audit outcome.
+
+Saved evidence includes train/validation/test sizes, source-file fingerprints, exact split indices, all validation epoch scores, raw validation/test labels and predictions, old-task predictions, selected checkpoints, per-step auxiliary losses, representation sufficient statistics and the masked training probe. All small checkpoints are versioned alongside the results. The decoder is training-only; Stage-2 U is frozen. Remaining limitations include a single held-out new task, a single seed, fixed initial normalization despite evolving embeddings, and only one residual readout design.
