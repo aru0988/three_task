@@ -15,6 +15,8 @@ class UniversalExperimentCliTest(unittest.TestCase):
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertIn("census", result.stdout)
         self.assertIn("aliccp", result.stdout)
+        self.assertIn("--newtask-read", result.stdout)
+        self.assertIn("--stage1-read", result.stdout)
 
 
 if __name__ == "__main__":

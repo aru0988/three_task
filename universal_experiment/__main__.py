@@ -15,6 +15,8 @@ def main() -> None:
     parser.add_argument("--budget20", action="store_true", help="Reuse Stage-1 for the 20-epoch screen")
     parser.add_argument("--stage1-read", action="store_true",
                         help="Stage-1 old-task read-only-U four-arm screen")
+    parser.add_argument("--newtask-read", action="store_true",
+                        help="Read-U Stage-1 -> new-task transfer four-arm screen")
     args, remaining = parser.parse_known_args()
 
     # Keep the already verified dataset runners as implementation modules.  The
@@ -23,6 +25,11 @@ def main() -> None:
         from universal_experiment.stage1_read import main as read_main
         sys.argv = [f"universal_experiment {args.dataset}", *remaining]
         read_main(args.dataset)
+        return
+    if args.newtask_read:
+        from universal_experiment.newtask_read import main as newtask_main
+        sys.argv = [f"universal_experiment {args.dataset}", *remaining]
+        newtask_main(args.dataset)
         return
     if args.budget20:
         from universal_experiment.budget import main as budget_main
