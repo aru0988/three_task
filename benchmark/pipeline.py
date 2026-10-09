@@ -116,9 +116,9 @@ def run_stage2(profile: DatasetProfile, root, *, stage1_dir, epochs: int | None 
                 with torch.no_grad():                                    # 计算图级冻结
                     dnn_input, gen_rep, spec_reps, env_embs = backbone.get_infos(features)
                 pred = newtask(dnn_input, gen_rep, spec_reps, env_embs)
-                if profile.stage2_cpu_loss:                              # aliccp：pred.cpu() + y.float()
+                if profile.stage2_cpu_loss:                              # CPU 侧损失（数据集差异经 profile 注入）
                     loss = loss_func(pred.cpu(), y.float()) + newtask.get_l2_reg()
-                else:                                                    # census：pred + y.float().to(device)
+                else:                                                    # 设备侧损失
                     loss = loss_func(pred, y.float().to(device)) + newtask.get_l2_reg()
                 optimizer.zero_grad()
                 loss.backward()

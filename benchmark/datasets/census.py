@@ -230,9 +230,11 @@ def stage1_epoch_records(manager) -> list:
              "env_acc": manager.env_accs[i]} for i, aucs in enumerate(manager.val_epoch_aucs)]
 
 
-def build_profile(*, split_seed: int = SPLIT_SEED, loaders=None, stats=None, indices=None,
+def build_profile(*, split_seed: int = SPLIT_SEED, model_seed: int = MODEL_SEED,
+                  env_seed: int = ENV_SEED, loaders=None, stats=None, indices=None,
                   input_size: int = INPUT_SIZE, rep_dim: int = EXPERT_HIDDEN[-1]) -> DatasetProfile:
-    """census 两阶段适配；loaders/stats/indices 与 input_size/rep_dim 仅供 tiny e2e 测试注入。"""
+    """census 两阶段适配；model_seed/env_seed 供 CLI 透传；loaders/stats/indices 与
+    input_size/rep_dim 仅供 tiny e2e 测试注入。"""
 
     def prepare(root):
         if loaders is not None:
@@ -256,7 +258,7 @@ def build_profile(*, split_seed: int = SPLIT_SEED, loaders=None, stats=None, ind
                 "epochs": epochs, "patience": PATIENCE, "record_env_acc": True, "cluster_epoch_offset": 0}
 
     def build_cfg(ctx, epochs):
-        return {"model_seed": MODEL_SEED, "env_seed": ENV_SEED, "epochs": epochs, "patience": PATIENCE,
+        return {"model_seed": model_seed, "env_seed": env_seed, "epochs": epochs, "patience": PATIENCE,
                 "batch_size": ctx["loaders"]["train"].batch_size, "lr": LR, "uni_coe": UNI_COE,
                 "env_coe": ENV_COE, "reg_embedding": REG_EMBEDDING, "reg_dnn": REG_DNN,
                 "input_size": INPUT_SIZE, "embedding_size": EMBEDDING_SIZE,
@@ -268,7 +270,7 @@ def build_profile(*, split_seed: int = SPLIT_SEED, loaders=None, stats=None, ind
         records = stage1_epoch_records(manager)
         return {"stage1_id": sid, "commit": commit, "config_hash": cfg_sha, **cfg, **stats,
                 "created": datetime.now().isoformat(timespec="seconds"),
-                "split_seed": ctx["split_seed"], "model_seed": MODEL_SEED, "env_seed": ENV_SEED,
+                "split_seed": ctx["split_seed"], "model_seed": model_seed, "env_seed": env_seed,
                 "split_fingerprint_sha256": fp["fingerprint_sha256"],
                 "val_sha256": fp["val_sha256"], "test_sha256": fp["test_sha256"],
                 "env_ids_sha256": sha256_tensor(env_ids), "backbone_sha256": backbone_sha256(model),
@@ -375,7 +377,7 @@ def build_profile(*, split_seed: int = SPLIT_SEED, loaders=None, stats=None, ind
         log(f"[stage2] failures={report['failures']} run_dir={bundle['run_path']}")
 
     return DatasetProfile(
-        name="census", model_seed=MODEL_SEED, env_seed=ENV_SEED,
+        name="census", model_seed=model_seed, env_seed=env_seed,
         stage1_epochs=STAGE1_EPOCHS, stage2_epochs=STAGE2_EPOCHS, stage2_patience=PATIENCE,
         stage2_lr=LR, stage2_cpu_loss=False, stage2_catch_grads=False,
         prepare=prepare, build_model=build_mptrec,

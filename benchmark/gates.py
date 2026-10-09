@@ -1,9 +1,9 @@
 """门禁引擎：GateOutcome（状态 + 证据）、evaluate 构造、hard_pass 判定与两种输出 schema 渲染。
 
-门禁条件与证据字段是各数据集适配器（datasets/census.py 的 judge、datasets/aliccp.py 的
-evaluate_a_gates / evaluate_b_gates），共用此处的状态词表与渲染：
-- census schema：{"pass": bool, "detail": <结构化 dict>}（render_pass_detail）；
-- aliccp schema：{"verdict": "PASS"/"FAIL"/"SKIP"/"N/A", "detail": <文本>}（render_verdict_detail）。
+门禁条件与证据字段由各数据集适配器构造（datasets/ 下的 judge / evaluate_a_gates /
+evaluate_b_gates），共用此处的状态词表与渲染：
+- 布尔 schema：{"pass": bool, "detail": <结构化 dict>}（render_pass_detail）；
+- 状态串 schema：{"verdict": "PASS"/"FAIL"/"SKIP"/"N/A", "detail": <文本>}（render_verdict_detail）。
 """
 from __future__ import annotations
 
@@ -48,10 +48,10 @@ def hard_pass(states, *, allowed) -> bool:
 
 
 def render_pass_detail(outcomes) -> dict:
-    """census schema：{"pass": bool, "detail": 结构化证据}。"""
+    """布尔 schema：{"pass": bool, "detail": 结构化证据}。"""
     return {outcome.gate_id: {"pass": outcome.passed, "detail": outcome.detail} for outcome in outcomes}
 
 
 def render_verdict_detail(outcomes) -> dict:
-    """aliccp schema：{"verdict": 状态字符串, "detail": 文本/结构化证据}。"""
+    """状态串 schema：{"verdict": 状态字符串, "detail": 文本/结构化证据}。"""
     return {outcome.gate_id: {"verdict": outcome.state, "detail": outcome.detail} for outcome in outcomes}

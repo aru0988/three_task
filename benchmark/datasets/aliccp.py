@@ -71,6 +71,14 @@ SUMMARY_COLUMNS = [
 ]
 
 
+def prefix_tag_for(*, train: int = TRAIN_BUDGET, val: int = VAL_BUDGET,
+                   test: int = TEST_BUDGET) -> str:
+    """全量预算 → PREFIX_TAG（唯一正式基线）；否则 p{train}-v{val}-t{test}（spec 5.1）。"""
+    if (train, val, test) == (TRAIN_BUDGET, VAL_BUDGET, TEST_BUDGET):
+        return PREFIX_TAG
+    return f"p{train}-v{val}-t{test}"
+
+
 def build_vocab() -> dict:
     """AliCCP vocab 副本（去掉 101 干扰特征与 301 第三标签列）；绝不修改全局字典（spec 2.2）。"""
     vocab = AliCCP_Vocabulary_Size.copy()
