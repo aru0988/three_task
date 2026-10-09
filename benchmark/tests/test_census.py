@@ -1,3 +1,4 @@
+import importlib.util
 import tempfile, unittest
 from pathlib import Path
 
@@ -8,6 +9,8 @@ from torch.utils.data import Dataset
 
 from benchmark.datasets import census
 from multitaskrec.model import MPTRec
+
+_HAVE_LEGACY = importlib.util.find_spec("census_benchmark") is not None
 
 # ---- 黄金常量：2026-10-09 由旧实现（census_benchmark，n_train 取自已记录 stage1 meta）验证一致 ----
 FULL = dict(n_test=99762, n_train=199523, n_val=49881, n_test_side=49881,
@@ -118,6 +121,57 @@ class TestBuildMptrec(unittest.TestCase):
         # spec 2.2.1：vocab = CensusIncome_Vocabulary_Size 去掉 education，其余同序保留
         expected = [name for name in CensusIncome_Vocabulary_Size if name != "education"]
         self.assertEqual(model.embedding_network.feature_names, expected)
+
+
+def _ok_kwargs(**over):
+    """全部门禁通过的基线参数；单个测试按需覆盖（移植自 census_benchmark/tests/test_metrics.py）。"""
+    base = dict(backbone_sha_equal=True, grads_all_none=True, split_ok=True, split_stats_ok=True,
+                env_ids_ok=True, auc_val_income=0.90, auc_val_marital=0.90, auc_test_education=0.90,
+                auc_val_education_best=0.90, gate_mean=[0.5, 0.5], env_shares=[0.40, 0.60])
+    base.update(over)
+    return base
+
+
+class TestJudge(unittest.TestCase):
+    def test_a_class_hard_gates(self):
+        report = census.judge(**_ok_kwargs())
+        self.assertTrue(report["overall_pass"]); self.assertEqual(report["failures"], [])
+        for key in ("A1", "A2", "A4", "A5"):
+            self.assertTrue(report[key]["pass"])
+        self.assertFalse(census.judge(**_ok_kwargs(backbone_sha_equal=False))["A1"]["pass"])
+        self.assertFalse(census.judge(**_ok_kwargs(grads_all_none=False))["A1"]["pass"])
+        self.assertFalse(census.judge(**_ok_kwargs(split_ok=False))["overall_pass"])
+        self.assertFalse(census.judge(**_ok_kwargs(env_ids_ok=False))["A5"]["pass"])
+
+    def test_b1_b2_thresholds(self):
+        self.assertTrue(census.judge(**_ok_kwargs(auc_val_income=0.60))["B1"]["pass"])     # 边界含等号
+        self.assertFalse(census.judge(**_ok_kwargs(auc_val_income=0.599))["B1"]["pass"])
+        self.assertFalse(census.judge(**_ok_kwargs(auc_test_education=0.59,
+                                                   auc_val_education_best=0.59))["B1"]["pass"])
+        self.assertTrue(census.judge(**_ok_kwargs(auc_val_education_best=0.90,
+                                                  auc_test_education=0.88))["B2"]["pass"])   # 差 = 0.02
+        self.assertFalse(census.judge(**_ok_kwargs(auc_val_education_best=0.90,
+                                                   auc_test_education=0.86))["B2"]["pass"])  # 差 = 0.04
+        # 阈值 0.03 在二进制浮点下不可精确表示（0.9 - 0.87 = 0.030000000000000027），故用 0.02 / 0.04 覆盖两侧
+
+    def test_b3_b4_degenerate(self):
+        self.assertTrue(census.judge(**_ok_kwargs(gate_mean=[0.05, 0.95]))["B3"]["pass"])
+        self.assertFalse(census.judge(**_ok_kwargs(gate_mean=[0.02, 0.98]))["B3"]["pass"])    # 坍缩到单一分支
+        self.assertTrue(census.judge(**_ok_kwargs(env_shares=[0.05, 0.95]))["B4"]["pass"])
+        self.assertFalse(census.judge(**_ok_kwargs(env_shares=[0.049, 0.951]))["B4"]["pass"])  # 聚类退化
+
+
+@unittest.skipUnless(_HAVE_LEGACY, "旧实现包已删除（迁移完成）")
+class TestLegacyJudgeEquivalence(unittest.TestCase):
+    def test_judge_matches_legacy(self):
+        from census_benchmark import metrics as old
+        cases = ({}, {"backbone_sha_equal": False}, {"grads_all_none": False}, {"split_ok": False},
+                 {"split_stats_ok": False}, {"env_ids_ok": False}, {"auc_val_income": 0.599},
+                 {"auc_val_education_best": 0.90, "auc_test_education": 0.86},
+                 {"gate_mean": [0.02, 0.98]}, {"env_shares": [0.049, 0.951]})
+        for over in cases:
+            kwargs = _ok_kwargs(**over)
+            self.assertEqual(census.judge(**kwargs), old.judge(**kwargs), over)
 
 
 if __name__ == "__main__":

@@ -13,6 +13,7 @@ import torch
 from sklearn.model_selection import train_test_split
 from torch.utils.data import DataLoader, Subset
 
+from benchmark import gates
 from benchmark.protocol import canonical_json, sha256_bytes, sha256_tensor
 from config import CensusIncome_Vocabulary_Size
 from multitaskrec.dataset import CensusIncomeDataset
@@ -112,3 +113,27 @@ def build_mptrec(device) -> MPTRec:
                   input_size=INPUT_SIZE, expert_dnn_hidden_units=list(EXPERT_HIDDEN),
                   tower_dnn_hidden_units=list(TOWER_HIDDEN),
                   reg_embedding=REG_EMBEDDING, reg_dnn=REG_DNN, device=device)
+
+
+def judge(*, backbone_sha_equal: bool, grads_all_none: bool, split_ok: bool, split_stats_ok: bool,
+          env_ids_ok: bool, auc_val_income: float, auc_val_marital: float, auc_test_education: float,
+          auc_val_education_best: float, gate_mean: list[float], env_shares: list[float]) -> dict:
+    """A1/A2/A4/A5 + B1–B4（spec 8）。A3 按需触发，由调用方另行写入，不进入 overall_pass。"""
+    outcomes = gates.evaluate([
+        ("A1", backbone_sha_equal and grads_all_none,
+         {"backbone_sha_equal": backbone_sha_equal, "grads_all_none": grads_all_none}),
+        ("A2", split_ok, {"split_fingerprint_consistent": split_ok}),
+        ("A4", split_stats_ok, {"disjoint_and_complete": split_stats_ok}),
+        ("A5", env_ids_ok, {"env_ids_sha256_matches_stage1": env_ids_ok}),
+        ("B1", min(auc_val_income, auc_val_marital, auc_test_education) >= AUC_FLOOR,
+         {"auc_val_income": auc_val_income, "auc_val_marital": auc_val_marital,
+          "auc_test_education": auc_test_education, "floor": AUC_FLOOR}),
+        ("B2", abs(auc_val_education_best - auc_test_education) <= VAL_TEST_GAP,
+         {"gap": abs(auc_val_education_best - auc_test_education), "limit": VAL_TEST_GAP}),
+        ("B3", all(GATE_MIN <= w <= GATE_MAX for w in gate_mean), {"gate_mean": gate_mean}),
+        ("B4", all(share >= ENV_SHARE_MIN for share in env_shares), {"env_shares": env_shares}),
+    ])
+    report = gates.render_pass_detail(outcomes)
+    report["overall_pass"] = gates.hard_pass((outcome.state for outcome in outcomes), allowed=(gates.PASS,))
+    report["failures"] = [outcome.gate_id for outcome in outcomes if outcome.state == gates.FAIL]
+    return report

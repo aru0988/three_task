@@ -16,6 +16,7 @@ from pathlib import Path
 import torch
 from torch.utils.data import DataLoader
 
+from benchmark import gates
 from benchmark.protocol import canonical_json, sha256_bytes, stage1_id
 from config import AliCCP_Vocabulary_Size
 from multitaskrec.dataset import AliCCPDataset
@@ -313,3 +314,74 @@ def env_accuracy_probe(model, loader, env_ids, batch_size, device, max_batches=2
         correct += int((env_pred.argmax(dim=1)[:n] == ids).sum())
         total += n
     return correct / max(1, total)
+
+
+# ---- 门禁判定（原 aliccp_benchmark.metrics；spec 10）----
+def _a_outcomes(facts: dict) -> list:
+    """A 类协议正确性门禁（spec 10）。A3 为按需复跑，首轮 SKIP。"""
+    a1_ok = facts["backbone_sha_before"] == facts["backbone_sha_after"] and facts["backbone_grads_none"]
+    a2_ok = facts["prefix_sha_ok"] and facts["fingerprint_sha_match"]
+    a4_ok = facts["len_ok"] and facts["counts_ok"]
+    a5_ok = facts["env_ids_sha_match"]
+    a6_ok = facts["backbone_sha_matches_stage1"] and facts["stage1_id_recorded"]
+    return gates.evaluate([
+        ("A1", a1_ok, f"sha_before==sha_after:{facts['backbone_sha_before'] == facts['backbone_sha_after']}, "
+                      f"grads_none:{facts['backbone_grads_none']}"),
+        ("A2", a2_ok, f"prefix_sha_ok:{facts['prefix_sha_ok']}, fingerprint_sha_match:{facts['fingerprint_sha_match']}"),
+        gates.GateOutcome("A3", gates.SKIP, "按需复跑（spec 10，不阻塞首轮）"),
+        ("A4", a4_ok, f"len_ok:{facts['len_ok']}, counts_ok:{facts['counts_ok']}"),
+        ("A5", a5_ok, f"env_ids_sha_match:{facts['env_ids_sha_match']}"),
+        ("A6", a6_ok, f"backbone_sha_matches_stage1:{facts['backbone_sha_matches_stage1']}, "
+                      f"stage1_id_recorded:{facts['stage1_id_recorded']}"),
+    ])
+
+
+def _b_outcomes(facts: dict) -> list:
+    """B 类活性与机制门禁（spec 10；smoke 只记录不判定）。"""
+    ctr_ok = facts["auc_val_ctr"] >= AUC_FLOOR_CTR
+    cvr_ok = facts["auc_val_cvr"] >= AUC_FLOOR_CVR
+    bsi_ok = facts["auc_test_bsi"] >= AUC_FLOOR_BSI
+    b1_ok = ctr_ok and cvr_ok and bsi_ok
+
+    gap = abs(facts["auc_val_bsi_best"] - facts["auc_test_bsi"])
+    b2_ok = gap <= VAL_TEST_GAP_BSI
+
+    gate_mean = facts["gate_mean"]
+    b3_ok = bool(gate_mean) and all(GATE_MIN <= float(g) <= GATE_MAX for g in gate_mean)
+
+    events = facts["cluster_events"]
+    train_size = facts.get("train_size", 0)
+    if not events:
+        b4 = gates.GateOutcome("B4", gates.NA, "无 cluster 调用（0 次，未判定）")
+    else:
+        share = ENV_SHARE_MIN * train_size
+        shares = [(e["env_0"], e["env_1"]) for e in events]
+        b4_ok = all(e0 >= share and e1 >= share for e0, e1 in shares)
+        b4 = gates.GateOutcome("B4", gates.PASS if b4_ok else gates.FAIL,
+                               f"env 占比下限 {ENV_SHARE_MIN:.0%}；events={shares}")
+
+    return gates.evaluate([
+        ("B1", b1_ok, f"CTR {facts['auc_val_ctr']:.4f}>={AUC_FLOOR_CTR}:{ctr_ok}, "
+                      f"CVR {facts['auc_val_cvr']:.4f}>={AUC_FLOOR_CVR}:{cvr_ok}, "
+                      f"BSI {facts['auc_test_bsi']:.4f}>={AUC_FLOOR_BSI}:{bsi_ok}"),
+        ("B2", b2_ok, f"|val-test|={gap:.4f} <= {VAL_TEST_GAP_BSI}"),
+        ("B3", b3_ok, f"gate_mean={list(gate_mean)} ∈ [{GATE_MIN}, {GATE_MAX}]"),
+        b4,
+    ])
+
+
+def evaluate_a_gates(facts: dict) -> dict:
+    return gates.render_verdict_detail(_a_outcomes(facts))
+
+
+def evaluate_b_gates(facts: dict) -> dict:
+    return gates.render_verdict_detail(_b_outcomes(facts))
+
+
+def hard_pass(a_gates: dict, enforce_b: bool, b_gates: dict | None = None) -> bool:
+    """A 类必须全 PASS（A3 SKIP 视为通过）；enforce_b 时 B 类必须 PASS 或 N/A。"""
+    a_ok = gates.hard_pass((g["verdict"] for g in a_gates.values()), allowed=(gates.PASS, gates.SKIP))
+    if not enforce_b:
+        return a_ok
+    return a_ok and b_gates is not None and gates.hard_pass(
+        (g["verdict"] for g in b_gates.values()), allowed=(gates.PASS, gates.NA))
