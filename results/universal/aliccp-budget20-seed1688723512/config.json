@@ -1,0 +1,31 @@
+{
+  "dataset": "aliccp",
+  "previous": "results\\universal\\aliccp-seed1688723512",
+  "source": "D:\\MPT-Rec-three_task\\MPT-Rec",
+  "model_seed": 1688723512,
+  "epochs": 20,
+  "patience": 3,
+  "batch_size": 2000,
+  "lr": 0.0001,
+  "stage1_retrained": false,
+  "commit": "faabb949790d146887686ed7bbad56f36a751d9d",
+  "dirty": false,
+  "created": "2026-10-09T16:46:16.576208",
+  "device": "cuda:0",
+  "stage1_base": "5553640bc1f43c7af0065f4f1d3f2d719022b3764751e2e4a6cb57f663f2c6ee",
+  "stage1_u": "a8f8625d1987d9b9f7ae13d21b5bd0cb46fcda0220fd55dfc3daa773b214d7f3",
+  "torch": "2.6.0+cu124",
+  "arm_order": [
+    "B",
+    "U",
+    "R",
+    "G"
+  ],
+  "timing_note": "cached Stage-2; single sequential run, not an end-to-end speed claim",
+  "cache_preparation_seconds": 0.5629558000364341,
+  "rows": {
+    "train": 2000000,
+    "val": 500000,
+    "test": 1000000
+  }
+}

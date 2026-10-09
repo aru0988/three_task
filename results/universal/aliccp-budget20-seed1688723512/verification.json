@@ -1,0 +1,74 @@
+{
+  "passed": true,
+  "checks": {
+    "clean_start": true,
+    "budget": true,
+    "stage1_reused": true,
+    "B_val_auc": true,
+    "B_val_labels": true,
+    "B_test_auc": true,
+    "B_test_labels": true,
+    "B_selection": true,
+    "B_budget": true,
+    "B_historical_first5": true,
+    "B_early_stop": true,
+    "B_target": true,
+    "B_timing": true,
+    "U_val_auc": true,
+    "U_val_labels": true,
+    "U_test_auc": true,
+    "U_test_labels": true,
+    "U_selection": true,
+    "U_budget": true,
+    "U_historical_first5": true,
+    "U_early_stop": true,
+    "U_target": true,
+    "U_timing": true,
+    "R_val_auc": true,
+    "R_val_labels": true,
+    "R_test_auc": true,
+    "R_test_labels": true,
+    "R_selection": true,
+    "R_budget": true,
+    "R_historical_first5": true,
+    "R_early_stop": true,
+    "R_target": true,
+    "R_timing": true,
+    "G_val_auc": true,
+    "G_val_labels": true,
+    "G_test_auc": true,
+    "G_test_labels": true,
+    "G_selection": true,
+    "G_budget": true,
+    "G_historical_first5": true,
+    "G_early_stop": true,
+    "G_target": true,
+    "G_timing": true,
+    "delta_B_val": true,
+    "delta_B_test": true,
+    "delta_R_val": true,
+    "delta_R_test": true,
+    "delta_G_val": true,
+    "delta_G_test": true,
+    "classification": true
+  },
+  "independent_auc": {
+    "B": {
+      "val": 0.673640412416672,
+      "test": 0.6993870227345664
+    },
+    "U": {
+      "val": 0.6758268169769552,
+      "test": 0.7053928132161028
+    },
+    "R": {
+      "val": 0.6748073339094319,
+      "test": 0.7013434893035787
+    },
+    "G": {
+      "val": 0.6703112964687884,
+      "test": 0.6937148170789936
+    }
+  },
+  "failures": []
+}

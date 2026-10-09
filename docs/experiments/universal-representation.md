@@ -124,3 +124,61 @@ python -m universal_experiment.verify_aliccp results/universal/aliccp-seed168872
 ```
 
 All result JSON, raw prediction arrays, U diagnostic statistics/probe and selected checkpoints are versioned. Large regenerable representation caches under `cache/` are local and ignored. The same branch contains both datasets; neither original baseline nor master is modified.
+
+## Direction-1 budget screen: paired 20-epoch B/U/R/G — 2026-10-09
+
+Preregistered in `docs/experiments/universal-next.md` (commit `fa17810`). Executed on explicit user authorization; the workday no-run window was waived for this run only. Frozen Stage-1 weights and caches were reused for both datasets (`stage1_retrained=false`); recorded base hashes still equal the required historical values (`a12a5f5369...` Census, `5553640bc1...` AliCCP), so old-task preservation holds by the frozen base and unchanged prediction path. Clean code commits: Census `65e1578`, AliCCP `faabb94`; both `dirty=false`. Every arm starts from the same fresh head initialization; 20 epochs, patience 3; all other hyperparameters unchanged; test is evaluated only for validation-selected checkpoints. Each arm's first five validation epochs are numerically identical to the original 5-epoch runs (checked to 1e-10). Independent verifier `verify_budget.py` recomputed rank AUC from the raw arrays and checked labels, counts, selection, budgets, historical first-5 equality, early-stop behavior, target epochs, deltas and classification; `verification.json` passed with no failed check for both datasets.
+
+### CensusIncome, 20 epochs
+
+`results/universal/census-budget20-seed1685480945/`
+
+| Arm | Validation AUC | Test AUC | Best epoch | Epochs run | Stage-2 parameters | Arm wall seconds |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| B: original baseline | 0.8527881906 | 0.8500685307 | 5 | 8 | 27063 | 46.6 |
+| U: learned self-supervised expert | 0.8532099496 | 0.8497002669 | 9 | 12 | 43448 | 74.2 |
+| R: frozen random expert control | 0.8535401885 | 0.8515655713 | 9 | 12 | 43448 | 82.1 |
+| G: extra General residual control | 0.8506287793 | 0.8477891230 | 4 | 7 | 43448 | 46.4 |
+
+| U minus control | Validation delta | Test delta | Classification |
+| --- | ---: | ---: | --- |
+| B | +0.0004217591 | -0.0003682638 | No clear improvement |
+| R | -0.0003302389 | -0.0018653044 | No clear improvement |
+| G | +0.0025811704 | +0.0019111439 | Positive relative to G control only |
+
+Outcome `no_clear_improvement`, `incremental_signal=false`. The longer budget leaves the Census picture unchanged: B is still best at epoch 5 and early-stops at 8; U's best epoch moves to 9 but its test AUC stays below B and below the equal-capacity random control R. The initial Census NO-GO stands.
+
+### AliCCP, 20 epochs
+
+`results/universal/aliccp-budget20-seed1688723512/`
+
+| Arm | Validation AUC | Test AUC | Best epoch | Epochs run | Stage-2 parameters | Arm wall seconds |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| B: original baseline | 0.6736404124 | 0.6993870227 | 20 | 20 | 8129 | 185.5 |
+| U: learned self-supervised expert | 0.6758268170 | 0.7053928132 | 20 | 20 | 12226 | 188.5 |
+| R: frozen random expert control | 0.6748073339 | 0.7013434893 | 20 | 20 | 12226 | 186.3 |
+| G: extra General residual control | 0.6703112965 | 0.6937148171 | 20 | 20 | 12226 | 191.5 |
+
+| U minus control | Validation delta | Test delta | Classification |
+| --- | ---: | ---: | --- |
+| B | +0.0021864046 | +0.0060057905 | Positive |
+| R | +0.0010194831 | +0.0040493239 | Positive |
+| G | +0.0055155205 | +0.0116779961 | Positive |
+
+Outcome `positive`, `incremental_signal=true`: the first configuration in this direction where U exceeds B, the equal-capacity random-feature control R and the duplicate-access control G on test by at least +0.001 with same-direction validation. The earlier AliCCP 5-epoch NO-GO was an under-budget comparison — B validation rises from 0.578153 (epoch 5) to 0.673640 (epoch 20) — and no arm early-stopped: all four best epochs are the 20-epoch cap, so the budget cap was reached and convergence is not claimed.
+
+Convergence / optimization speed (validation AUC, U−B at matched epochs): +0.0038 at epoch 5, +0.0109 at 6 (largest), +0.0039 at 10, +0.0033 at 12, +0.0024 at 15, +0.0022 at 20. U reaches B's final validation level at epoch 18 (R at 19; G never), while B itself reaches it only at epoch 20 — the early-training advantage narrows but persists to the cap. All arms pass the historical 5-epoch-B target (0.578153) at epoch 5; the small wall-second differences there are dominated by first-epoch warmup and are not a speed claim.
+
+Dimension summary for this screen. AUC: positive on AliCCP, absent on Census. Convergence: U's mid-training validation advantage and earlier pass of B's final level on AliCCP. Cost: no advantage — U/R/G Stage-2 heads carry 12226 parameters versus 8129 for B (+50%; Census 43448 versus 27063, +61%), and the frozen U encoders (41280 AliCCP / 74624 Census additional parameters) plus Stage-1 auxiliary training are separate and not included in these cached Stage-2 wall times (each arm's wall time covers its own epoch count; single sequential run, not an end-to-end speed claim). Stability: not evaluated — one seed only.
+
+What this does not establish: single seed (`stability: "single seed; not evaluated"`), no significance or multiple-testing claim, no convergence (budget cap), one new task, one readout design. The Census/AliCCP divergence is not explained by this screen. R exceeds B on test in both datasets (Census +0.0014970, AliCCP +0.0019565), so part of each residual-pathway gain belongs to the added equal-capacity path itself rather than to any learned representation; U adds +0.0040493239 over R only on AliCCP and sits -0.0018653044 below R on Census. The G duplicate-access control sits below B on test in both datasets.
+
+Per the preregistered rule, the AliCCP result qualifies for the stability step (three canonical seeds); Census does not. No seeds, tuning or additional evaluation were run automatically.
+
+Reproduction (new output directories; reuse requires the versioned Stage-1 checkpoints of the original 5-epoch runs):
+
+```powershell
+python -m universal_experiment census --budget20 --source D:\MPT-Rec-three_task\MPT-Rec --previous results/universal/census-seed1685480945 --out <new-dir>
+python -m universal_experiment aliccp --budget20 --source D:\MPT-Rec-three_task\MPT-Rec --previous results/universal/aliccp-seed1688723512 --out <new-dir>
+python -m universal_experiment.verify_budget <dir>
+```

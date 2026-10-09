@@ -40,3 +40,5 @@
 ## 执行状态
 
 2026-10-09 16:33北京时间：工作日14:00–18:00禁跑窗口，完成代码/历史记录审阅与本登记，未启动训练。定时任务仍保持用户此前停止状态，不自动恢复。运行时继续使用本方向分支、独立结果子目录，保存原始预测与轻量配置；不合并master。
+
+2026-10-09 16:59北京时间补记：经用户明确授权本轮豁免高峰窗口，顺序1已执行完毕。CensusIncome四臂20轮（clean commit `65e1578`）与AliCCP四臂20轮（clean commit `faabb94`）均完成，两份`verification.json`全部检查通过。结果、收敛与成本观察已追加至`universal-representation.md`的「Direction-1 budget screen」一节：Census无信号（`no_clear_improvement`），AliCCP出现本方向首个positive screen（`incremental_signal=true`，U相对B/R/G三个对照test均≥+.001且val同向；单种子，稳定性未评估）。按登记的门槛条件，AliCCP进入稳定性扩展候选——是否补3个canonical seeds待用户决定；定时任务仍保持停止状态。
