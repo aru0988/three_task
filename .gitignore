@@ -57,3 +57,7 @@ artifacts/census_stage2/stage1
 artifacts/census_stage2/runs
 artifacts/census_stage2/splits
 !artifacts/census_stage2/SUMMARY.md
+
+# Universal Representation: raw prediction arrays and JSON evidence are versioned.
+!results/universal/**/*.json
+results/universal-smoke/
