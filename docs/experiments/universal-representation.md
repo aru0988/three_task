@@ -62,7 +62,7 @@ Both old-task AUCs and the full G/S parameter hash exactly reproduce the histori
 ```powershell
 # Run from this worktree; source supplies the existing dataset and fixed split.
 python -m unittest universal_experiment.test_model -v
-python -m universal_experiment.run --source D:\MPT-Rec-three_task\MPT-Rec --out results/universal/census-seed1685480945
+python -m universal_experiment census --source D:\MPT-Rec-three_task\MPT-Rec --out results/universal/census-seed1685480945
 python -m universal_experiment.verify results/universal/census-seed1685480945
 ```
 
@@ -119,7 +119,7 @@ Reproduce from the recorded clean code commit with a fresh output directory:
 
 ```powershell
 python -m unittest universal_experiment.test_aliccp universal_experiment.test_model -v
-python -m universal_experiment.aliccp --source D:\MPT-Rec-three_task\MPT-Rec --out results/universal/aliccp-seed1688723512
+python -m universal_experiment aliccp --source D:\MPT-Rec-three_task\MPT-Rec --out results/universal/aliccp-seed1688723512
 python -m universal_experiment.verify_aliccp results/universal/aliccp-seed1688723512
 ```
 
