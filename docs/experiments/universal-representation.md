@@ -197,3 +197,23 @@ U−B is −0.0013897391 on validation and −0.0025469910 on test, classified a
 The no-read B and U Stage-1 old-task trajectories, selected epoch 18, base hash and raw predictions are exactly identical, as required by the design. Their old-task test AUCs are Income 0.9455806928 and Marital 0.9909109553. The U arm adds a separately trained universal encoder but cannot alter old-task predictions in this variant.
 
 The independent verifier recomputed rank AUC from raw prediction arrays and checked label identity, validation-only selection, seed, budgets, patience, deltas, classification, clean formal start and convergence records; all checks passed. The overall `all_converged` field is false because Stage-1 and Stage-2 U reached the budget before patience, and this limitation is retained in the record.
+
+## Matched B/U screen: detached old-task read, frozen U — CensusIncome — 2026-10-10
+
+This changes only how U is formed and used by the original tasks relative to the preceding screen. Income and Marital heads receive a learned projection of `U.detach()`: old-task losses train their readout gates/projections and the normal base path, but gradients cannot directly update U. U itself is learned by its self-supervised auxiliary objective. The Education U arm then directly consumes the frozen U representation, while B remains the original head. Formal run commit `427282dd2a968a78a34f0b329c11ecf51ba4608d`, `dirty=false`; evidence is under `results/universal/paired-census-read-detached-frozen-seed1685480945/`. Seed, split, 20-epoch caps and patience 5 match the no-read screen.
+
+| Education arm | Validation AUC | Test AUC | Best epoch | Epochs run | Convergence |
+| --- | ---: | ---: | ---: | ---: | --- |
+| B | 0.8606132635 | 0.8599184895 | 13 | 18 | patience exhausted |
+| U | 0.8622726923 | 0.8614862850 | 20 | 20 | budget exhausted before patience |
+
+U−B is **+0.0016594288 validation / +0.0015677956 test**, so this single-seed screen is classified as **positive** under the appended +0.001 rule. The result supports the hypothesis that allowing old tasks to read a gradient-detached U can shape a more useful training context for the current new task without allowing old-task supervision to update U directly. It is a candidate signal, not yet a stability claim: the U arm selected the final epoch and did not satisfy the patience-based convergence condition.
+
+| Original task | B test AUC | U test AUC | U−B |
+| --- | ---: | ---: | ---: |
+| Income | 0.9455806928 | 0.9447998094 | −0.0007808833 |
+| Marital | 0.9909109553 | 0.9918963968 | +0.0009854415 |
+
+No original task declines by 0.001. Unlike no-read, the U base hash differs from B because the detached U readout changes the old-task optimization path; therefore preservation cannot be inferred from freezing and is evaluated from the saved predictions. Relative to the matched no-read U arm, detached-read raises Education test AUC from 0.8573714985 to 0.8614862850 (+0.0041147866), while B is numerically identical across screens. This cross-screen contrast is descriptive because it compares two separately trained U Stage-1 models, but it identifies old-task read policy as the factor worth retaining for the next frozen-versus-trainable-U test.
+
+The independent verifier passed every check and recomputed all AUCs from raw arrays. Both Stage-1 arms exhausted the 20-epoch budget before the convergence rule; Stage-2 B converged by patience, while Stage-2 U reached its best validation score at epoch 20. These convergence limitations remain explicit and no post-test budget extension is made in this result.
