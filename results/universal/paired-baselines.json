@@ -1,0 +1,35 @@
+{
+  "schema_version": 1,
+  "purpose": "Canonical MPT-Rec baselines reusable only when every protocol identity field matches.",
+  "baselines": [
+    {
+      "id": "census-education-seed1685480945-v1",
+      "dataset": "CensusIncome",
+      "old_tasks": ["Income", "Marital"],
+      "new_task": "Education",
+      "model_seed": 1685480945,
+      "split_seed": 20260929,
+      "sizes": {"train": 199523, "val": 49881, "test": 49881},
+      "split_fingerprint_sha256": "096f8f16db081d7ad024b7aa450a40510a50e0acdbb439d973cc8fc9557d460c",
+      "stage1_epochs": 20,
+      "stage2_epochs": 20,
+      "patience": 5,
+      "selection": "validation AUC; Stage-1 old-task AUC sum and Stage-2 Education AUC",
+      "training_commit": "b619f193cc50b9acc2e606bd63dc6c3933e418d6",
+      "dirty_at_start": false,
+      "base_hash": "a24f55841770c464901ebb15cfce824f7559e500092f59353cbf5573483aed83",
+      "stage1_checkpoint_sha256": "cdfc3f8fdfe320024db0ff42f1b6de66d04069e6289696c7ab23513a27eac480",
+      "stage1_predictions_sha256": "d29c89b6d3432f3d52dfcced02a1ef12cf93adbd5c5b641fac6d3a0c432c1271",
+      "stage2_checkpoint_sha256": "99a45aa13637553c490699d3b371166f52f594564233c1fba6268daeb6e50c33",
+      "stage2_predictions_sha256": "97dc674473bab58d74418b2208392410ba4926dad835d45e33cd80f3d7ec6aa9",
+      "auc": {
+        "Education": {"val": 0.8606132634798491, "test": 0.8599184894686188},
+        "Income": {"test": 0.9455806927675339},
+        "Marital": {"test": 0.9909109553157982}
+      },
+      "canonical_artifact_dir": "results/universal/paired-census-no-read-frozen-seed1685480945",
+      "verified_by": "universal_experiment.verify_paired",
+      "verification_passed": true
+    }
+  ]
+}

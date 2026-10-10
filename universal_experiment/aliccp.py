@@ -1,4 +1,4 @@
-"""Unchanged Universal Representation transfer; canonical AliCCP four-arm screen."""
+"""Shared AliCCP adapter retained for the paired B/U experiment runner."""
 import argparse
 import copy
 import json

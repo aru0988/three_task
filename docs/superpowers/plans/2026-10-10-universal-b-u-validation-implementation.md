@@ -89,7 +89,7 @@ def test_trainable_u_optimizer_excludes_base(self):
 - Create: `universal_experiment/verify_paired.py`
 - Modify: `universal_experiment/__main__.py`
 - Create: `universal_experiment/test_verify_paired.py`
-- Modify: `docs/experiments/universal-representation.md`
+- Modify: `docs/experiments/universal-representation-bu.md`
 
 - [ ] **Step 1: Write failing verifier tests** using a tiny synthetic result directory. Check raw rank-AUC, B/U label equality, seed/split/budget equality, clean commit, best-epoch selection, convergence status, hashes, old-task deltas, and U−B classification.
 - [ ] **Step 2: Confirm verifier tests fail because the verifier does not exist.**
@@ -102,7 +102,7 @@ def test_trainable_u_optimizer_excludes_base(self):
 
 **Files:**
 - Create under: `results/universal/paired/`
-- Modify: `docs/experiments/universal-representation.md`
+- Modify: `docs/experiments/universal-representation-bu.md`
 
 - [ ] **Step 1: Run canonical seed 1** for CensusIncome `no_read/frozen` and `read_detached/frozen`, each as a B–U pair, with maximum 20 epochs and patience 5.
 - [ ] **Step 2: Run the same two pairs on AliCCP with maximum 30 epochs and patience 5.**
@@ -113,7 +113,7 @@ def test_trainable_u_optimizer_excludes_base(self):
 
 **Files:**
 - Create under: `results/universal/paired/`
-- Modify: `docs/experiments/universal-representation.md`
+- Modify: `docs/experiments/universal-representation-bu.md`
 
 - [ ] **Step 1: On the selected read policy and same seed, run `trainable` U against the same paired B protocol.**
 - [ ] **Step 2: Verify convergence and raw AUC. For `read_detached`, verify both old-task AUCs after Stage-2; for `no_read`, verify bitwise-stable old-task predictions.**
@@ -124,7 +124,7 @@ def test_trainable_u_optimizer_excludes_base(self):
 
 **Files:**
 - Create under: `results/universal/paired/`
-- Modify: `docs/experiments/universal-representation.md`
+- Modify: `docs/experiments/universal-representation-bu.md`
 
 - [ ] **Step 1: Run the selected configuration on canonical seeds 2 and 3 with fresh Stage-1 and Stage-2 training.**
 - [ ] **Step 2: Apply the same 20-epoch CensusIncome / 30-epoch AliCCP caps and patience 5. Record any cap hit as not converged; do not automatically increase the budget.**
@@ -134,7 +134,7 @@ def test_trainable_u_optimizer_excludes_base(self):
 ### Task 8: Final verification
 
 **Files:**
-- Modify if required: `docs/experiments/universal-representation.md`
+- Modify if required: `docs/experiments/universal-representation-bu.md`
 
 - [ ] **Step 1: Run all `universal_experiment` unit tests and both dataset verifiers.**
 - [ ] **Step 2: Run `git diff --check`, confirm a clean worktree, and confirm the local/remote branch tips match.**
