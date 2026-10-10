@@ -29,9 +29,12 @@ def stage2_parameters(head, universal, base, *, freeze_u):
     for parameter in base.parameters():
         parameter.requires_grad_(False)
         parameter.grad = None
-    for parameter in universal.parameters():
-        parameter.requires_grad_(not freeze_u)
-        parameter.grad = None
+    if universal is None and not freeze_u:
+        raise ValueError("trainable U mode requires a UniversalExpert")
+    if universal is not None:
+        for parameter in universal.parameters():
+            parameter.requires_grad_(not freeze_u)
+            parameter.grad = None
     for parameter in head.parameters():
         parameter.requires_grad_(True)
     parameters = list(head.parameters())

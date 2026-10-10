@@ -86,11 +86,19 @@ class PairedUniversalTests(unittest.TestCase):
         self.assertEqual(frozen_ids, head_ids)
         self.assertTrue(frozen_ids.isdisjoint(u_ids | base_ids))
 
+        baseline_only_ids = {id(p) for p in stage2_parameters(
+            head, None, base, freeze_u=True
+        )}
+        self.assertEqual(baseline_only_ids, head_ids)
+
         trainable_ids = {id(p) for p in stage2_parameters(
             head, universal, base, freeze_u=False
         )}
         self.assertEqual(trainable_ids, head_ids | u_ids)
         self.assertTrue(trainable_ids.isdisjoint(base_ids))
+
+        with self.assertRaises(ValueError):
+            stage2_parameters(head, None, base, freeze_u=False)
 
     def test_dataset_budgets_follow_observed_curves(self):
         self.assertEqual(dataset_epochs("census"), 20)
