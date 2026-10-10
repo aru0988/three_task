@@ -182,3 +182,18 @@ python -m universal_experiment census --budget20 --source D:\MPT-Rec-three_task\
 python -m universal_experiment aliccp --budget20 --source D:\MPT-Rec-three_task\MPT-Rec --previous results/universal/aliccp-seed1688723512 --out <new-dir>
 python -m universal_experiment.verify_budget <dir>
 ```
+
+## Matched B/U screen: no-read, frozen U — CensusIncome — 2026-10-10
+
+This is the first run of the later simplified protocol in which each small design decision is screened only against the original B arm. The branch is `exp/universal-representation`; formal training commit `b619f193cc50b9acc2e606bd63dc6c3933e418d6`, `dirty=false`. Evidence is under `results/universal/paired-census-no-read-frozen-seed1685480945/`. Both arms use seed 1685480945, the same split (199523/49881/49881), maximum 20 epochs and patience 5. Stage 2 consumes U directly only in the U arm; the old-task heads do not read U and Stage 2 freezes the base and U.
+
+| Education arm | Validation AUC | Test AUC | Best epoch | Epochs run | Convergence |
+| --- | ---: | ---: | ---: | ---: | --- |
+| B | 0.8606132635 | 0.8599184895 | 13 | 18 | patience exhausted |
+| U | 0.8592235244 | 0.8573714985 | 19 | 20 | budget exhausted before patience |
+
+U−B is −0.0013897391 on validation and −0.0025469910 on test, classified as **no clear improvement** under the appended threshold. This run does not support the no-read/frozen-U variant on CensusIncome. It is also not evidence that a fully converged U arm is worse: U selected epoch 19 and did not satisfy the patience-based convergence condition before the 20-epoch cap. The fixed budget is retained rather than retroactively enlarged from test results.
+
+The no-read B and U Stage-1 old-task trajectories, selected epoch 18, base hash and raw predictions are exactly identical, as required by the design. Their old-task test AUCs are Income 0.9455806928 and Marital 0.9909109553. The U arm adds a separately trained universal encoder but cannot alter old-task predictions in this variant.
+
+The independent verifier recomputed rank AUC from raw prediction arrays and checked label identity, validation-only selection, seed, budgets, patience, deltas, classification, clean formal start and convergence records; all checks passed. The overall `all_converged` field is false because Stage-1 and Stage-2 U reached the budget before patience, and this limitation is retained in the record.

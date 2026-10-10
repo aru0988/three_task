@@ -1,0 +1,40 @@
+{
+  "passed": true,
+  "checks": {
+    "B_val_auc": true,
+    "B_test_auc": true,
+    "B_selection": true,
+    "B_convergence_recorded": true,
+    "U_val_auc": true,
+    "U_val_labels": true,
+    "U_test_auc": true,
+    "U_test_labels": true,
+    "U_selection": true,
+    "U_convergence_recorded": true,
+    "stage1_matched_seed": true,
+    "stage1_matched_budget": true,
+    "stage1_matched_patience": true,
+    "stage2_matched_budget": true,
+    "stage2_matched_patience": true,
+    "val_delta": true,
+    "test_delta": true,
+    "classification": true,
+    "all_converged": true,
+    "clean_formal_start": true
+  },
+  "independent_auc": {
+    "B": {
+      "val": 0.8606132634798491,
+      "test": 0.8599184894686188
+    },
+    "U": {
+      "val": 0.8592235244207451,
+      "test": 0.857371498467027
+    }
+  },
+  "independent_u_minus_b": {
+    "val": -0.0013897390591040004,
+    "test": -0.0025469910015918362
+  },
+  "failures": []
+}
