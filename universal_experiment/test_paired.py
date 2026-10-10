@@ -7,6 +7,8 @@ from multitaskrec.model import MPTRec, NewTask
 from universal_experiment.model import ResidualHead, UniversalExpert, UniversalStage1
 from universal_experiment.paired import (
     ReadDetachedStage1,
+    dataset_epochs,
+    make_stage2_heads,
     make_stage1_model,
     stage2_parameters,
 )
@@ -89,6 +91,21 @@ class PairedUniversalTests(unittest.TestCase):
         )}
         self.assertEqual(trainable_ids, head_ids | u_ids)
         self.assertTrue(trainable_ids.isdisjoint(base_ids))
+
+    def test_dataset_budgets_follow_observed_curves(self):
+        self.assertEqual(dataset_epochs("census"), 20)
+        self.assertEqual(dataset_epochs("aliccp"), 30)
+        with self.assertRaises(ValueError):
+            dataset_epochs("unknown")
+
+    def test_b_and_u_stage2_core_start_identically(self):
+        original = NewTask(3, 4, [4], .0, torch.device("cpu"))
+        baseline, universal = make_stage2_heads(original, 4)
+        baseline_state = baseline.state_dict()
+        universal_core_state = universal.core.state_dict()
+        self.assertEqual(baseline_state.keys(), universal_core_state.keys())
+        self.assertTrue(all(torch.equal(baseline_state[k], universal_core_state[k])
+                            for k in baseline_state))
 
 
 if __name__ == "__main__":

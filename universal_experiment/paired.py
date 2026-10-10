@@ -1,12 +1,27 @@
 """Matched B/U components for Universal Representation experiments."""
 
+import copy
 import math
 
 import torch
 from torch import nn
 
 from multitaskrec.model import ReverseLayerF
-from universal_experiment.model import UniversalStage1
+from universal_experiment.model import ResidualHead, UniversalStage1
+
+
+def dataset_epochs(dataset):
+    try:
+        return {"census": 20, "aliccp": 30}[dataset]
+    except KeyError as error:
+        raise ValueError(f"unknown dataset {dataset!r}") from error
+
+
+def make_stage2_heads(original, rep_dim):
+    """Return matched B and direct-U heads with byte-identical core weights."""
+    baseline = copy.deepcopy(original)
+    universal = ResidualHead(original, rep_dim)
+    return baseline, universal
 
 
 def stage2_parameters(head, universal, base, *, freeze_u):
