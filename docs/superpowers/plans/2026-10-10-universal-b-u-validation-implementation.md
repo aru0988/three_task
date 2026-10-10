@@ -16,10 +16,10 @@
 - Create: `universal_experiment/convergence.py`
 - Create: `universal_experiment/test_convergence.py`
 
-- [ ] **Step 1: Write failing tests** for strict validation improvement, patience stopping, cap detection, and budget expansion.
+- [ ] **Step 1: Write failing tests** for strict validation improvement, patience stopping, and cap detection.
 
 ```python
-def test_cap_hit_requires_budget_expansion(self):
+def test_cap_hit_is_not_converged(self):
     decision = convergence_decision([.50, .51, .52], best_epoch=3, budget=3, patience=5)
     self.assertFalse(decision.converged)
     self.assertEqual(decision.reason, "best_epoch_at_cap")
@@ -31,7 +31,7 @@ def test_early_stopped_curve_is_converged(self):
 ```
 
 - [ ] **Step 2: Run** `python -m unittest universal_experiment.test_convergence -v` and confirm failure because `convergence.py` does not exist.
-- [ ] **Step 3: Implement** `EarlyStopper`, `ConvergenceDecision`, and `next_budget`. Formal defaults are Stage-1/Stage-2 maximum 60 epochs and patience 6. A run is converged only when it stops through patience and its best epoch is strictly below the executed budget. A cap hit expands the paired B/U budget to 100, then 160; a cap hit at 160 is reported as unresolved rather than called converged.
+- [ ] **Step 3: Implement** `EarlyStopper` and `ConvergenceDecision`. CensusIncome uses at most 20 epochs and AliCCP at most 30 epochs, both with patience 5. A run is converged only when it stops through patience and its best epoch is earlier than the final two executed epochs. A cap hit is reported as unresolved and inspected rather than automatically expanded.
 - [ ] **Step 4: Run the test module and confirm all tests pass.**
 - [ ] **Step 5: Commit** the tested convergence utility.
 
@@ -80,7 +80,7 @@ def test_trainable_u_optimizer_excludes_base(self):
 - [ ] **Step 2: Confirm the tests fail for missing Stage-2 APIs.**
 - [ ] **Step 3: Implement frozen mode** using the existing cached U representation and `ResidualHead`; B uses the original `NewTask`. Remove R/G construction from this runner only, leaving historical runners untouched.
 - [ ] **Step 4: Implement trainable mode** by recomputing `U(base.embedding_network(features).detach())` online and optimizing only U plus the U head. The complete base, old heads, and G/S path remain frozen. Re-evaluate old-task raw predictions after Stage-2 when the read policy is `read_detached`.
-- [ ] **Step 5: Add equal-budget adaptive training** for B and U. If either arm hits the cap, rerun the pair at the next registered budget from identical initialization; never extend only the better arm.
+- [ ] **Step 5: Add matched-budget training** for B and U with the same dataset-specific maximum and patience rule. Each arm may stop naturally at a different epoch. A cap hit is retained as `not_converged` and blocks a convergence claim.
 - [ ] **Step 6: Run focused and regression tests**, then commit.
 
 ### Task 4: Formal runner, verifier, and CLI
@@ -104,8 +104,8 @@ def test_trainable_u_optimizer_excludes_base(self):
 - Create under: `results/universal/paired/`
 - Modify: `docs/experiments/universal-representation.md`
 
-- [ ] **Step 1: Run canonical seed 1** for CensusIncome `no_read/frozen` and `read_detached/frozen`, each as a B–U pair. If a pair hits the epoch cap, use the registered expanded budget.
-- [ ] **Step 2: Run the same two pairs on AliCCP.**
+- [ ] **Step 1: Run canonical seed 1** for CensusIncome `no_read/frozen` and `read_detached/frozen`, each as a B–U pair, with maximum 20 epochs and patience 5.
+- [ ] **Step 2: Run the same two pairs on AliCCP with maximum 30 epochs and patience 5.**
 - [ ] **Step 3: Run `verify_paired` and independently inspect raw prediction arrays, curve endpoints, selected epochs, hashes, sample counts, elapsed time, and old-task AUC.**
 - [ ] **Step 4: Append results and select the read policy using third-task U−B first, then old-task material-decline rule and cost. Commit valid raw artifacts and push.**
 
@@ -127,7 +127,7 @@ def test_trainable_u_optimizer_excludes_base(self):
 - Modify: `docs/experiments/universal-representation.md`
 
 - [ ] **Step 1: Run the selected configuration on canonical seeds 2 and 3 with fresh Stage-1 and Stage-2 training.**
-- [ ] **Step 2: Expand any capped B–U pair equally until convergence or the registered 160-epoch ceiling.**
+- [ ] **Step 2: Apply the same 20-epoch CensusIncome / 30-epoch AliCCP caps and patience 5. Record any cap hit as not converged; do not automatically increase the budget.**
 - [ ] **Step 3: Independently verify every seed, then calculate paired U−B mean, sample standard deviation, 95% t interval, positive count, worst seed, selected epochs, wall time, and parameter counts.**
 - [ ] **Step 4: State the final recommendation or retain B if U lacks repeatable utility. Commit and push all valid evidence.**
 
@@ -139,4 +139,3 @@ def test_trainable_u_optimizer_excludes_base(self):
 - [ ] **Step 1: Run all `universal_experiment` unit tests and both dataset verifiers.**
 - [ ] **Step 2: Run `git diff --check`, confirm a clean worktree, and confirm the local/remote branch tips match.**
 - [ ] **Step 3: Audit the direction ledger against every raw `report.json`; correct any mismatch before reporting completion.**
-

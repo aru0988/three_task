@@ -58,7 +58,7 @@ Old-task changes are reported rather than hidden. Because the scope is the curre
 
 - Add functions/configuration inside the existing `universal_experiment` package; do not create another direction branch.
 - Never overwrite historical raw outputs. Every run gets a unique result directory and records branch, commit, dirty state, seed, split, budget, selected checkpoint, hashes, raw labels/predictions, and timing.
-- Formal training starts only from a clean committed implementation.
+- Formal training starts only from a clean committed implementation. CensusIncome uses at most 20 epochs and AliCCP at most 30 epochs, both with patience 5. Convergence requires patience-based stopping and a best epoch earlier than the final two executed epochs. A cap hit is reported as not converged and inspected; it does not trigger an automatic large-budget run.
 - Add tests first for detached old-task gradients, matched third-task initialization, frozen-base isolation, trainable-U optimizer membership, and old-task prediction preservation where mathematically required.
 - Independently recompute AUC from raw predictions before adding results to the direction ledger.
 - Valid negative results are retained. Confirmed code/configuration/analysis errors are excluded and regenerated from valid raw evidence.
