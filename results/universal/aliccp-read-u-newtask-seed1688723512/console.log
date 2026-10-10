@@ -1,0 +1,152 @@
+start load data from: D:\MPT-Rec-three_task\MPT-Rec\dataset\AliCCP\ctr_cvr.train
+load data 2000000 from D:\MPT-Rec-three_task\MPT-Rec\dataset\AliCCP\ctr_cvr.train finished
+start load data from: D:\MPT-Rec-three_task\MPT-Rec\dataset\AliCCP\ctr_cvr.dev
+load data 500000 from D:\MPT-Rec-three_task\MPT-Rec\dataset\AliCCP\ctr_cvr.dev finished
+start load data from: D:\MPT-Rec-three_task\MPT-Rec\dataset\AliCCP\ctr_cvr.test
+load data 1000000 from D:\MPT-Rec-three_task\MPT-Rec\dataset\AliCCP\ctr_cvr.test finished
+[B] base 29ebe43ba10f at Stage-1 epoch 20; head init 889bb4e58d15
+[B] epoch=1 loss=0.226981 val_auc=0.500890151
+[B] epoch=2 loss=0.050021 val_auc=0.506470693
+[B] epoch=3 loss=0.049594 val_auc=0.514829691
+[B] epoch=4 loss=0.049152 val_auc=0.528276648
+[B] epoch=5 loss=0.048690 val_auc=0.549126107
+[B] epoch=6 loss=0.048242 val_auc=0.575742421
+[B] epoch=7 loss=0.047813 val_auc=0.600308194
+[B] epoch=8 loss=0.047458 val_auc=0.617961183
+[B] epoch=9 loss=0.047181 val_auc=0.629750803
+[B] epoch=10 loss=0.046975 val_auc=0.637518909
+[B] epoch=11 loss=0.046876 val_auc=0.643782765
+[B] epoch=12 loss=0.046673 val_auc=0.647853122
+[B] epoch=13 loss=0.046560 val_auc=0.651131480
+[B] epoch=14 loss=0.046506 val_auc=0.654008258
+[B] epoch=15 loss=0.046400 val_auc=0.656301246
+[B] epoch=16 loss=0.046342 val_auc=0.658310698
+[B] epoch=17 loss=0.046282 val_auc=0.660093957
+[B] epoch=18 loss=0.046227 val_auc=0.661720021
+[B] epoch=19 loss=0.046173 val_auc=0.663244502
+[B] epoch=20 loss=0.046121 val_auc=0.664671020
+[B] best_epoch=20 val_auc=0.664671020 test_auc=0.698114235 wall=463.5s
+[U] base 2da87217d70b at Stage-1 epoch 20; head init 889bb4e58d15
+[U] epoch=1 loss=0.237545 val_auc=0.497830764
+[U] epoch=2 loss=0.050187 val_auc=0.502271546
+[U] epoch=3 loss=0.049884 val_auc=0.509540925
+[U] epoch=4 loss=0.049329 val_auc=0.520137048
+[U] epoch=5 loss=0.048934 val_auc=0.537284193
+[U] epoch=6 loss=0.048487 val_auc=0.561387582
+[U] epoch=7 loss=0.048031 val_auc=0.586181698
+[U] epoch=8 loss=0.047637 val_auc=0.604873010
+[U] epoch=9 loss=0.047336 val_auc=0.618243436
+[U] epoch=10 loss=0.047113 val_auc=0.627631033
+[U] epoch=11 loss=0.046940 val_auc=0.634568256
+[U] epoch=12 loss=0.046821 val_auc=0.637752408
+[U] epoch=13 loss=0.046707 val_auc=0.642655908
+[U] epoch=14 loss=0.046590 val_auc=0.645987875
+[U] epoch=15 loss=0.046540 val_auc=0.648712527
+[U] epoch=16 loss=0.046438 val_auc=0.650895844
+[U] epoch=17 loss=0.046376 val_auc=0.652892472
+[U] epoch=18 loss=0.046319 val_auc=0.654728794
+[U] epoch=19 loss=0.046267 val_auc=0.656411444
+[U] epoch=20 loss=0.046216 val_auc=0.657951495
+[U] best_epoch=20 val_auc=0.657951495 test_auc=0.691624893 wall=461.9s
+[R] base f79261b1c351 at Stage-1 epoch 19; head init 889bb4e58d15
+[R] epoch=1 loss=0.235245 val_auc=0.498574690
+[R] epoch=2 loss=0.050144 val_auc=0.503071001
+[R] epoch=3 loss=0.049746 val_auc=0.509711891
+[R] epoch=4 loss=0.049311 val_auc=0.519681891
+[R] epoch=5 loss=0.048940 val_auc=0.535463851
+[R] epoch=6 loss=0.048517 val_auc=0.558288462
+[R] epoch=7 loss=0.048078 val_auc=0.583392163
+[R] epoch=8 loss=0.047688 val_auc=0.603631680
+[R] epoch=9 loss=0.047362 val_auc=0.618045092
+[R] epoch=10 loss=0.047127 val_auc=0.627922136
+[R] epoch=11 loss=0.046951 val_auc=0.634967725
+[R] epoch=12 loss=0.046813 val_auc=0.640140652
+[R] epoch=13 loss=0.046698 val_auc=0.644125943
+[R] epoch=14 loss=0.046601 val_auc=0.647347134
+[R] epoch=15 loss=0.046517 val_auc=0.650011518
+[R] epoch=16 loss=0.046443 val_auc=0.652188636
+[R] epoch=17 loss=0.046372 val_auc=0.654004908
+[R] epoch=18 loss=0.046317 val_auc=0.655641147
+[R] epoch=19 loss=0.046258 val_auc=0.657072438
+[R] epoch=20 loss=0.046207 val_auc=0.658402835
+[R] best_epoch=20 val_auc=0.658402835 test_auc=0.695264955 wall=465.2s
+[G] base 2ac0c379f7a7 at Stage-1 epoch 19; head init 889bb4e58d15
+[G] epoch=1 loss=0.222950 val_auc=0.496854494
+[G] epoch=2 loss=0.050227 val_auc=0.500812607
+[G] epoch=3 loss=0.049789 val_auc=0.506118217
+[G] epoch=4 loss=0.049396 val_auc=0.514167304
+[G] epoch=5 loss=0.049076 val_auc=0.527025129
+[G] epoch=6 loss=0.048687 val_auc=0.546803971
+[G] epoch=7 loss=0.048251 val_auc=0.571325393
+[G] epoch=8 loss=0.047830 val_auc=0.593625526
+[G] epoch=9 loss=0.047483 val_auc=0.610389533
+[G] epoch=10 loss=0.047218 val_auc=0.622210199
+[G] epoch=11 loss=0.047022 val_auc=0.630466444
+[G] epoch=12 loss=0.046871 val_auc=0.636370240
+[G] epoch=13 loss=0.046753 val_auc=0.640826869
+[G] epoch=14 loss=0.046658 val_auc=0.644441615
+[G] epoch=15 loss=0.046575 val_auc=0.647461344
+[G] epoch=16 loss=0.046502 val_auc=0.650091805
+[G] epoch=17 loss=0.046427 val_auc=0.652451310
+[G] epoch=18 loss=0.046369 val_auc=0.654477922
+[G] epoch=19 loss=0.046316 val_auc=0.656312050
+[G] epoch=20 loss=0.046262 val_auc=0.657959999
+[G] best_epoch=20 val_auc=0.657959999 test_auc=0.692442490 wall=465.7s
+{
+  "B": [
+    20,
+    0.6646710201045168,
+    0.6981142354339791
+  ],
+  "U": [
+    20,
+    0.6579514950622789,
+    0.6916248934224891
+  ],
+  "R": [
+    20,
+    0.6584028345630821,
+    0.6952649546201968
+  ],
+  "G": [
+    20,
+    0.6579599988683541,
+    0.692442489897423
+  ]
+}
+{
+  "B": {
+    "val": -0.006719525042237939,
+    "test": -0.006489342011489985
+  },
+  "R": {
+    "val": -0.00045133950080322727,
+    "test": -0.003640061197707656
+  },
+  "G": {
+    "val": -8.503806075199627e-06,
+    "test": -0.000817596474933846
+  }
+}
+{
+  "per_arm": {
+    "B": {
+      "val": -0.006719525042237939,
+      "test": -0.006489342011489985,
+      "classification": "no_clear_improvement"
+    },
+    "R": {
+      "val": -0.00045133950080322727,
+      "test": -0.003640061197707656,
+      "classification": "no_clear_improvement"
+    },
+    "G": {
+      "val": -8.503806075199627e-06,
+      "test": -0.000817596474933846,
+      "classification": "no_clear_improvement"
+    }
+  },
+  "decision": "NO_GO",
+  "unstable": false,
+  "note": "U-B is the complete Stage-1 design effect; U-R the learned-content control; U-G secondary specificity; single seed, not a generalization claim"
+}

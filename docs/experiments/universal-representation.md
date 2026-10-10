@@ -203,3 +203,22 @@ Raw run: `results/universal/census-read-u-newtask-seed1685480945/` (four `*_pred
 | G (secondary) | +0.0010396200 | +0.0013087898 | Positive |
 
 **Preregistered verdict: NO-GO for learned-U-content transfer on Census.** The complete U-read Stage-1 design beats no-read B, but fails the random-twin content control R on test; the gain cannot be attributed to learned U content. Validation favors U over R while test favors R, so this single-seed contrast is not stable. G reaches the 20-epoch cap, while B/U/R early-stop, limiting any blanket convergence comparison. The old-task Read-U metrics belong to their original Stage-1 artifacts and are context only; the old-task backbones differ between arms. Neither the earlier direct-U new-task screen nor a historical shorter-budget baseline is a valid paired comparator here. No new seed or tuning was selected from this test result.
+
+## Read-U Stage-1 → original NewTask transfer: AliCCP — 2026-10-10
+
+This follows the same precommitted Read-U protocol, but is a separate dataset-level single-seed screen. Raw run: `results/universal/aliccp-read-u-newtask-seed1688723512/` (four prediction NPZs, four head checkpoints, per-arm metrics, config, report, verification and console log). The four Stage-1 input `*_model.pt` files are preserved in the local branch commit with this result. Formal run recorded `commit=ac8a651`, `dirty=false`, model seed 1688723512, p2M/v500k/t1M prefix, 20-epoch cap, patience 3, identical original NewTask-head initialization and 8129 trainable parameters across B/U/R/G. Each arm loaded its own validation-selected frozen Read-U Stage-1 base; no auxiliary representation was fed to the new-task head. The independent verifier passed 121/121 checks; the supervising run separately recomputed all eight val/test AUCs directly from raw NPZs, confirmed equal labels and 500000/1000000 val/test rows per arm, and checked seed, budget, checkpoint lineage, frozen-base and head hashes. Test was used only after validation selection.
+
+| Arm | Val AUC | Test AUC | Best epoch | Epochs run |
+| --- | ---: | ---: | ---: | ---: |
+| B: no old-task read-in | 0.6646710201 | 0.6981142354 | 20 | 20 |
+| U: learned U read-in during Stage-1 | 0.6579514951 | 0.6916248934 | 20 | 20 |
+| R: frozen random U read-in during Stage-1 | 0.6584028346 | 0.6952649546 | 20 | 20 |
+| G: duplicate general read-in during Stage-1 | 0.6579599989 | 0.6924424899 | 20 | 20 |
+
+| U minus control | Δval | Δtest | New classification |
+| --- | ---: | ---: | --- |
+| B | −0.0067195250 | −0.0064893420 | No clear improvement |
+| R | −0.0004513395 | −0.0036400612 | No clear improvement |
+| G (secondary) | −0.0000085038 | −0.0008175965 | No clear improvement |
+
+**Preregistered verdict: NO-GO for AliCCP.** U loses to both primary controls on validation and test. All four arms select the 20-epoch budget cap; thus the result is budget-censored, but there is no positive Read-U signal in this fixed screen and no grounds for selecting extra epochs using test. The original direct-U AliCCP Stage-2 result (+0.0060057905 versus its own B) uses a different Stage-1 design and a head with extra U input, so it cannot be used as this experiment's paired baseline. Together with Census, these two single-seed Read-U transfer screens do not establish learned-U-content benefit; Census U−B was positive but failed U−R, whereas AliCCP U was below B and R. This does not rule out the separately observed direct-U design, and it is not a cross-seed stability claim. No automatic Read-U tuning or seed expansion is warranted by this pre-registered screen.

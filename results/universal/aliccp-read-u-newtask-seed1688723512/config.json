@@ -1,0 +1,207 @@
+{
+  "dataset": "aliccp",
+  "mode": "newtask-read-u",
+  "task_name": "BSI",
+  "commit": "ac8a6513b976c55eb9976b429ee7df9bc41e5636",
+  "dirty": false,
+  "smoke": false,
+  "epochs": 20,
+  "patience": 3,
+  "tie_rule": "best epoch = earliest epoch attaining the strictly maximum validation AUC; an epoch must strictly improve to replace the current best",
+  "loss": "BCELoss(pred.cpu(), target.float()) + head.get_l2_reg() (original NewTask path)",
+  "head_init_protocol": "seed_model -> build -> NewTask, deep-copied per arm",
+  "head_init_hash": "889bb4e58d150fcbef18a566a5490898a117ff1afa9e201d17448d0e3b4c13f4",
+  "head_init_hashes": {
+    "B": "889bb4e58d150fcbef18a566a5490898a117ff1afa9e201d17448d0e3b4c13f4",
+    "U": "889bb4e58d150fcbef18a566a5490898a117ff1afa9e201d17448d0e3b4c13f4",
+    "R": "889bb4e58d150fcbef18a566a5490898a117ff1afa9e201d17448d0e3b4c13f4",
+    "G": "889bb4e58d150fcbef18a566a5490898a117ff1afa9e201d17448d0e3b4c13f4"
+  },
+  "head_parameters": 8129,
+  "model_seed": 1688723512,
+  "lr": 0.0001,
+  "batch_size": 2000,
+  "input_size": 80,
+  "rep_dim": 64,
+  "tower_hidden": [
+    32,
+    32
+  ],
+  "reg_dnn": 7e-06,
+  "frozen_base": true,
+  "extra_head_input": false,
+  "per_arm_reseed": true,
+  "rows": {
+    "train": 2000000,
+    "val": 500000,
+    "test": 1000000
+  },
+  "split_seed": null,
+  "stage1_dir": "results\\universal\\aliccp-read-u-seed1688723512",
+  "stage1_task_names": [
+    "CTR",
+    "CVR"
+  ],
+  "stage1_files": {
+    "B": {
+      "checkpoint_file": "B_model.pt",
+      "checkpoint_sha256": "182898599b4c3d0812883ce6fe232c2093156378fe863371d43a994da14ed54f",
+      "base_hash_recorded": "29ebe43ba10f628fd89d98ffa2dda66e9e9ea47517565ba2504b142e23d48213",
+      "base_hash_loaded": "29ebe43ba10f628fd89d98ffa2dda66e9e9ea47517565ba2504b142e23d48213",
+      "selected_epoch": 20,
+      "encoder_hash_recorded": null,
+      "encoder_hash_loaded": null
+    },
+    "U": {
+      "checkpoint_file": "U_model.pt",
+      "checkpoint_sha256": "c54a89e001c18584bb8690d8e5f972d592bb563f192832bdffe15c83f2c5fa6b",
+      "base_hash_recorded": "2da87217d70b74e6d0d3a2fd73e33edb30da175dabf04a1d96c6d6db2753b6e6",
+      "base_hash_loaded": "2da87217d70b74e6d0d3a2fd73e33edb30da175dabf04a1d96c6d6db2753b6e6",
+      "selected_epoch": 20,
+      "encoder_hash_recorded": "22ffdd0247d9158241e99cf15a4725018134337871d13f62b89595a7ed2618f7",
+      "encoder_hash_loaded": "22ffdd0247d9158241e99cf15a4725018134337871d13f62b89595a7ed2618f7"
+    },
+    "R": {
+      "checkpoint_file": "R_model.pt",
+      "checkpoint_sha256": "6ec3ff359b8aa4f4e5352e6eda3b15db7775ac0871c0eef75c6322008f57b4f4",
+      "base_hash_recorded": "f79261b1c3515ea12fc4bba5b65ac616108416ecfcaa689ae91882fd156a567f",
+      "base_hash_loaded": "f79261b1c3515ea12fc4bba5b65ac616108416ecfcaa689ae91882fd156a567f",
+      "selected_epoch": 19,
+      "encoder_hash_recorded": "099ed7669c2103c7c492cd7e866b955c047f1519a74941ea46f7176cd36716dc",
+      "encoder_hash_loaded": "099ed7669c2103c7c492cd7e866b955c047f1519a74941ea46f7176cd36716dc"
+    },
+    "G": {
+      "checkpoint_file": "G_model.pt",
+      "checkpoint_sha256": "da787c3da243d7c6f23d5e08ae78c7cda25688abe8a2532c38c05d86f11b28f0",
+      "base_hash_recorded": "2ac0c379f7a7be468ea967085646e7abc9515fd3846f37094912cff7fb21dbf4",
+      "base_hash_loaded": "2ac0c379f7a7be468ea967085646e7abc9515fd3846f37094912cff7fb21dbf4",
+      "selected_epoch": 19,
+      "encoder_hash_recorded": null,
+      "encoder_hash_loaded": null
+    }
+  },
+  "base_hashes_distinct": true,
+  "fingerprints": {
+    "prefix_fingerprint": {
+      "prefix_tag": "p2M-v500k-t1M",
+      "budgets": {
+        "train": 2000000,
+        "val": 500000,
+        "test": 1000000
+      },
+      "files": {
+        "train": {
+          "path": "dataset\\AliCCP\\ctr_cvr.train",
+          "size_bytes": 2473647855,
+          "prefix_sha256": "129b0a9e275a8220ade07a743a92abe3e7d1d505ad2e0717764524c0f25a208e"
+        },
+        "val": {
+          "path": "dataset\\AliCCP\\ctr_cvr.dev",
+          "size_bytes": 274769757,
+          "prefix_sha256": "ea65f591e669f942a517cec3720eae52eff24c74b17c7f45daa389a0b75c9d7b"
+        },
+        "test": {
+          "path": "dataset\\AliCCP\\ctr_cvr.test",
+          "size_bytes": 2711167840,
+          "prefix_sha256": "919428511d2814732b82c057924eb2dad962e444a1e61ff503e6bf295e425696"
+        }
+      },
+      "header_sha256": "3288b17a9f8d6eee488e3665090b8f2bd63146d7dd6f6183d69aa0d5cf0ae9cc",
+      "label_counts": {
+        "train": {
+          "n": 2000000,
+          "click1": 92899,
+          "purchase1": 566,
+          "bsi_pos": 1983079,
+          "bsi_raw": {
+            "1": 792282,
+            "2": 16921,
+            "3": 1190797
+          }
+        },
+        "val": {
+          "n": 500000,
+          "click1": 23297,
+          "purchase1": 141,
+          "bsi_pos": 496205,
+          "bsi_raw": {
+            "1": 211656,
+            "2": 3795,
+            "3": 284549
+          }
+        },
+        "test": {
+          "n": 1000000,
+          "click1": 47163,
+          "purchase1": 346,
+          "bsi_pos": 989976,
+          "bsi_raw": {
+            "1": 439575,
+            "2": 10024,
+            "3": 550401
+          }
+        }
+      },
+      "duplicate_stats": {
+        "train_within": 100330,
+        "val_within": 3677,
+        "test_within": 57835,
+        "train_val": 18505,
+        "train_test": 20581,
+        "val_test": 3007
+      },
+      "fingerprint_sha256": "5c060b9c5c9d0e235ec815e1b488b9dec222fc37887ad2eedd2afadc82bdd0d8"
+    },
+    "actual": {
+      "train": {
+        "prefix_sha256": "129b0a9e275a8220ade07a743a92abe3e7d1d505ad2e0717764524c0f25a208e",
+        "label_counts": {
+          "n": 2000000,
+          "click1": 92899,
+          "purchase1": 566,
+          "bsi_pos": 1983079,
+          "bsi_raw": {
+            "1": 792282,
+            "2": 16921,
+            "3": 1190797
+          }
+        }
+      },
+      "val": {
+        "prefix_sha256": "ea65f591e669f942a517cec3720eae52eff24c74b17c7f45daa389a0b75c9d7b",
+        "label_counts": {
+          "n": 500000,
+          "click1": 23297,
+          "purchase1": 141,
+          "bsi_pos": 496205,
+          "bsi_raw": {
+            "1": 211656,
+            "2": 3795,
+            "3": 284549
+          }
+        }
+      },
+      "test": {
+        "prefix_sha256": "919428511d2814732b82c057924eb2dad962e444a1e61ff503e6bf295e425696",
+        "label_counts": {
+          "n": 1000000,
+          "click1": 47163,
+          "purchase1": 346,
+          "bsi_pos": 989976,
+          "bsi_raw": {
+            "1": 439575,
+            "2": 10024,
+            "3": 550401
+          }
+        }
+      }
+    }
+  },
+  "source": "D:\\MPT-Rec-three_task\\MPT-Rec",
+  "created": "2026-10-10T04:33:03.611716",
+  "device": "cuda:0",
+  "torch": "2.6.0+cu124",
+  "cuda": "12.4",
+  "python": "3.10.11 (tags/v3.10.11:7d4cc5a, Apr  5 2023, 00:38:17) [MSC v.1929 64 bit (AMD64)]",
+  "preflight_seconds": 0.6563658000086434
+}
