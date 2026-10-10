@@ -3,9 +3,13 @@ import unittest
 
 import torch
 
-from multitaskrec.model import MPTRec
-from universal_experiment.model import UniversalExpert, UniversalStage1
-from universal_experiment.paired import ReadDetachedStage1, make_stage1_model
+from multitaskrec.model import MPTRec, NewTask
+from universal_experiment.model import ResidualHead, UniversalExpert, UniversalStage1
+from universal_experiment.paired import (
+    ReadDetachedStage1,
+    make_stage1_model,
+    stage2_parameters,
+)
 
 
 class PairedUniversalTests(unittest.TestCase):
@@ -64,6 +68,27 @@ class PairedUniversalTests(unittest.TestCase):
             make_stage1_model(self.make_base(), self.make_u(), "R", "no_read")
         with self.assertRaises(ValueError):
             make_stage1_model(self.make_base(), self.make_u(), "U", "unknown")
+
+    def test_stage2_optimizer_membership_is_explicit(self):
+        base = self.make_base()
+        universal = self.make_u()
+        original = NewTask(3, 4, [4], .0, torch.device("cpu"))
+        head = ResidualHead(original, 4)
+        head_ids = {id(p) for p in head.parameters()}
+        u_ids = {id(p) for p in universal.parameters()}
+        base_ids = {id(p) for p in base.parameters()}
+
+        frozen_ids = {id(p) for p in stage2_parameters(
+            head, universal, base, freeze_u=True
+        )}
+        self.assertEqual(frozen_ids, head_ids)
+        self.assertTrue(frozen_ids.isdisjoint(u_ids | base_ids))
+
+        trainable_ids = {id(p) for p in stage2_parameters(
+            head, universal, base, freeze_u=False
+        )}
+        self.assertEqual(trainable_ids, head_ids | u_ids)
+        self.assertTrue(trainable_ids.isdisjoint(base_ids))
 
 
 if __name__ == "__main__":

@@ -9,6 +9,22 @@ from multitaskrec.model import ReverseLayerF
 from universal_experiment.model import UniversalStage1
 
 
+def stage2_parameters(head, universal, base, *, freeze_u):
+    """Freeze the base and return the exact optimizer parameter list."""
+    for parameter in base.parameters():
+        parameter.requires_grad_(False)
+        parameter.grad = None
+    for parameter in universal.parameters():
+        parameter.requires_grad_(not freeze_u)
+        parameter.grad = None
+    for parameter in head.parameters():
+        parameter.requires_grad_(True)
+    parameters = list(head.parameters())
+    if not freeze_u:
+        parameters.extend(universal.parameters())
+    return parameters
+
+
 def make_stage1_model(base, universal, arm, read_policy):
     """Construct one B/U Stage-1 arm without accepting historical controls."""
     if arm not in ("B", "U"):
