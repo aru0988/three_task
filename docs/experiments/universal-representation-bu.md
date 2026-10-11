@@ -194,6 +194,46 @@ neither Stage-1 is converged (budget exhausted, best 26/30): AliCCP remains
 (head 12,226) vs B head 8,129; Stage-2 U loop 337.3 s (B reused, 211.4 s);
 Stage-1 reused, whole run ≈7.3 min wall.
 
+## AliCCP no-read, trainable U: Stage-2 40-epoch recheck
+
+Evidence: `results/universal/paired-aliccp-no-read-trainable-s2budget40-seed1688723512/`;
+clean training commit `92caecc`; seed 1688723512, Stage-1 30 (reused pair) /
+Stage-2 40, patience 5. Triggered by the approved bounded-budget recheck after
+both 30-epoch Stage-2 arms still improved at the cap. Both Stage-2 heads are
+retrained from the same original initialization (Stage-1 pair reused from
+`paired-aliccp-no-read-trainable-seed1688723512`, not the 30-epoch heads).
+The independent verifier passed every check.
+
+| Arm | BSI val AUC | BSI test AUC | Stage-2 best/run |
+| --- | ---: | ---: | ---: |
+| B | 0.6712760007 | 0.7057992926 | 40/40 |
+| U | 0.6928681934 | 0.7087584663 | 40/40 |
+
+U−B is +0.0215921928 validation and +0.0029591736 test: positive on this
+single seed. Epoch 30 of both arms reproduces the 30-budget run exactly
+(B 0.6652132051 / U 0.6854804161), confirming deterministic re-training from
+the same initialization. Validation AUC over the extended segment:
+
+| Epoch | B | U |
+| ---: | ---: | ---: |
+| 30 | 0.6652132051 | 0.6854804161 |
+| 32 | 0.6665772430 | 0.6868575489 |
+| 34 | 0.6679011954 | 0.6884039730 |
+| 36 | 0.6690880391 | 0.6899139648 |
+| 38 | 0.6702277971 | 0.6914110226 |
+| 40 | 0.6712760007 | 0.6928681934 |
+
+Both curves still rise at the 40-epoch cap (best_epoch_at_cap, +0.0061 B /
++0.0074 U over epochs 31–40), so neither arm is converged: AliCCP remains
+"not sufficiently converged" and, per the approved plan, the budget is not
+extended further without a new decision. Old tasks after Stage-2 stay
+byte-identical to B (CTR 0.5804025544/0.5741207495 and CVR
+0.5591672242/0.5917090420 validation/test, delta 0.0 against both own Stage-1
+and B, predictions sha 3a82020a…), so no-read losslessness holds at the longer
+budget. Reused Stage-1 records: both budget-exhausted (best 26/30). Cost:
+Stage-2 B 401.7 s with 8,129 optimizer parameters vs U 469.6 s with 58,706;
+whole run ≈14.5 min wall with Stage-1 reused.
+
 ## Census read-detached, frozen U: Stage-2 30-epoch recheck
 
 Evidence: `results/universal/paired-census-read-detached-frozen-s2budget30-seed1685480945/`;
