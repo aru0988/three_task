@@ -53,6 +53,24 @@ def baseline_code_identity(commit=None):
     return identity
 
 
+def normalize_fingerprints(value):
+    """Normalize only BSI category keys affected by JSON, without changing counts."""
+    if isinstance(value, dict):
+        result = {}
+        for key, item in value.items():
+            if key == 'bsi_raw' and isinstance(item, dict):
+                normalized = {str(category): count for category, count in item.items()}
+                if len(normalized) != len(item):
+                    raise ValueError('ambiguous bsi_raw category keys')
+                result[key] = normalized
+            else:
+                result[key] = normalize_fingerprints(item)
+        return result
+    if isinstance(value, list):
+        return [normalize_fingerprints(item) for item in value]
+    return value
+
+
 def validate_config(source, target, *, stage1_only=False):
     keys = ['dataset', 'seed', 'stage1_epochs', 'patience', 'smoke', 'source_fingerprints']
     if not stage1_only:
@@ -60,7 +78,10 @@ def validate_config(source, target, *, stage1_only=False):
     if source['dirty'] and not source['smoke']:
         raise ValueError('cannot reuse dirty formal evidence')
     for key in keys:
-        if source[key] != target[key]:
+        left, right = source[key], target[key]
+        if key == 'source_fingerprints':
+            left, right = normalize_fingerprints(left), normalize_fingerprints(right)
+        if left != right:
             raise ValueError(f'reuse mismatch: {key}')
 
 

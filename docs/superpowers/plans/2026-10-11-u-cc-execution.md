@@ -135,3 +135,10 @@ if ($LASTEXITCODE -ne 0) { throw 'Verification failed' }
 现有Census canonical B准入（代码/运行环境/原始证据）通过；现有AliCCP正式结果已再次核验。
 三个历史baseline commit的模型、协议、Stage-1与头初始化语义身份与当前代码一致。
 这些结果只证明实现可运行，不代表新方案的正式AUC或已收敛。
+
+### AliCCP 复用校验修正
+
+历史 JSON 将 `bsi_raw` 分类键保存为字符串，而新鲜扫描返回整数键。
+`validate_config` 现在只将这类分类键归一化为字符串后比较；不修改输入对象，
+不忽略计数、哈希或其他配置差异，冲突键仍拒绝。此修正不改变数据/模型/预算或已有AUC。
+第2/3/4及新种子复用按原命令执行，无需重跑第1项或既有有效步骤。
