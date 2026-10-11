@@ -87,6 +87,35 @@
       "canonical_artifact_dir": "results/universal/paired-census-no-read-trainable-seed1685463909",
       "verified_by": "universal_experiment.verify_paired",
       "verification_passed": true
+    },
+    {
+      "id": "census-education-seed1685477428-v1",
+      "dataset": "CensusIncome",
+      "old_tasks": ["Income", "Marital"],
+      "new_task": "Education",
+      "model_seed": 1685477428,
+      "split_seed": 20260929,
+      "sizes": {"train": 199523, "val": 49881, "test": 49881},
+      "split_fingerprint_sha256": "096f8f16db081d7ad024b7aa450a40510a50e0acdbb439d973cc8fc9557d460c",
+      "stage1_epochs": 20,
+      "stage2_epochs": 20,
+      "patience": 5,
+      "selection": "validation AUC; Stage-1 old-task AUC sum and Stage-2 Education AUC",
+      "training_commit": "9597cb6afc57eac209ebc2d42b448875938542de",
+      "dirty_at_start": false,
+      "base_hash": "68d5232de8ec99eddcebf3f9f372444fd13d04cae43ec55612d3d8b7ed7fc1d4",
+      "stage1_checkpoint_sha256": "567596e30a36e2d71a9bb4a4f395021836e6cd37bed951d67aa2db5118a87fe7",
+      "stage1_predictions_sha256": "9f53983e95e441f4b604ec92fea84ca775cb4a99285cb69b751628e8669ae4d3",
+      "stage2_checkpoint_sha256": "b02b51d5b28d864fc5ba586d3ec36603f4d873c784e0bdc962f95eee992fc788",
+      "stage2_predictions_sha256": "16e73ca99f0216a8fed9e2fb2993db290831d0636ea11cc2719973767739af58",
+      "auc": {
+        "Education": {"val": 0.863218433361578, "test": 0.8622872588716335},
+        "Income": {"test": 0.9449610320649813},
+        "Marital": {"test": 0.9926099162669979}
+      },
+      "canonical_artifact_dir": "results/universal/paired-census-no-read-trainable-seed1685477428",
+      "verified_by": "universal_experiment.verify_paired",
+      "verification_passed": true
     }
   ]
 }

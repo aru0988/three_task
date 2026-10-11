@@ -280,3 +280,67 @@ same base hash (df15f2bd…). Both Stage-1 records are budget-exhausted (best
 19/20 each). Cost: Stage-1 B 935.8 s vs U 1145.3 s; Stage-2 B 128.5 s with
 27,063 optimizer parameters vs U 136.4 s with 133,939 (head 43,448); whole run
 40.6 min wall (fresh, no reuse).
+
+## Census no-read, trainable U: seed 1685477428
+
+Evidence: `results/universal/paired-census-no-read-trainable-seed1685477428/`;
+clean training commit `9597cb6`; seed 1685477428, fresh paired training (no
+reuse), Stage-1 and Stage-2 caps 20, patience 5. This is the second approved
+stability seed for the Census no-read trainable plan. The independent verifier
+passed every check, including the byte-identical no-read invariance of
+old-task predictions.
+
+| Arm | Education val AUC | Education test AUC | Best epoch | Epochs run |
+| --- | ---: | ---: | ---: | ---: |
+| B | 0.8632184334 | 0.8622872589 | 20 | 20 |
+| U | 0.8648151095 | 0.8634055180 | 18 | 20 |
+
+U−B is +0.0015966761 validation and +0.0011182592 test: positive on this
+single seed, the smallest margin of the three. Both Stage-1 records converge
+by patience (best 11/16), while both Stage-2 arms stop without converging
+(B best at the 20/20 cap, U budget-exhausted with best 18/20). Old tasks after
+Stage-2 stay byte-identical to B (Income 0.9442636743/0.9449610321 and Marital
+0.9927782211/0.9926099163 validation/test, delta 0.0 against both own Stage-1
+and B); the no-read base is unchanged and B/U Stage-1 share the same base hash
+(68d5232d…). Cost: Stage-1 B 688.1 s vs U 868.2 s; Stage-2 B 118.1 s with
+27,063 optimizer parameters vs U 143.7 s with 133,939 (head 43,448); whole run
+31.6 min wall (fresh, no reuse).
+
+## Census no-read trainable U: cross-seed summary
+
+Scripted reconstruction from the committed `verification.json` records of the
+three seeds (independent AUC recomputation; delta = U − B). Seeds 1685463909
+and 1685477428 are canonical model seeds, so this varies the base/model seed
+only and does not claim independence of every stochastic source. Test values
+are reported for the frozen protocol and were not used for tuning.
+
+| Seed | B val | B test | U val | U test | Δval | Δtest |
+| ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| 1685480945 | 0.8606132635 | 0.8599184895 | 0.8663566164 | 0.8650532565 | +0.0057433529 | +0.0051347670 |
+| 1685463909 | 0.8635226747 | 0.8640280017 | 0.8672727177 | 0.8666747099 | +0.0037500430 | +0.0026467082 |
+| 1685477428 | 0.8632184334 | 0.8622872589 | 0.8648151095 | 0.8634055180 | +0.0015966761 | +0.0011182592 |
+
+Paired cross-seed statistics over the three deltas (n = 3, t(0.975, df = 2)
+= 4.3027):
+
+| Statistic | Δval | Δtest |
+| --- | ---: | ---: |
+| mean | +0.0036966907 | +0.0029665781 |
+| sample sd | 0.0020738532 | 0.0020272694 |
+| 95% paired t interval | [−0.0014550462, +0.0088484276] | [−0.0020694384, +0.0080025946] |
+| worst seed (1685477428) | +0.0015966761 | +0.0011182592 |
+| positive (> 0) | 3/3 | 3/3 |
+| classification-positive (≥ +0.001) | 3/3 | 3/3 |
+
+All three seeds move in the same direction on validation and test, and the
+worst seed stays above the +0.001 test threshold, but with n = 3 the paired
+t intervals include zero: this is directional evidence, not a resolved
+cross-seed effect. Old-task no-read losslessness holds byte-identically in
+all three seeds (delta 0.0 against B). U costs more consistently (Stage-2
+optimizer parameters 133,939 vs 27,063; Stage-1 and Stage-2 loops longer in
+every seed). Convergence is mixed across seeds, and no seed shows an old-task
+decline. On this evidence the Census no-read trainable variant is the most
+supported candidate for continued validation, but cross-seed stability is not
+established and no final plan is declared. AliCCP stability seeds remain
+unrun: AliCCP is still "not sufficiently converged" and its budget decision
+stays deferred.
