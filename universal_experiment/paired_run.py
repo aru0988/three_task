@@ -282,49 +282,54 @@ def iter_batches(cache, batch_size, device):
                for name, value in cache.items()}
 
 
-def cached_prediction(head, batch, envs, arm):
+def cached_prediction(head, batch, envs, arm, universal=None):
     arguments = (batch["x"], batch["g"], [batch["s0"], batch["s1"]], envs)
     if arm == "B":
         return head(*arguments).reshape(-1)
-    return head(*arguments, extra=batch["u"]).reshape(-1)
+    extra = universal(batch["x"]) if universal is not None else batch["u"]
+    return head(*arguments, extra=extra, detach_extra=universal is None).reshape(-1)
 
 
 @torch.no_grad()
-def evaluate_cached(head, cache, envs, arm, batch_size, device):
+def evaluate_cached(head, cache, envs, arm, batch_size, device, universal=None):
     head.eval()
+    if universal is not None:
+        universal.eval()
     predictions = torch.cat([
-        cached_prediction(head, batch, envs, arm).cpu()
+        cached_prediction(head, batch, envs, arm, universal).cpu()
         for batch in iter_batches(cache, batch_size, device)
     ]).numpy()
     labels = cache["y"].numpy()
     return float(roc_auc_score(labels.astype(int), predictions)), labels, predictions
 
 
-def train_frozen_stage2(spec, arm, base, universal, head, output, epochs, patience, device):
-    for module in (base, universal):
-        if module is None:
-            continue
-        module.eval()
-        for parameter in module.parameters():
-            parameter.requires_grad_(False)
-            parameter.grad = None
+def train_frozen_stage2(spec, arm, base, universal, head, output, epochs, patience, device,
+                        *, trainable_u=False):
+    parameters = stage2_parameters(head, universal, base, freeze_u=not trainable_u)
+    base.eval()
+    live_u = universal if trainable_u else None
+    base_before = spec.P.backbone_sha256(base)
+    u_before = spec.P.backbone_sha256(universal) if universal is not None else None
     caches = {}
     envs = None
     for split, loader in spec.loaders.items():
-        caches[split], envs = cache_third_task(base, universal, loader, device)
-    optimizer = torch.optim.Adam(head.parameters(), lr=spec.lr)
+        caches[split], envs = cache_third_task(base, None if trainable_u else universal, loader, device)
+    optimizer = torch.optim.Adam(parameters, lr=spec.lr)
     best_auc = -1.0
     best_epoch = 0
     best_state = None
+    best_u = None
     stale = 0
     history = []
     started = time.perf_counter()
     for epoch in range(1, epochs + 1):
         head.train()
+        if live_u is not None:
+            live_u.train()
         total = 0.0
         steps = 0
         for batch in iter_batches(caches["train"], spec.batch_size, device):
-            prediction = cached_prediction(head, batch, envs, arm)
+            prediction = cached_prediction(head, batch, envs, arm, live_u)
             target = batch["y"]
             if spec.dataset == "aliccp":
                 loss = torch.nn.functional.binary_cross_entropy(
@@ -338,7 +343,7 @@ def train_frozen_stage2(spec, arm, base, universal, head, output, epochs, patien
             total += float(loss.detach())
             steps += 1
         val_auc, _, _ = evaluate_cached(
-            head, caches["val"], envs, arm, spec.batch_size, device)
+            head, caches["val"], envs, arm, spec.batch_size, device, live_u)
         history.append({"epoch": epoch, "loss": total / max(steps, 1),
                         "val_auc": val_auc,
                         "wall_seconds": time.perf_counter() - started})
@@ -347,12 +352,15 @@ def train_frozen_stage2(spec, arm, base, universal, head, output, epochs, patien
             best_auc = val_auc
             best_epoch = epoch
             best_state = copy.deepcopy(head.state_dict())
+            best_u = copy.deepcopy(live_u.state_dict()) if live_u is not None else None
             stale = 0
         else:
             stale += 1
             if stale == patience:
                 break
     head.load_state_dict(best_state)
+    if live_u is not None:
+        live_u.load_state_dict(best_u)
     stopped_early = len(history) < epochs
     decision = convergence_decision(
         [row["val_auc"] for row in history], best_epoch=best_epoch,
@@ -369,10 +377,16 @@ def train_frozen_stage2(spec, arm, base, universal, head, output, epochs, patien
         "convergence": asdict(decision),
         "parameters": sum(parameter.numel() for parameter in head.parameters()),
         "wall_seconds": time.perf_counter() - started,
+        "trainable_u": trainable_u,
+        "optimizer_parameters": sum(p.numel() for p in parameters),
+        "base_hash_before": base_before,
+        "base_hash_after": spec.P.backbone_sha256(base),
+        "universal_hash_before": u_before,
+        "universal_hash_after": spec.P.backbone_sha256(universal) if universal is not None else None,
     }
     for split in ("val", "test"):
         auc, labels, predictions = evaluate_cached(
-            head, caches[split], envs, arm, spec.batch_size, device)
+            head, caches[split], envs, arm, spec.batch_size, device, live_u)
         metrics[f"{split}_auc"] = auc
         raw[f"{split}_y"] = labels
         raw[f"{split}_p"] = predictions
@@ -380,22 +394,29 @@ def train_frozen_stage2(spec, arm, base, universal, head, output, epochs, patien
     checkpoint = Path(output) / f"{arm}_head.pt"
     np.savez_compressed(predictions_file, **raw)
     torch.save(best_state, checkpoint)
+    if live_u is not None:
+        u_checkpoint = Path(output) / "U_stage2_universal.pt"
+        torch.save(best_u, u_checkpoint)
+        metrics["universal_checkpoint_sha256"] = file_hash(u_checkpoint)
+    if metrics["base_hash_after"] != base_before:
+        raise RuntimeError("Stage-2 changed frozen base")
     metrics["predictions_sha256"] = file_hash(predictions_file)
     metrics["checkpoint_sha256"] = file_hash(checkpoint)
     dump(Path(output) / f"{arm}_stage2.json", metrics)
     return metrics
 
 
-def run_frozen_pair(spec, read_policy, output, *, smoke, commit, dirty, device):
+def run_frozen_pair(spec, read_policy, output, *, smoke, commit, dirty, device,
+                    u_mode='frozen', reuse_b=None, reuse_u_stage1=None,
+                    stage1_epochs=None, stage2_epochs=None, reuse_stage1_pair=None):
     output = Path(output)
-    output.mkdir(parents=True, exist_ok=False)
-    stage1_epochs = 1 if smoke else dataset_epochs(spec.dataset)
-    stage2_epochs = 1 if smoke else dataset_epochs(spec.dataset)
+    stage1_epochs = 1 if smoke else (stage1_epochs or dataset_epochs(spec.dataset))
+    stage2_epochs = 1 if smoke else (stage2_epochs or dataset_epochs(spec.dataset))
     patience = 1 if smoke else PATIENCE
     config = {
         "dataset": spec.dataset,
         "read_policy": read_policy,
-        "u_mode": "frozen",
+        "u_mode": u_mode,
         "seed": spec.model_seed,
         "stage1_epochs": stage1_epochs,
         "stage2_epochs": stage2_epochs,
@@ -408,11 +429,52 @@ def run_frozen_pair(spec, read_policy, output, *, smoke, commit, dirty, device):
         "device": str(device),
         "torch": torch.__version__,
         "cuda": torch.version.cuda,
+        "reuse_b": str(Path(reuse_b).resolve()) if reuse_b else None,
+        "reuse_u_stage1": str(Path(reuse_u_stage1).resolve()) if reuse_u_stage1 else None,
+        "budget_mode": "fresh_training_not_resume",
+        "reuse_stage1_pair": str(Path(reuse_stage1_pair).resolve()) if reuse_stage1_pair else None,
     }
+    from universal_experiment.reuse import checked_report, copy_baseline, load_stage1, record_old_after, baseline_code_identity
+    config['baseline_code_identity'] = baseline_code_identity()
+    if reuse_stage1_pair:
+        if reuse_b or reuse_u_stage1:
+            raise ValueError('reuse-stage1-pair is exclusive with other reuse options')
+        _, source_report = checked_report(reuse_stage1_pair, config, stage1_only=True)
+        if source_report['config']['read_policy'] != read_policy:
+            raise ValueError('Stage-1 pair read policy mismatch')
+        reuse_u_stage1 = reuse_stage1_pair
+    # Validate before spending any training time; output config also records all sources.
+    if reuse_b:
+        checked_report(reuse_b, config)
+    if reuse_u_stage1:
+        _, source_report = checked_report(reuse_u_stage1, config, stage1_only=True)
+        if source_report['config']['read_policy'] != read_policy:
+            raise ValueError('U Stage-1 read policy mismatch')
+    output.mkdir(parents=True, exist_ok=False)
     dump(output / "config.json", config)
     stage1 = {}
     trained = {}
+    stage2 = {}
     for arm in ("B", "U"):
+        if arm == 'B' and reuse_stage1_pair:
+            import shutil
+            for suffix in ('stage1.pt', 'stage1.json', 'old_tasks.npz'):
+                shutil.copy2(Path(reuse_stage1_pair) / f'B_{suffix}', output / f'B_{suffix}')
+            model, base, universal = load_stage1(spec, output, 'B', read_policy, device)
+            trained['B'] = (base, universal, source_report['stage1']['B'])
+            stage1['B'] = trained['B'][2]
+            continue
+        if arm == 'B' and reuse_b:
+            stage1['B'], stage2['B'] = copy_baseline(reuse_b, output, config)
+            continue
+        if arm == 'U' and reuse_u_stage1:
+            import shutil
+            for suffix in ('stage1.pt', 'stage1.json', 'old_tasks.npz'):
+                shutil.copy2(Path(reuse_u_stage1) / f'U_{suffix}', output / f'U_{suffix}')
+            model, base, universal = load_stage1(spec, output, 'U', read_policy, device)
+            trained[arm] = (base, universal, source_report['stage1']['U'])
+            stage1[arm] = trained[arm][2]
+            continue
         trained[arm] = train_stage1(
             spec, arm, read_policy, output, stage1_epochs, patience, device)
         stage1[arm] = trained[arm][2]
@@ -424,13 +486,20 @@ def run_frozen_pair(spec, read_policy, output, *, smoke, commit, dirty, device):
     del dummy
     baseline_head, universal_head = make_stage2_heads(original, spec.rep_dim)
     heads = {"B": baseline_head.to(device), "U": universal_head.to(device)}
-    stage2 = {}
     for arm in ("B", "U"):
+        if arm in stage2:
+            continue
         base, universal, _ = trained[arm]
-        stage2_parameters(heads[arm], universal, base, freeze_u=True)
         stage2[arm] = train_frozen_stage2(
             spec, arm, base, universal, heads[arm], output,
-            stage2_epochs, patience, device)
+            stage2_epochs, patience, device, trainable_u=arm == 'U' and u_mode == 'trainable')
+    # Reconstruct the selected old-task readout (including its projections/gates),
+    # then replace only U with the selected Stage-2 U. Do not use base.predict for read-U.
+    old_model, _, old_u = load_stage1(spec, output, 'U', read_policy, device)
+    if u_mode == 'trainable':
+        old_u.load_state_dict(torch.load(output / 'U_stage2_universal.pt',
+                                        map_location=device, weights_only=True))
+    old_after = record_old_after(spec, old_model, output, device, stage1['U']['old_task_auc'])
     delta = {
         split: stage2["U"][f"{split}_auc"] - stage2["B"][f"{split}_auc"]
         for split in ("val", "test")
@@ -444,6 +513,7 @@ def run_frozen_pair(spec, read_policy, output, *, smoke, commit, dirty, device):
         "stage2": stage2,
         "u_minus_b": delta,
         "classification": classification,
+        "old_tasks_after_stage2": old_after,
         "all_converged": all(
             stage1[arm]["convergence"]["converged"]
             and stage2[arm]["convergence"]["converged"]
@@ -463,9 +533,15 @@ def main(argv=None):
     parser.add_argument("--u-mode", choices=("frozen", "trainable"), default="frozen")
     parser.add_argument("--seed", type=int)
     parser.add_argument("--smoke", action="store_true")
+    parser.add_argument('--reuse-b', type=Path)
+    parser.add_argument('--reuse-u-stage1', type=Path)
+    parser.add_argument('--stage1-epochs', type=int)
+    parser.add_argument('--stage2-epochs', type=int)
+    parser.add_argument('--reuse-stage1-pair', type=Path)
     args = parser.parse_args(argv)
-    if args.u_mode != "frozen":
-        raise NotImplementedError("trainable U is enabled after the frozen read-policy screen")
+    for budget in (args.stage1_epochs, args.stage2_epochs):
+        if budget is not None and budget < 1:
+            raise ValueError('epoch budget must be positive')
     commit = subprocess.check_output(["git", "rev-parse", "HEAD"], text=True).strip()
     dirty = bool(subprocess.check_output(["git", "status", "--porcelain"], text=True).strip())
     if dirty and not args.smoke:
@@ -475,7 +551,11 @@ def main(argv=None):
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
     spec = prepare(args.dataset, args.source, args.smoke, device, args.seed)
     return run_frozen_pair(spec, args.read_policy, args.out, smoke=args.smoke,
-                           commit=commit, dirty=dirty, device=device)
+                           commit=commit, dirty=dirty, device=device,
+                           u_mode=args.u_mode, reuse_b=args.reuse_b,
+                           reuse_u_stage1=args.reuse_u_stage1,
+                           stage1_epochs=args.stage1_epochs, stage2_epochs=args.stage2_epochs,
+                           reuse_stage1_pair=args.reuse_stage1_pair)
 
 
 if __name__ == "__main__":

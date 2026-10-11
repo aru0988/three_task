@@ -41,3 +41,27 @@ U−B is +0.0016594288 validation and +0.0015677956 test: positive on this singl
 ```
 
 The next authorized comparison is detached-read U with frozen versus trainable Stage-2 U. Each U variant is judged against the same canonical B; B is not retrained when the manifest identity matches.
+
+## AliCCP detached old-task read, frozen U (30 epoch protocol)
+
+Evidence: `results/universal/paired-aliccp-read-detached-frozen-seed1688723512/`;
+clean training commit `bb00456`; seed1688723512, p2M/v500k/t1M, 30/30 epoch caps,
+patience5. Interrupted predecessor had only config and was archived outside this worktree;
+the completed run restarted from initialization, not from an optimizer checkpoint.
+
+| Arm | BSI val AUC | BSI test AUC | Stage-2 best/run |
+| --- | ---: | ---: | ---: |
+| B | 0.6652132051 | 0.7008913094 | 30/30 |
+| U | 0.6638495270 | 0.7015955320 | 30/30 |
+
+U−B val −0.0013636781, test +0.0007042227: no clear improvement at this budget.
+Both Stage-2 curves still improve at the cap; neither is declared converged.
+The test sign alone is not evidence of a stable gain. No-read and trainable-U follow-ups
+are planned to isolate read policy and freezing, without test-based tuning.
+
+## Follow-up execution
+
+Code and CC commands: `docs/superpowers/plans/2026-10-11-u-cc-execution.md`.
+Trainable-U Stage-2 changes only head/U optimization; no extra SSL objective is added.
+Old-task predictions are re-evaluated through the selected Stage-1 wrapper after Stage-2.
+Baseline reuse is explicit and checked; longer-budget heads are fresh, not optimizer resume.

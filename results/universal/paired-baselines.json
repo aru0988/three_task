@@ -30,6 +30,34 @@
       "canonical_artifact_dir": "results/universal/paired-census-no-read-frozen-seed1685480945",
       "verified_by": "universal_experiment.verify_paired",
       "verification_passed": true
+    },
+    {
+      "id": "aliccp-bsi-seed1688723512-v1",
+      "dataset": "AliCCP",
+      "old_tasks": ["CTR", "CVR"],
+      "new_task": "BSI",
+      "model_seed": 1688723512,
+      "sizes": {"train": 2000000, "val": 500000, "test": 1000000},
+      "split_fingerprint_sha256": "5c060b9c5c9d0e235ec815e1b488b9dec222fc37887ad2eedd2afadc82bdd0d8",
+      "stage1_epochs": 30,
+      "stage2_epochs": 30,
+      "patience": 5,
+      "selection": "validation AUC; Stage-1 old-task AUC sum and Stage-2 BSI AUC",
+      "training_commit": "bb00456e35022ff5ca4f5d43c0210cdac9939f53",
+      "dirty_at_start": false,
+      "base_hash": "3949b7aa68ba05541814bcd658f7d8f3f99e53c246d59bee9f5c156d94bcce19",
+      "stage1_checkpoint_sha256": "2b21737e687ffe7d2114aeeff72de0df945b12a6a70c187b2a5b626669bc5d67",
+      "stage1_predictions_sha256": "3a82020a709b4af531d8a372fc0cdfd41604a6bb983987ebd838ac0b28177983",
+      "stage2_checkpoint_sha256": "dc599c72b6891f8ce4b7738e508bc75b67ec29a606da85818656b60fc5d4f210",
+      "stage2_predictions_sha256": "750838bf8af023dbc9128aa5cbd88646b060b8038722c597efb919f8c400c74b",
+      "auc": {
+        "BSI": {"val": 0.6652132051174873, "test": 0.7008913093552886},
+        "CTR": {"test": 0.5741207494981091},
+        "CVR": {"test": 0.5917090420221813}
+      },
+      "canonical_artifact_dir": "results/universal/paired-aliccp-read-detached-frozen-seed1688723512",
+      "verified_by": "universal_experiment.verify_paired",
+      "verification_passed": true
     }
   ]
 }

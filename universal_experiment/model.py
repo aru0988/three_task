@@ -109,13 +109,13 @@ class ResidualHead(nn.Module):
                 self.projection.weight.copy_(torch.eye(rep_dim))
         self.logit = nn.Parameter(torch.tensor(math.log(.1 / .9)))
 
-    def forward(self, dnn_input, gen_rep, spec_reps, env_embs, extra):
+    def forward(self, dnn_input, gen_rep, spec_reps, env_embs, extra, *, detach_extra=True):
         h = self.core
         env = h.env_embedding_network(h.new_env_idx).squeeze(0)
         weights = F.softmax(h.projection_network(dnn_input) @ torch.stack(env_embs, 1) / h.temperature, -1)
         specific = (torch.stack(spec_reps, 2) @ weights.unsqueeze(2)).squeeze(-1)
         fused = (torch.stack([specific * env, gen_rep], 2) @ h.gate_network(dnn_input).unsqueeze(2)).squeeze(-1)
-        fused = fused + self.logit.sigmoid() * self.projection(extra.detach())
+        fused = fused + self.logit.sigmoid() * self.projection(extra.detach() if detach_extra else extra)
         return h.tower_network(fused).reshape(-1)
 
     def get_l2_reg(self):

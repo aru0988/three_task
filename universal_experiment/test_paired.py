@@ -115,6 +115,24 @@ class PairedUniversalTests(unittest.TestCase):
         self.assertTrue(all(torch.equal(baseline_state[k], universal_core_state[k])
                             for k in baseline_state))
 
+    def test_trainable_head_propagates_gradient_to_u(self):
+        head = ResidualHead(NewTask(3, 4, [4], .0, torch.device('cpu')), 4)
+        extra = torch.randn(16, 4, requires_grad=True)
+        args = (torch.randn(16, 3), torch.randn(16, 4),
+                [torch.randn(16, 4), torch.randn(16, 4)],
+                [torch.randn(4), torch.randn(4)])
+        head(*args, extra=extra, detach_extra=False).sum().backward()
+        self.assertIsNotNone(extra.grad)
+        self.assertGreater(extra.grad.abs().sum().item(), 0)
+
+    def test_frozen_head_still_detaches_extra(self):
+        head = ResidualHead(NewTask(3, 4, [4], .0, torch.device('cpu')), 4)
+        extra = torch.randn(16, 4, requires_grad=True)
+        head(torch.randn(16, 3), torch.randn(16, 4),
+             [torch.randn(16, 4), torch.randn(16, 4)],
+             [torch.randn(4), torch.randn(4)], extra=extra).sum().backward()
+        self.assertIsNone(extra.grad)
+
 
 if __name__ == "__main__":
     unittest.main()

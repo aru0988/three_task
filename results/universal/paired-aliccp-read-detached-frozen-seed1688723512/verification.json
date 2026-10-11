@@ -1,0 +1,56 @@
+{
+  "passed": true,
+  "checks": {
+    "B_val_auc": true,
+    "B_test_auc": true,
+    "B_selection": true,
+    "B_convergence_recorded": true,
+    "U_val_auc": true,
+    "U_val_labels": true,
+    "U_test_auc": true,
+    "U_test_labels": true,
+    "U_selection": true,
+    "U_convergence_recorded": true,
+    "stage1_matched_seed": true,
+    "stage1_matched_budget": true,
+    "stage1_matched_patience": true,
+    "stage2_matched_budget": true,
+    "stage2_matched_patience": true,
+    "val_delta": true,
+    "test_delta": true,
+    "classification": true,
+    "all_converged": true,
+    "clean_formal_start": true,
+    "B_stage1_checkpoint_sha256": true,
+    "B_stage1_predictions_sha256": true,
+    "B_old_val_CTR_auc": true,
+    "B_old_val_CVR_auc": true,
+    "B_old_test_CTR_auc": true,
+    "B_old_test_CVR_auc": true,
+    "U_stage1_checkpoint_sha256": true,
+    "U_stage1_predictions_sha256": true,
+    "U_old_val_CTR_auc": true,
+    "U_old_val_CVR_auc": true,
+    "U_old_test_CTR_auc": true,
+    "U_old_test_CVR_auc": true,
+    "B_stage2_checkpoint_sha256": true,
+    "B_stage2_predictions_sha256": true,
+    "U_stage2_checkpoint_sha256": true,
+    "U_stage2_predictions_sha256": true
+  },
+  "independent_auc": {
+    "B": {
+      "val": 0.6652132051174873,
+      "test": 0.7008913093552886
+    },
+    "U": {
+      "val": 0.6638495270008455,
+      "test": 0.7015955320409518
+    }
+  },
+  "independent_u_minus_b": {
+    "val": -0.001363678116641731,
+    "test": 0.0007042226856631695
+  },
+  "failures": []
+}

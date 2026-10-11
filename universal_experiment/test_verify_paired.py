@@ -38,6 +38,13 @@ class PairedVerifierTests(unittest.TestCase):
             (root / "report.json").write_text(json.dumps(report), encoding="utf-8")
             result = verify(root, write=False)
             self.assertTrue(result["passed"], result["failures"])
+            # A report must not certify a frozen base that actually changed.
+            report['stage1']['U'].update(base_hash='a', universal_hash='u')
+            report['stage2']['U'].update(base_hash_before='a', base_hash_after='b',
+                                       universal_hash_before='u', universal_hash_after='u')
+            (root / 'report.json').write_text(json.dumps(report), encoding='utf-8')
+            with self.assertRaises(RuntimeError):
+                verify(root, write=False)
 
 
 if __name__ == "__main__":
