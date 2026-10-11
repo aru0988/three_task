@@ -85,3 +85,23 @@ Old tasks after trainable Stage-2 (U wrapper re-evaluated with the selected Stag
 | Marital | 0.9922126808 | +0.0000850002 | +0.0009584733 | 0.9919440219 | +0.0000476251 | +0.0010330666 |
 
 Income validation falls by ≥0.001 relative to both its own Stage-1 and B: this variant is a trade-off, not lossless on old tasks. Both Stage-1 records remain not converged (budget exhausted); both Stage-2 arms converge by patience. Cost: U Stage-2 optimizer parameters 133,939 (head 43,448) vs B head 27,063; Stage-2 loops 121.7 s (U) vs 104.7 s (B); Stage-1 reused, whole run ≈2.6 min wall including the cached-feature pass.
+
+## AliCCP detached old-task read, trainable U (30 epoch protocol)
+
+Evidence: `results/universal/paired-aliccp-read-detached-trainable-seed1688723512/`; clean training commit `692cf57` (includes the BSI-category reuse-key normalization without count/hash tolerance); seed 1688723512, 30/30 caps, patience 5. B is fully reused and the U Stage-1 is reused from `paired-aliccp-read-detached-frozen-seed1688723512`; only the U Stage-2 is retrained. The independent verifier passed every check, including frozen-base hashes, the U update hash and old-task re-evaluation.
+
+| Arm | BSI val AUC | BSI test AUC | Stage-2 best/run |
+| --- | ---: | ---: | ---: |
+| B | 0.6652132051 | 0.7008913094 | 30/30 |
+| U | 0.6853973403 | 0.7027656346 | 30/30 |
+
+U−B is +0.0201841351 validation and +0.0018743252 test: positive on this single seed, and unfreezing U is the main source of the gain (+0.0215478133 val / +0.0011701026 test over the frozen arm at Stage-2; frozen U−B test was only +0.0007042227). Both Stage-2 arms still improve at the 30-epoch cap and neither is declared converged.
+
+Old tasks after trainable Stage-2 (U wrapper re-evaluated with the selected Stage-2 U; base hash unchanged):
+
+| Old task | Val AUC | Δ vs own Stage-1 | Δ vs B | Test AUC | Δ vs own Stage-1 | Δ vs B |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| CTR | 0.5667431706 | −0.0113704359 | −0.0136593839 | 0.5606956119 | −0.0114838402 | −0.0134251376 |
+| CVR | 0.5398301896 | −0.0259367964 | −0.0193370346 | 0.5702182912 | −0.0172054198 | −0.0214907508 |
+
+Old-task regressions are far beyond the 0.001 trade-off threshold on validation and test for both tasks: the +0.0019 test gain is not old-task-free and this variant is not lossless. Reused Stage-1 records: U converged by patience (best 24/29); B budget-exhausted (best 26/30). Cost: U Stage-2 optimizer parameters 58,706 (head 12,226) vs B head 8,129; Stage-2 loops 308.7 s (U) vs 211.4 s (B); Stage-1 reused, whole run ≈6.3 min wall. Per the execution plan, AliCCP remains "not sufficiently converged" at 30 epochs; a budget proposal based on the late validation curves is deferred for approval instead of extending now.
