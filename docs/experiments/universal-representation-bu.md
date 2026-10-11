@@ -193,3 +193,25 @@ neither Stage-1 is converged (budget exhausted, best 26/30): AliCCP remains
 "not sufficiently converged". Cost: U Stage-2 optimizer parameters 58,706
 (head 12,226) vs B head 8,129; Stage-2 U loop 337.3 s (B reused, 211.4 s);
 Stage-1 reused, whole run ≈7.3 min wall.
+
+## Census read-detached, frozen U: Stage-2 30-epoch recheck
+
+Evidence: `results/universal/paired-census-read-detached-frozen-s2budget30-seed1685480945/`;
+clean training commit `5b21e28`; seed 1685480945, Stage-1 20 (reused pair) /
+Stage-2 30, patience 5. Triggered by the 20-epoch frozen U best sitting at the
+cap. Both Stage-2 heads are retrained from the same original initialization
+(Stage-1 pair reused from `paired-census-read-detached-frozen-seed1685480945`,
+not the 20-epoch B). The independent verifier passed every check.
+
+| Arm | Education val AUC | Education test AUC | Best epoch | Epochs run |
+| --- | ---: | ---: | ---: | ---: |
+| B | 0.8606132635 | 0.8599184895 | 13 | 18 |
+| U | 0.8622726923 | 0.8614862850 | 20 | 25 |
+
+Both arms converge by patience under the 30-epoch budget, and the selected U
+epoch-20 checkpoint reproduces the 20-epoch run's AUCs exactly, so the earlier
+"best at cap" was not a truncated result. Frozen U keeps its read-detached
+Stage-1 old-task predictions unchanged (delta 0.0 from Stage-1; Income test
+−0.0007808833 and Marital test +0.0009854415 vs B, same as the 20-epoch run).
+Cost: Stage-2 loops 124.1 s (B) vs 185.6 s (U); the AliCCP budget proposal
+stays deferred for approval instead of extending now.
