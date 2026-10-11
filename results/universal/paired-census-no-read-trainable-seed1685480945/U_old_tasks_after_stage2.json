@@ -1,0 +1,23 @@
+{
+  "auc": {
+    "val": {
+      "Income": 0.945123137224152,
+      "Marital": 0.9912542074923415
+    },
+    "test": {
+      "Income": 0.9455806927675339,
+      "Marital": 0.9909109553157982
+    }
+  },
+  "delta_from_stage1": {
+    "val": {
+      "Income": 0.0,
+      "Marital": 0.0
+    },
+    "test": {
+      "Income": 0.0,
+      "Marital": 0.0
+    }
+  },
+  "predictions_sha256": "d29c89b6d3432f3d52dfcced02a1ef12cf93adbd5c5b641fac6d3a0c432c1271"
+}

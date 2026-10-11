@@ -136,3 +136,29 @@ here as well. Cost: fresh U Stage-1 2256.5 s; Stage-2 U 314.3 s with 12,226
 optimizer parameters (head only) vs reused B Stage-2 211.4 s with 8,129;
 whole run ≈43 min wall. The AliCCP budget proposal from the late validation
 curves remains deferred for approval.
+
+## Census no-read, trainable U
+
+Evidence: `results/universal/paired-census-no-read-trainable-seed1685480945/`;
+clean training commit `1e365e2`. B and the no-read U Stage-1 are reused from
+`paired-census-no-read-frozen-seed1685480945`; only the U Stage-2 is retrained,
+20-epoch cap, patience 5. The independent verifier passed every check,
+including the byte-identical no-read invariance of old-task predictions.
+
+| Arm | Education val AUC | Education test AUC | Best epoch | Epochs run |
+| --- | ---: | ---: | ---: | ---: |
+| B | 0.8606132635 | 0.8599184895 | 13 | 18 |
+| U | 0.8663566164 | 0.8650532565 | 11 | 16 |
+
+U−B is +0.0057433529 validation and +0.0051347670 test: positive on this
+single seed. Trainable U converges by patience (best 11 of 16), and the old
+tasks stay byte-identical to B after Stage-2 (Income 0.9451231372/0.9455806928,
+Marital 0.9912542075/0.9909109553 validation/test, delta 0.0 against own
+Stage-1 and B); the base hash is unchanged and the no-read invariance holds
+even with U updated. This variant is lossless on old tasks, unlike the
+trainable read-detached arm, whose Education val is 0.0011928 higher but pays
+an Income validation drop. Both Stage-1 records remain not converged (budget
+exhausted, best 18/20); both Stage-2 arms converge by patience. Cost: U
+Stage-2 optimizer parameters 133,939 (head 43,448) vs B head 27,063; Stage-2
+loops 125.2 s (U) vs 104.7 s (B); Stage-1 reused, whole run ≈2.8 min wall
+including the cached-feature pass.
