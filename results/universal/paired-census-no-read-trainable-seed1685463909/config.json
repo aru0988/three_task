@@ -1,0 +1,58 @@
+{
+  "dataset": "census",
+  "read_policy": "no_read",
+  "u_mode": "trainable",
+  "seed": 1685463909,
+  "stage1_epochs": 20,
+  "stage2_epochs": 20,
+  "patience": 5,
+  "commit": "45b8866ac9f282fd07cc5e8226ebbdacfd41c6d1",
+  "dirty": false,
+  "smoke": false,
+  "source_fingerprints": {
+    "split_seed": 20260929,
+    "n_train": 199523,
+    "n_val": 49881,
+    "n_test": 49881,
+    "disjoint": true,
+    "union_complete": true,
+    "val_sha256": "6f2c5868b5bf261a7a04fe82ad1e039598b38b71b49cd52f5665014a27f62722",
+    "test_sha256": "68e027924fb1127ef97720e02e32b5a3363e71aacd9538b11673f53fc3a8e5da",
+    "val_indices_head": [
+      0,
+      1,
+      4,
+      5,
+      6
+    ],
+    "test_indices_head": [
+      2,
+      3,
+      7,
+      8,
+      9
+    ],
+    "fingerprint_sha256": "096f8f16db081d7ad024b7aa450a40510a50e0acdbb439d973cc8fc9557d460c"
+  },
+  "created": "2026-10-11T23:39:05.327800",
+  "device": "cuda:0",
+  "torch": "2.6.0+cu124",
+  "cuda": "12.4",
+  "reuse_b": null,
+  "reuse_u_stage1": null,
+  "budget_mode": "fresh_training_not_resume",
+  "reuse_stage1_pair": null,
+  "baseline_code_identity": {
+    "multitaskrec/model.py": "9ee895efe97f4cb1816d9015e37c8403ac60d944a3b1aeecad6606eaf471352c",
+    "multitaskrec/train.py": "965cadcaff816ea2a6c96355a32bd0fb0be620fdd8ea67623b683b82e5f6547f",
+    "multitaskrec/dataset.py": "5f1bf821029585fbcf476cddc7e5349f704fe0d538438aaee69d0632f779e643",
+    "census_benchmark/protocol.py": "7e6dc4f0baac6e8fcefc201a7f1c6382f8c66cbc27ee151f65f2fdbd01a4d9fd",
+    "aliccp_benchmark/protocol.py": "c1473989d14f03c32b5b871f14e1aab0e436254dba0ef4fe34e31005eb5b868b",
+    "run_census_benchmark.py": "e5187b06f86ec92a75078fc78dc8a3d242d53033b7502f330ffaad08b8bc3e60",
+    "universal_experiment/aliccp.py": "15b216d95fc69fc195a647142732f3267c6fcb6ce61ca9240a9f456c071d10e1",
+    "runner:prepare": "955308e3a8c4e5f059d7091e138e0d31f126f0a903f325fde3fde1cfd7d74e14",
+    "runner:train_stage1": "9b5353ac9f03d32dda021f2352fe5941da29c658dee1babf60f5c9dbcc2fb961",
+    "runner:iter_batches": "ab9836d403e13e8cd2aca39b48846a459488bd95106adc097f775f32e7c55ff0",
+    "runner:head_initialization": "22f1c07fbc025f975a027589c188b78dbab8935f79fda1a5220b16834e341bf4"
+  }
+}

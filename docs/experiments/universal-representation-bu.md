@@ -255,3 +255,28 @@ Stage-1 old-task predictions unchanged (delta 0.0 from Stage-1; Income test
 −0.0007808833 and Marital test +0.0009854415 vs B, same as the 20-epoch run).
 Cost: Stage-2 loops 124.1 s (B) vs 185.6 s (U); the AliCCP budget proposal
 stays deferred for approval instead of extending now.
+
+## Census no-read, trainable U: seed 1685463909
+
+Evidence: `results/universal/paired-census-no-read-trainable-seed1685463909/`;
+clean training commit `45b8866`; seed 1685463909, fresh paired training (no
+reuse), Stage-1 and Stage-2 caps 20, patience 5. This is one of the two
+approved stability seeds for the Census no-read trainable plan. The
+independent verifier passed every check, including the byte-identical no-read
+invariance of old-task predictions.
+
+| Arm | Education val AUC | Education test AUC | Best epoch | Epochs run |
+| --- | ---: | ---: | ---: | ---: |
+| B | 0.8635226747 | 0.8640280017 | 15 | 20 |
+| U | 0.8672727177 | 0.8666747099 | 13 | 18 |
+
+U−B is +0.0037500430 validation and +0.0026467082 test: positive on this
+single seed. Trainable U converges by patience (best 13 of 18), while the B
+Stage-2 arm is budget-exhausted (best 15 of 20) and is not declared converged.
+Old tasks after Stage-2 stay byte-identical to B (Income 0.9448110629/0.9457288281
+and Marital 0.9914603986/0.9913323056 validation/test, delta 0.0 against both
+own Stage-1 and B); the no-read base is unchanged and B/U Stage-1 share the
+same base hash (df15f2bd…). Both Stage-1 records are budget-exhausted (best
+19/20 each). Cost: Stage-1 B 935.8 s vs U 1145.3 s; Stage-2 B 128.5 s with
+27,063 optimizer parameters vs U 136.4 s with 133,939 (head 43,448); whole run
+40.6 min wall (fresh, no reuse).
