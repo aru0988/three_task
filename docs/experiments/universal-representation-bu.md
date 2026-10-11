@@ -105,3 +105,34 @@ Old tasks after trainable Stage-2 (U wrapper re-evaluated with the selected Stag
 | CVR | 0.5398301896 | −0.0259367964 | −0.0193370346 | 0.5702182912 | −0.0172054198 | −0.0214907508 |
 
 Old-task regressions are far beyond the 0.001 trade-off threshold on validation and test for both tasks: the +0.0019 test gain is not old-task-free and this variant is not lossless. Reused Stage-1 records: U converged by patience (best 24/29); B budget-exhausted (best 26/30). Cost: U Stage-2 optimizer parameters 58,706 (head 12,226) vs B head 8,129; Stage-2 loops 308.7 s (U) vs 211.4 s (B); Stage-1 reused, whole run ≈6.3 min wall. Per the execution plan, AliCCP remains "not sufficiently converged" at 30 epochs; a budget proposal based on the late validation curves is deferred for approval instead of extending now.
+
+## AliCCP no-read, frozen U (30 epoch protocol)
+
+Evidence: `results/universal/paired-aliccp-no-read-frozen-seed1688723512/`;
+clean training commit `c5fef0b`; seed 1688723512, 30/30 caps, patience 5.
+B is fully reused from `paired-aliccp-read-detached-frozen-seed1688723512`;
+the U Stage-1 is trained fresh under the no-read policy rather than reusing the
+read-detached weights. The independent verifier passed every check, including
+the byte-identical no-read invariance of old-task predictions and the unchanged
+frozen U hash.
+
+| Arm | BSI val AUC | BSI test AUC | Stage-2 best/run |
+| --- | ---: | ---: | ---: |
+| B | 0.6652132051 | 0.7008913094 | 30/30 |
+| U | 0.6645898085 | 0.6999214365 | 30/30 |
+
+U−B is −0.0006233967 validation and −0.0009698728 test: no clear improvement.
+The no-read U Stage-1 leaves the base hash exactly equal to B
+(3949b7aa68ba05541814bcd658f7d8f3f99e53c246d59bee9f5c156d94bcce19), and after
+Stage-2 the old-task predictions remain byte-identical to B: CTR
+0.5804025544/0.5741207495 and CVR 0.5591672242/0.5917090420 validation/test,
+with delta 0.0 against both own Stage-1 and B. This variant is lossless on
+old tasks by construction; the frozen read-detached versus no-read contrast
+stays descriptive at one seed each.
+
+Stage-1 (U) is budget-exhausted (best 26/30), and both Stage-2 arms still
+improve at the 30-epoch cap, so AliCCP remains "not sufficiently converged"
+here as well. Cost: fresh U Stage-1 2256.5 s; Stage-2 U 314.3 s with 12,226
+optimizer parameters (head only) vs reused B Stage-2 211.4 s with 8,129;
+whole run ≈43 min wall. The AliCCP budget proposal from the late validation
+curves remains deferred for approval.
