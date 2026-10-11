@@ -65,3 +65,23 @@ Code and CC commands: `docs/superpowers/plans/2026-10-11-u-cc-execution.md`.
 Trainable-U Stage-2 changes only head/U optimization; no extra SSL objective is added.
 Old-task predictions are re-evaluated through the selected Stage-1 wrapper after Stage-2.
 Baseline reuse is explicit and checked; longer-budget heads are fresh, not optimizer resume.
+
+## Census detached old-task read, trainable U
+
+Evidence: `results/universal/paired-census-read-detached-trainable-seed1685480945/`; clean training commit `2fe152e`. B and both Stage-1 arms are reused (canonical B from `paired-census-no-read-frozen-seed1685480945`, detached-read U Stage-1 from `paired-census-read-detached-frozen-seed1685480945`); only the U Stage-2 is retrained, 20-epoch cap, patience 5. The independent verifier passed every check, including frozen-base hashes, the U update hash, and the old-task re-evaluation artifacts.
+
+| Arm | Education val AUC | Education test AUC | Best epoch | Epochs run |
+| --- | ---: | ---: | ---: | ---: |
+| B | 0.8606132635 | 0.8599184895 | 13 | 18 |
+| U | 0.8675493881 | 0.8661897805 | 11 | 16 |
+
+U−B is +0.0069361247 validation and +0.0062712910 test: positive on this single seed. Unlike frozen U (best at the 20-epoch cap), trainable U converges by patience at epoch 11 of 16, and adds +0.0052766958 validation / +0.0047034955 test over the frozen arm at Stage-2.
+
+Old tasks after trainable Stage-2 (U wrapper re-evaluated with the selected Stage-2 U; base hash unchanged):
+
+| Old task | Val AUC | Δ vs own Stage-1 | Δ vs B | Test AUC | Δ vs own Stage-1 | Δ vs B |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| Income | 0.9427400723 | −0.0010750585 | −0.0023830649 | 0.9441695547 | −0.0006302547 | −0.0014111380 |
+| Marital | 0.9922126808 | +0.0000850002 | +0.0009584733 | 0.9919440219 | +0.0000476251 | +0.0010330666 |
+
+Income validation falls by ≥0.001 relative to both its own Stage-1 and B: this variant is a trade-off, not lossless on old tasks. Both Stage-1 records remain not converged (budget exhausted); both Stage-2 arms converge by patience. Cost: U Stage-2 optimizer parameters 133,939 (head 43,448) vs B head 27,063; Stage-2 loops 121.7 s (U) vs 104.7 s (B); Stage-1 reused, whole run ≈2.6 min wall including the cached-feature pass.
