@@ -162,3 +162,34 @@ exhausted, best 18/20); both Stage-2 arms converge by patience. Cost: U
 Stage-2 optimizer parameters 133,939 (head 43,448) vs B head 27,063; Stage-2
 loops 125.2 s (U) vs 104.7 s (B); Stage-1 reused, whole run ≈2.8 min wall
 including the cached-feature pass.
+
+## AliCCP no-read, trainable U (30 epoch protocol)
+
+Evidence: `results/universal/paired-aliccp-no-read-trainable-seed1688723512/`;
+clean training commit `bc4feaa`. B and the no-read U Stage-1 are reused
+(Stage-1 from `paired-aliccp-no-read-frozen-seed1688723512`); only the U
+Stage-2 is retrained, 30-epoch cap, patience 5. The independent verifier
+passed every check, including the byte-identical no-read invariance of
+old-task predictions.
+
+| Arm | BSI val AUC | BSI test AUC | Stage-2 best/run |
+| --- | ---: | ---: | ---: |
+| B | 0.6652132051 | 0.7008913094 | 30/30 |
+| U | 0.6854804161 | 0.7041617112 | 30/30 |
+
+U−B is +0.0202672110 validation and +0.0032704019 test: positive on this
+single seed, and unfreezing U is the main source of the gain
+(+0.0208906077 val / +0.0042402747 test over the no-read frozen arm; frozen
+no-read U−B test was −0.0009698728). Old tasks after Stage-2 are
+byte-identical to B (CTR 0.5804025544/0.5741207495 and CVR
+0.5591672242/0.5917090420 validation/test, delta 0.0 against both own
+Stage-1 and B), so with trainable U the no-read policy keeps the variant
+lossless on old tasks, unlike the read-detached trainable arm whose CTR/CVR
+fall by 0.011–0.026. The Stage-2 U validation curve is nearly identical to
+the read-detached arm (0.68548 vs 0.68540 at the cap), so the old-task
+integrity difference is attributable to the read policy rather than to the
+new-task objective. Both Stage-2 arms still improve at the 30-epoch cap and
+neither Stage-1 is converged (budget exhausted, best 26/30): AliCCP remains
+"not sufficiently converged". Cost: U Stage-2 optimizer parameters 58,706
+(head 12,226) vs B head 8,129; Stage-2 U loop 337.3 s (B reused, 211.4 s);
+Stage-1 reused, whole run ≈7.3 min wall.
