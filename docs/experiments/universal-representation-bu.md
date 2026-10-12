@@ -407,3 +407,54 @@ byte-identical to B (delta 0.0 against both own Stage-1 and B; predictions
 sha 065a6fec…). Cost: Stage-2 loops B 129.2 s with 27,063 optimizer
 parameters vs U 131.8 s with 133,939 (head 43,448); Stage-1 reused, whole run
 ≈5.7 min wall.
+
+## AliCCP no-read, trainable U: Stage-2 60-epoch recheck
+
+Evidence: `results/universal/paired-aliccp-no-read-trainable-s2budget60-seed1688723512/`;
+clean training commit `57a0092`; seed 1688723512, Stage-1 30 (reused pair) /
+Stage-2 60, patience 5. Triggered by the approved bounded-budget recheck after
+both 40-epoch Stage-2 arms still improved at the cap. Both Stage-2 heads are
+retrained from the same original initialization (Stage-1 pair reused from
+`paired-aliccp-no-read-trainable-s2budget40-seed1688723512`, not the 40-epoch
+heads). The independent verifier passed every check.
+
+| Arm | BSI val AUC | BSI test AUC | Stage-2 best/run |
+| --- | ---: | ---: | ---: |
+| B | 0.6813843252 | 0.7160684820 | 60/60 |
+| U | 0.7012275466 | 0.7090045126 | 60/60 |
+
+U−B is +0.0198432214 validation and −0.0070639694 test: the extra budget
+reverses the test sign the 40-epoch budget reported (+0.0029591736), so the
+earlier positive test reading was an artifact of the truncation and the
+registered classification is no clear improvement on this seed. Epochs 1–40
+of both arms reproduce the 40-budget run bitwise (max abs difference 0), so
+the reversal comes from epochs 41–60: from its epoch-40 to its epoch-60
+selection B's test AUC gains +0.0102691894 while U's gains +0.0002460463.
+Validation AUC over the extended segment:
+
+| Epoch | B | U |
+| ---: | ---: | ---: |
+| 40 | 0.6712760007 | 0.6928681934 |
+| 42 | 0.6723416558 | 0.6942455963 |
+| 44 | 0.6734034951 | 0.6955902921 |
+| 46 | 0.6744359175 | 0.6969268460 |
+| 48 | 0.6753778746 | 0.6980917143 |
+| 50 | 0.6763703107 | 0.6991492347 |
+| 52 | 0.6774295881 | 0.6995659934 |
+| 54 | 0.6783958485 | 0.7003468625 |
+| 56 | 0.6793490753 | 0.7008933083 |
+| 58 | 0.6804537743 | 0.7011841614 |
+| 60 | 0.6813843252 | 0.7012275466 |
+
+Both curves still rise at the 60-epoch cap (best_epoch_at_cap), so neither
+arm is converged: AliCCP remains "not sufficiently converged" and the budget
+is not extended further without a new decision. Because the stability
+condition (both Stage-2 arms patience-converged) is not met, the two approved
+stability seeds (1688723740, 1688738016) are not run and the expansion stops
+here. Old tasks after Stage-2 stay byte-identical to B (CTR
+0.5804025544/0.5741207495 and CVR 0.5591672242/0.5917090420 validation/test,
+delta 0.0 against both own Stage-1 and B, predictions sha 3a82020a…), so
+no-read losslessness holds at the longer budget. Reused Stage-1 records: both
+budget-exhausted (best 26/30). Cost: Stage-2 B 511.2 s with 8,129 optimizer
+parameters vs U 646.4 s with 58,706 (head 12,226); whole run ≈21.9 min wall
+with Stage-1 reused.
