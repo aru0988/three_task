@@ -1,0 +1,197 @@
+{
+  "arm": "U",
+  "read_policy": "no_read",
+  "seed": 1685477428,
+  "budget": 20,
+  "patience": 5,
+  "epochs": [
+    {
+      "epoch": 1,
+      "auc_val_0": 0.917493589611197,
+      "auc_val_1": 0.9911364841712103,
+      "wall_seconds": 47.626495700038504
+    },
+    {
+      "epoch": 2,
+      "auc_val_0": 0.9288944586586368,
+      "auc_val_1": 0.9922619884236484,
+      "wall_seconds": 107.4112548000412
+    },
+    {
+      "epoch": 3,
+      "auc_val_0": 0.9367199497600545,
+      "auc_val_1": 0.9917513836721429,
+      "wall_seconds": 155.08536480000475
+    },
+    {
+      "epoch": 4,
+      "auc_val_0": 0.9394015488549514,
+      "auc_val_1": 0.991259783916154,
+      "wall_seconds": 215.02559150004527
+    },
+    {
+      "epoch": 5,
+      "auc_val_0": 0.9413806148442376,
+      "auc_val_1": 0.9920644372500006,
+      "wall_seconds": 264.36380740004824
+    },
+    {
+      "epoch": 6,
+      "auc_val_0": 0.9424149864301039,
+      "auc_val_1": 0.9919414892524882,
+      "wall_seconds": 324.4635915000108
+    },
+    {
+      "epoch": 7,
+      "auc_val_0": 0.9426489039241556,
+      "auc_val_1": 0.9924288287744713,
+      "wall_seconds": 372.31217210000614
+    },
+    {
+      "epoch": 8,
+      "auc_val_0": 0.9432996498396221,
+      "auc_val_1": 0.9924099808382724,
+      "wall_seconds": 431.7270372000057
+    },
+    {
+      "epoch": 9,
+      "auc_val_0": 0.9436037009253013,
+      "auc_val_1": 0.992362728069967,
+      "wall_seconds": 479.3859089000034
+    },
+    {
+      "epoch": 10,
+      "auc_val_0": 0.9440566900655338,
+      "auc_val_1": 0.9927105302039545,
+      "wall_seconds": 538.984410300036
+    },
+    {
+      "epoch": 11,
+      "auc_val_0": 0.9442636743000906,
+      "auc_val_1": 0.9927782211340557,
+      "wall_seconds": 586.4164596000337
+    },
+    {
+      "epoch": 12,
+      "auc_val_0": 0.9440989347465303,
+      "auc_val_1": 0.9927098749721118,
+      "wall_seconds": 646.8976659000036
+    },
+    {
+      "epoch": 13,
+      "auc_val_0": 0.9442653020575204,
+      "auc_val_1": 0.9922200887604377,
+      "wall_seconds": 694.6898416000186
+    },
+    {
+      "epoch": 14,
+      "auc_val_0": 0.9443937478712259,
+      "auc_val_1": 0.9920616273606365,
+      "wall_seconds": 754.3756250000442
+    },
+    {
+      "epoch": 15,
+      "auc_val_0": 0.9442164063246603,
+      "auc_val_1": 0.99217461845179,
+      "wall_seconds": 802.073536800046
+    },
+    {
+      "epoch": 16,
+      "auc_val_0": 0.9444053452053442,
+      "auc_val_1": 0.991638268242362,
+      "wall_seconds": 861.8851538000163
+    }
+  ],
+  "clusters": [
+    {
+      "epoch": 1,
+      "diff_num": 99574,
+      "env_counts": [
+        114073,
+        85450
+      ]
+    },
+    {
+      "epoch": 3,
+      "diff_num": 59466,
+      "env_counts": [
+        58673,
+        140850
+      ]
+    },
+    {
+      "epoch": 5,
+      "diff_num": 19666,
+      "env_counts": [
+        45837,
+        153686
+      ]
+    },
+    {
+      "epoch": 7,
+      "diff_num": 9510,
+      "env_counts": [
+        49977,
+        149546
+      ]
+    },
+    {
+      "epoch": 9,
+      "diff_num": 7929,
+      "env_counts": [
+        43856,
+        155667
+      ]
+    },
+    {
+      "epoch": 11,
+      "diff_num": 9258,
+      "env_counts": [
+        49276,
+        150247
+      ]
+    },
+    {
+      "epoch": 13,
+      "diff_num": 8595,
+      "env_counts": [
+        44533,
+        154990
+      ]
+    },
+    {
+      "epoch": 15,
+      "diff_num": 4008,
+      "env_counts": [
+        42371,
+        157152
+      ]
+    }
+  ],
+  "best_epoch": 11,
+  "best_val_sum": 1.9370418954341462,
+  "epochs_run": 16,
+  "convergence": {
+    "converged": true,
+    "reason": "patience_exhausted",
+    "best_epoch": 11,
+    "epochs_run": 16,
+    "budget": 20,
+    "patience": 5
+  },
+  "old_task_auc": {
+    "val": {
+      "Income": 0.9442636743000906,
+      "Marital": 0.9927782211340557
+    },
+    "test": {
+      "Income": 0.9449610320649813,
+      "Marital": 0.9926099162669979
+    }
+  },
+  "base_hash": "68d5232de8ec99eddcebf3f9f372444fd13d04cae43ec55612d3d8b7ed7fc1d4",
+  "universal_hash": "f655ee7f963a597c6a887d91a33f4f5ef121a8f12606bb1af7e94a24f50171b5",
+  "checkpoint_sha256": "794a5c451f19a423ea2cac26c130bb1a2ea83ab1cf9ca5ba9770c1dd521e426d",
+  "predictions_sha256": "9f53983e95e441f4b604ec92fea84ca775cb4a99285cb69b751628e8669ae4d3",
+  "wall_seconds": 868.1874274000293
+}

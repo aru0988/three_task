@@ -344,3 +344,35 @@ supported candidate for continued validation, but cross-seed stability is not
 established and no final plan is declared. AliCCP stability seeds remain
 unrun: AliCCP is still "not sufficiently converged" and its budget decision
 stays deferred.
+
+## Census no-read, trainable U, seed 1685477428: Stage-2 30-epoch recheck
+
+Evidence: `results/universal/paired-census-no-read-trainable-s2budget30-seed1685477428/`;
+clean training commit `b772a5f`; seed 1685477428, Stage-1 20 (reused pair) /
+Stage-2 30, patience 5. Triggered by the B Stage-2 best sitting at the
+20-epoch cap. Both Stage-2 heads are retrained from the same original
+initialization (Stage-1 pair reused from
+`paired-census-no-read-trainable-seed1685477428`, not the 20-epoch heads).
+The independent verifier passed every check.
+
+| Arm | Education val AUC | Education test AUC | Best epoch | Epochs run |
+| --- | ---: | ---: | ---: | ---: |
+| B | 0.8638090934 | 0.8627389485 | 24 | 29 |
+| U | 0.8648151095 | 0.8634055180 | 18 | 23 |
+
+U−B is +0.0010060161 validation and +0.0006665696 test: under the 20-epoch
+cap this seed read +0.0015966761 / +0.0011182592, and with the truncation
+removed the test margin falls below the +0.001 threshold — the registered
+classification is no clear improvement on this seed. Epochs 1–20 of both arms
+reproduce the 20-budget run bitwise (max abs difference 0), so the difference
+comes only from the extension: B's best moves from epoch 20 (cap) to epoch
+24, raising B by +0.0005906600 validation / +0.0004516896 test, while U's
+selected epoch-18 checkpoint is unchanged. Both Stage-2 arms now converge by
+patience (B best 24 of 29, U best 18 of 23), and both reused Stage-1 arms were
+already converged by patience (best 11 of 16), so both stages are declared
+converged for this seed under the unified budget. Old tasks after Stage-2
+stay byte-identical to B (Income 0.9442636743/0.9449610321 and Marital
+0.9927782211/0.9926099163 validation/test, delta 0.0 against both own
+Stage-1 and B; predictions sha 9f53983e…), and the no-read base is unchanged.
+Cost: Stage-2 loops B 183.8 s with 27,063 optimizer parameters vs U 172.5 s
+with 133,939 (head 43,448); Stage-1 reused, whole run ≈7.4 min wall.
