@@ -458,3 +458,77 @@ no-read losslessness holds at the longer budget. Reused Stage-1 records: both
 budget-exhausted (best 26/30). Cost: Stage-2 B 511.2 s with 8,129 optimizer
 parameters vs U 646.4 s with 58,706 (head 12,226); whole run ≈21.9 min wall
 with Stage-1 reused.
+
+## Census no-read trainable U: unified 30-epoch Stage-2 budget summary
+
+Scripted reconstruction from the committed `verification.json` and stage
+records of the three seeds: 1685463909 and 1685477428 use their fresh
+Stage-2 30-cap reruns; 1685480945 carries over its original records because
+both of its Stage-2 arms stopped by patience before the 20-epoch cap, so its
+result is budget-independent (a hard check on the convergence records guards
+the carry-over). This section supersedes the earlier 20-budget cross-seed
+summary for budget comparison; that earlier section is kept unchanged as the
+historical record of the 20-epoch protocol, and the two groups must not be
+pooled. Test values are reported for the frozen protocol and were not used
+for tuning.
+
+| Seed | B val | B test | U val | U test | Δval | Δtest | Stage-2 convergence |
+| ---: | ---: | ---: | ---: | ---: | ---: | ---: | --- |
+| 1685480945 | 0.8606132635 | 0.8599184895 | 0.8663566164 | 0.8650532565 | +0.0057433529 | +0.0051347670 | both arms patience (18/16) |
+| 1685463909 | 0.8635226747 | 0.8640280017 | 0.8672727177 | 0.8666747099 | +0.0037500430 | +0.0026467082 | both arms patience (20/18) |
+| 1685477428 | 0.8638090934 | 0.8627389485 | 0.8648151095 | 0.8634055180 | +0.0010060161 | +0.0006665696 | both arms patience (29/23) |
+
+Paired cross-seed statistics (n = 3, t(0.975, df = 2) = 4.3027):
+
+| Statistic | Δval | Δtest |
+| --- | ---: | ---: |
+| mean | +0.0034998040 | +0.0028160149 |
+| sample sd | 0.0023785615 | 0.0022389050 |
+| 95% paired t interval | [−0.0024088702, +0.0094084783] | [−0.0027457335, +0.0083777633] |
+| worst seed (1685477428) | +0.0010060161 | +0.0006665696 |
+| positive (> 0) | 3/3 | 3/3 |
+| classification-positive (≥ +0.001) | 3/3 | 2/3 |
+
+Removing the Stage-2 truncation changes no seed's direction but weakens the
+margins: the test mean falls from +0.0029665781 to +0.0028160149, the worst
+seed's test delta drops below the +0.001 threshold (seed 1685477428:
++0.0011182592 → +0.0006665696 after its B arm found a better epoch 24 under
+the longer budget), and the test classification-positive count falls from 3/3
+to 2/3. Directional consistency (3/3 positive on both metrics) and old-task
+no-read losslessness (byte-identical old predictions in all three seeds)
+are unchanged, but the paired t intervals still include zero on validation
+and test: this remains directional single-protocol evidence, not a resolved
+cross-seed effect.
+
+Stage-1 budget exhaustion is unchanged and still noted: for seeds 1685480945
+and 1685463909 both reused Stage-1 arms stopped at the budget without
+converging; only seed 1685477428 has both stages declared converged. This
+round therefore does not claim two-stage convergence, and extending Stage-1
+requires fresh paired training in a later round, not an extrapolation from
+these results.
+
+Cost of this round: every run reused an existing Stage-1 pair; the new
+compute was the Stage-2 loops (fresh heads over cached features). Census
+fresh Stage-2 loops totalled 617.3 s (~10.3 min) across seeds 1685463909 and
+1685477428; the carried-over seed 1685480945 was not re-run. AliCCP Stage-2
+loops totalled 1157.6 s (~19.3 min). Full fresh-training costs are the
+Stage-1 figures recorded in the per-seed sections above (for example
+935.8 s + 1145.3 s for seed 1685463909).
+
+New-budget baselines: the retrained Stage-2 B arms of seeds 1685463909 and
+1685477428 are registered in `results/universal/paired-baselines.json` as
+`census-education-seed{1685463909,1685477428}-stage2-30-v1` with
+`stage2_epochs` 30 and their own hashes; the earlier `-v1` entries (Stage-2
+20) remain unchanged and are not reused for the 30-budget runs.
+
+## Next-round boundary (after the budget recheck)
+
+- Census extending to five seeds, the equal-parameter random-U control and
+  the self-supervised ablation remain deferred to Codex configuration after
+  this budget recheck; no model, code or hyperparameter changes were made in
+  this round.
+- AliCCP: the 40-epoch test-positive reading is not confirmed at 60 epochs
+  (test sign reverses, both arms still budget-limited); the stability-seed
+  expansion did not execute because its convergence precondition was not
+  met, no automatic 100-epoch extension was run, and the AliCCP
+  budget/plan decision returns to the user.
