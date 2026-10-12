@@ -376,3 +376,34 @@ stay byte-identical to B (Income 0.9442636743/0.9449610321 and Marital
 Stage-1 and B; predictions sha 9f53983e…), and the no-read base is unchanged.
 Cost: Stage-2 loops B 183.8 s with 27,063 optimizer parameters vs U 172.5 s
 with 133,939 (head 43,448); Stage-1 reused, whole run ≈7.4 min wall.
+
+## Census no-read, trainable U, seed 1685463909: Stage-2 30-epoch recheck
+
+Evidence: `results/universal/paired-census-no-read-trainable-s2budget30-seed1685463909/`;
+clean training commit `12720d2`; seed 1685463909, Stage-1 20 (reused pair) /
+Stage-2 30, patience 5. Triggered by the B Stage-2 record of budget
+exhaustion (best 15 of 20) under the 20-epoch cap. Both Stage-2 heads are
+retrained from the same original initialization (Stage-1 pair reused from
+`paired-census-no-read-trainable-seed1685463909`). The independent verifier
+passed every check.
+
+| Arm | Education val AUC | Education test AUC | Best epoch | Epochs run |
+| --- | ---: | ---: | ---: | ---: |
+| B | 0.8635226747 | 0.8640280017 | 15 | 20 |
+| U | 0.8672727177 | 0.8666747099 | 13 | 18 |
+
+U−B is +0.0037500430 validation and +0.0026467082 test, identical to the
+20-epoch record, and the registered classification remains positive on this
+seed. Every Stage-2 epoch of both arms reproduces the 20-budget run bitwise
+(max abs difference 0) and the retrained checkpoints, predictions and U
+artifact are byte-identical to the 20-budget ones, so the longer budget
+changes only the convergence declaration: the B arm's earlier
+"budget_exhausted_before_patience" label came from its patience stop
+coinciding with the cap epoch, and under the 30-epoch cap both arms are
+declared converged by patience (B best 15 of 20, U best 13 of 18). Reused
+Stage-1 arms remain budget-exhausted (best 19 of 20 each), so Stage-1
+convergence is still not claimed for this seed. Old tasks after Stage-2 stay
+byte-identical to B (delta 0.0 against both own Stage-1 and B; predictions
+sha 065a6fec…). Cost: Stage-2 loops B 129.2 s with 27,063 optimizer
+parameters vs U 131.8 s with 133,939 (head 43,448); Stage-1 reused, whole run
+≈5.7 min wall.
